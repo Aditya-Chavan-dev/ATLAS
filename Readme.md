@@ -151,68 +151,9 @@ All records are logged in Firebase, creating a **transparent**, **tamper-proof**
 
 ```
 ATLAS/
-│
-├── client/                     # React Frontend
-│   ├── public/
-│   │   ├── index.html
-│   │   └── favicon.ico
-│   │
-│   ├── src/
-│   │   ├── assets/             # Images, icons, logos
-│   │   ├── components/         # Reusable UI components
-│   │   │   ├── Navbar.jsx
-│   │   │   ├── Sidebar.jsx
-│   │   │   ├── DashboardCard.jsx
-│   │   │   └── Loader.jsx
-│   │   │
-│   │   ├── pages/              # Page-level components (Routing targets)
-│   │   │   ├── Login.jsx
-│   │   │   ├── Register.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── Attendance.jsx
-│   │   │   ├── Reports.jsx
-│   │   │   └── GuestMode.jsx
-│   │   │
-│   │   ├── context/            # React Context (Auth, Theme, App)
-│   │   │   ├── AuthContext.js
-│   │   │   └── ThemeContext.js
-│   │   │
-│   │   ├── services/           # Firebase and API config
-│   │   │   ├── firebase.js     # Firebase initialization + exports
-│   │   │   ├── authService.js
-│   │   │   ├── dbService.js
-│   │   │   └── storageService.js
-│   │   │
-│   │   ├── styles/             # Centralized CSS or Tailwind config
-│   │   │   ├── index.css
-│   │   │   └── theme.css
-│   │   │
-│   │   ├── App.js
-│   │   ├── index.js
-│   │   └── routes.js           # Centralized route definitions
-│   │
-│   ├── .env                    # Environment variables (API keys, etc.)
-│   ├── package.json
-│   └── vite.config.js          # If using Vite (optional)
-│
-├── server/                     # Firebase backend (optional Cloud Functions)
-│   ├── functions/
-│   │   ├── index.js
-│   │   ├── package.json
-│   │   └── utils/
-│   │       ├── attendanceHandler.js
-│   │       ├── reportGenerator.js
-│   │       └── emailNotification.js
-│   │
-│   └── firebase.json           # Config for hosting, functions, storage
-│
-├── firestore.rules             # Firestore security rules
-├── storage.rules               # Firebase Storage rules
-├── .firebaserc                 # Firebase project alias and configuration
-├── .gitignore
-├── LICENSE
+├── frontend/          # React application (Employee & MD Interface)
+├── backend/           # Node.js Express API
 └── README.md
-
 ```
 
 ---
