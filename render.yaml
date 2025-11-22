@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: atlas-backend
+    env: node
+    root: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: free
+    envVars:
+      - key: FIREBASE_DATABASE_URL
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/serviceAccountKey.json
+    secretFiles:
+      - key: serviceAccountKey.json
+        mountPath: /etc/secrets/serviceAccountKey.json

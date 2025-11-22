@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'md'",
+        ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'md'"
+      }
+    },
+    "approvedEmails": {
+      ".read": "auth != null",
+      ".write": "root.child('users').child(auth.uid).child('role').val() === 'md'"
+    },
+    "attendance": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'md'",
+      "$recordId": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'active'"
+      }
+    },
+    "leaveRequests": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'md'",
+      "$requestId": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'active'"
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

@@ -1,0 +1,54 @@
+/* 
+  ManagerStyles.css
+  Contains all styling specific to Manager/MD pages:
+  - Dashboard
+  - Attendance Approval
+*/
+
+.manager-dashboard {
+    padding: var(--spacing-lg);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.stat-card {
+    background: var(--glass-bg);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--glass-border);
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--primary-light);
+    margin: var(--spacing-sm) 0;
+}
+
+.approval-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--spacing-md);
+}
+
+.approval-table th,
+.approval-table td {
+    padding: var(--spacing-md);
+    text-align: left;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.approval-table th {
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.action-btn-group {
+    display: flex;
+    gap: var(--spacing-sm);
+}
