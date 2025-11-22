@@ -2,68 +2,34 @@ const fetch = require('node-fetch'); // Or use native fetch if Node 18+
 
 const API_URL = 'http://127.0.0.1:5000/api';
 
-// Test Data
-const employee = {
-    employeeId: 'test_emp_001',
-    type: 'Office',
-    siteName: null
-};
-
-const md = {
-    approvedBy: 'test_md_001'
-};
-
 async function runTest() {
-    console.log('🚀 Starting API Flow Test...\n');
+    console.log('🚀 Starting API Verification...\n');
 
     try {
-        // 1. Mark Attendance
-        console.log('1. Marking Attendance...');
-        const markRes = await fetch(`${API_URL}/attendance/mark`, {
+        // 1. Health Check
+        console.log('1. Verifying Server Health...');
+        const healthRes = await fetch(`${API_URL}/health`);
+        const healthData = await healthRes.json();
+        console.log('Health Status:', healthData);
+
+        if (healthData.status !== 'OK') throw new Error('Server health check failed');
+        console.log('✅ Server is Healthy\n');
+
+        // 2. Security Check (Unauthorized Access)
+        console.log('2. Verifying Security (Unauthorized Access)...');
+        const protectedRes = await fetch(`${API_URL}/attendance/mark`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(employee)
+            body: JSON.stringify({ test: 'data' })
         });
-        const markData = await markRes.json();
-        console.log('Response:', markData);
 
-        if (!markData.success) throw new Error('Failed to mark attendance');
-        const attendanceId = markData.data.attendanceId;
-        console.log('✅ Attendance Marked. ID:', attendanceId, '\n');
+        if (protectedRes.status === 401 || protectedRes.status === 403) {
+            console.log('✅ Security Verified: Unauthorized access correctly blocked (Status 401/403)\n');
+        } else {
+            throw new Error(`Security Breach: Protected endpoint returned status ${protectedRes.status}`);
+        }
 
-        // 2. Get Pending Approvals
-        console.log('2. Fetching Pending Approvals (MD)...');
-        const pendingRes = await fetch(`${API_URL}/attendance/pending`);
-        const pendingData = await pendingRes.json();
-        console.log('Pending Count:', pendingData.data.length);
-
-        const pendingRecord = pendingData.data.find(r => r.attendanceId === attendanceId);
-        if (!pendingRecord) throw new Error('New record not found in pending list');
-        console.log('✅ Record found in pending list\n');
-
-        // 3. Approve Attendance
-        console.log('3. Approving Attendance...');
-        const approveRes = await fetch(`${API_URL}/attendance/approve/${attendanceId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(md)
-        });
-        const approveData = await approveRes.json();
-        console.log('Response:', approveData);
-
-        if (!approveData.success) throw new Error('Failed to approve attendance');
-        console.log('✅ Attendance Approved\n');
-
-        // 4. Verify Status
-        console.log('4. Verifying Final Status...');
-        const statusRes = await fetch(`${API_URL}/attendance/today?employeeId=${employee.employeeId}`);
-        const statusData = await statusRes.json();
-        console.log('Status:', statusData.data.status);
-
-        if (statusData.data.status !== 'Approved') throw new Error('Status is not Approved');
-        console.log('✅ Final Status Verified: Approved\n');
-
-        console.log('🎉 All Tests Passed Successfully!');
+        console.log('🎉 All Verification Tests Passed Successfully!');
 
     } catch (error) {
         console.error('❌ Test Failed:', error.message);

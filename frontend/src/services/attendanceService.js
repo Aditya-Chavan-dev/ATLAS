@@ -65,7 +65,7 @@ export const getTodayAttendance = async (employeeId) => {
 export const getPendingApprovals = async () => {
     try {
         const response = await api.get('/attendance/pending');
-        return response.data;
+        return response.data.data || []; // Extract the 'data' property from the response
     } catch (error) {
         throw error;
     }

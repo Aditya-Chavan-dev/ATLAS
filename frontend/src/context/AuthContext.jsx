@@ -10,6 +10,11 @@ import {
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
+import { mdEmails } from '../config/mdList';
+import { employeeEmails } from '../config/employeeList';
+
+// ... imports
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -32,6 +37,9 @@ export const AuthProvider = ({ children }) => {
     // Google Sign-In
     const loginWithGoogle = async () => {
         const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({
+            prompt: 'select_account'
+        });
         return signInWithPopup(auth, provider);
     };
 
@@ -54,13 +62,15 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
-                // Assign role based on email
-                let role = 'Employee'; // Default
-                if (user.email === 'adityagchavan.skn.comp@gmail.com') {
+                // Assign role based on email lists
+                let role = 'Employee'; // Default fallback
+
+                if (mdEmails.includes(user.email)) {
                     role = 'MD';
-                } else if (user.email === 'adityagchavan310@gmail.com') {
+                } else if (employeeEmails.includes(user.email)) {
                     role = 'Employee';
                 }
+                // You could add a 'Guest' role here if the email isn't in either list
 
                 // Add role to user object
                 user.role = role;

@@ -1,4 +1,3 @@
-```javascript
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -6,7 +5,7 @@ import Button from '../components/Button';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getTodayAttendance } from '../services/attendanceService';
+import { getTodayAttendance, getPendingApprovals } from '../services/attendanceService';
 import '../styles/ManagerStyles.css';
 import '../styles/EmployeeStyles.css';
 
@@ -19,11 +18,11 @@ import '../styles/EmployeeStyles.css';
 const Dashboard = () => {
     const { currentUser } = useAuth();
     const navigate = useNavigate();
-    
+
     // State
     const [todayAttendance, setTodayAttendance] = useState(null);
     const [loading, setLoading] = useState(true);
-    
+
     // Mock Statistics for Demo (In real app, fetch from API)
     const [stats, setStats] = useState({
         pendingApprovals: 3, // Mock count for MD
@@ -33,12 +32,20 @@ const Dashboard = () => {
 
     useEffect(() => {
         fetchDashboardData();
+
+        // Auto-refresh every 10 seconds for real-time updates
+        const interval = setInterval(() => {
+            fetchDashboardData();
+        }, 10000);
+
+        // Cleanup interval on unmount
+        return () => clearInterval(interval);
     }, []);
 
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            
+
             if (currentUser?.role !== 'MD') {
                 // Fetch Employee Data
                 if (currentUser?.uid) {
@@ -46,9 +53,10 @@ const Dashboard = () => {
                     setTodayAttendance(response?.data || null);
                 }
             } else {
-                // Fetch MD Data (e.g., pending count)
-                // const pending = await getPendingApprovals();
-                // setStats(prev => ({ ...prev, pendingApprovals: pending.length }));
+                // Fetch MD Data (pending approvals count)
+                const pending = await getPendingApprovals();
+                const pendingArray = Array.isArray(pending) ? pending : [];
+                setStats(prev => ({ ...prev, pendingApprovals: pendingArray.length }));
             }
 
         } catch (error) {
@@ -85,22 +93,22 @@ const Dashboard = () => {
                             <div className="stat-value text-warning">
                                 {stats.pendingApprovals}
                             </div>
-                            <Button 
-                                variant="primary" 
+                            <Button
+                                variant="primary"
                                 onClick={() => navigate('/attendance/approvals')}
                                 className="w-full mt-md"
                             >
                                 Review Approvals
                             </Button>
                         </div>
-                        
+
                         <div className="stat-card text-center">
                             <p className="text-muted text-sm">Total Employees</p>
                             <div className="stat-value text-primary">
                                 12 {/* Mock Data */}
                             </div>
-                            <Button 
-                                variant="outline" 
+                            <Button
+                                variant="outline"
                                 className="w-full mt-md"
                                 disabled
                             >
@@ -116,7 +124,7 @@ const Dashboard = () => {
                     {todayAttendance ? (
                         <Card className="mb-xl text-center attendance-card">
                             <p className="text-muted text-sm mb-sm">Today's Attendance</p>
-                            
+
                             <div className="text-2xl font-bold mb-xs">
                                 {todayAttendance.type}
                             </div>
@@ -125,7 +133,7 @@ const Dashboard = () => {
                                     {todayAttendance.siteName}
                                 </div>
                             )}
-                            
+
                             <div className="mb-md">
                                 <StatusBadge status={todayAttendance.status} />
                             </div>
@@ -137,6 +145,16 @@ const Dashboard = () => {
                                     className="w-full mt-md"
                                 >
                                     ✏️ Edit Attendance
+                                </Button>
+                            )}
+
+                            {todayAttendance.status === 'Rejected' && (
+                                <Button
+                                    variant="primary"
+                                    onClick={() => navigate('/attendance/mark')}
+                                    className="w-full mt-md"
+                                >
+                                    🔄 Remark Attendance
                                 </Button>
                             )}
                         </Card>
@@ -159,7 +177,7 @@ const Dashboard = () => {
                     {/* Monthly Stats Summary */}
                     <Card className="mb-xl">
                         <h3 className="text-lg font-bold mb-md">This Month</h3>
-                        
+
                         <div className="grid-2-cols gap-md mb-md">
                             <div className="stat-box bg-primary-light">
                                 <div className="text-2xl font-bold text-primary">{stats.presentDays}</div>
@@ -180,9 +198,9 @@ const Dashboard = () => {
                                 </span>
                             </div>
                             <div className="progress-bar-bg">
-                                <div 
+                                <div
                                     className="progress-bar-fill"
-                                    style={{ width: `${ (stats.presentDays / stats.totalDays) * 100 }% ` }}
+                                    style={{ width: `${(stats.presentDays / stats.totalDays) * 100}%` }}
                                 />
                             </div>
                         </div>
@@ -203,112 +221,111 @@ const Dashboard = () => {
             )}
 
             <style>{`
-    .text - 3xl { font - size: 1.875rem; }
-                .text - 2xl { font - size: 1.5rem; }
-                .text - xl { font - size: 1.25rem; }
-                .text - lg { font - size: 1.125rem; }
-                .text - md { font - size: 1rem; }
-                .text - sm { font - size: 0.875rem; }
-                .text - xs { font - size: 0.75rem; }
-                .text - 4xl { font - size: 2.25rem; }
+                .text-3xl { font-size: 1.875rem; }
+                .text-2xl { font-size: 1.5rem; }
+                .text-xl { font-size: 1.25rem; }
+                .text-lg { font-size: 1.125rem; }
+                .text-md { font-size: 1rem; }
+                .text-sm { font-size: 0.875rem; }
+                .text-xs { font-size: 0.75rem; }
+                .text-4xl { font-size: 2.25rem; }
                 
-                .font - bold { font - weight: 700; }
-                .font - medium { font - weight: 500; }
-                .font - normal { font - weight: 400; }
+                .font-bold { font-weight: 700; }
+                .font-medium { font-weight: 500; }
+                .font-normal { font-weight: 400; }
                 
-                .text - center { text - align: center; }
-                .text - muted { color: var(--text - secondary); }
-                .text - primary { color: var(--primary); }
-                .text - secondary { color: var(--secondary); }
-                .text - warning { color: var(--warning); }
+                .text-center { text-align: center; }
+                .text-muted { color: var(--text-secondary); }
+                .text-primary { color: var(--primary); }
+                .text-secondary { color: var(--secondary); }
+                .text-warning { color: var(--warning); }
                 
-                .mb - xs { margin - bottom: var(--spacing - xs); }
-                .mb - sm { margin - bottom: var(--spacing - sm); }
-                .mb - md { margin - bottom: var(--spacing - md); }
-                .mb - xl { margin - bottom: var(--spacing - xl); }
-                .mt - md { margin - top: var(--spacing - md); }
-                .mt - xs { margin - top: var(--spacing - xs); }
+                .mb-xs { margin-bottom: var(--spacing-xs); }
+                .mb-sm { margin-bottom: var(--spacing-sm); }
+                .mb-md { margin-bottom: var(--spacing-md); }
+                .mb-xl { margin-bottom: var(--spacing-xl); }
+                .mt-md { margin-top: var(--spacing-md); }
+                .mt-xs { margin-top: var(--spacing-xs); }
                 
-                .w - full { width: 100 %; }
+                .w-full { width: 100%; }
                 .flex { display: flex; }
-                .justify - between { justify - content: space - between; }
-                .items - center { align - items: center; }
+                .justify-between { justify-content: space-between; }
+                .items-center { align-items: center; }
                 
-                .grid - 2 - cols {
-    display: grid;
-    grid - template - columns: 1fr 1fr;
-}
+                .grid-2-cols {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                }
                 
-                .mark - attendance - btn {
-    width: 100 %;
-    padding: var(--spacing - xl);
-    border - radius: var(--border - radius);
-    border: none;
-    background: linear - gradient(135deg, #6366f1 0 %, #ec4899 100 %);
-    color: white;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box - shadow: 0 8px 16px rgba(99, 102, 241, 0.3);
-    display: flex;
-    flex - direction: column;
-    align - items: center;
-    gap: var(--spacing - sm);
-}
-                .mark - attendance - btn:hover {
-    transform: translateY(-4px);
-    box - shadow: 0 12px 24px rgba(99, 102, 241, 0.4);
-}
+                .mark-attendance-btn {
+                    width: 100%;
+                    padding: var(--spacing-xl);
+                    border-radius: var(--border-radius);
+                    border: none;
+                    background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
+                    color: white;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 8px 16px rgba(99, 102, 241, 0.3);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: var(--spacing-sm);
+                }
+                .mark-attendance-btn:hover {
+                    transform: translateY(-4px);
+                    box-shadow: 0 12px 24px rgba(99, 102, 241, 0.4);
+                }
                 
-                .stat - box {
-    padding: var(--spacing - md);
-    border - radius: var(--border - radius);
-    text - align: center;
-}
-                .bg - primary - light { background: rgba(99, 102, 241, 0.1); }
-                .bg - secondary - light { background: rgba(236, 72, 153, 0.1); }
+                .stat-box {
+                    padding: var(--spacing-md);
+                    border-radius: var(--border-radius);
+                    text-align: center;
+                }
+                .bg-primary-light { background: rgba(99, 102, 241, 0.1); }
+                .bg-secondary-light { background: rgba(236, 72, 153, 0.1); }
                 
-                .progress - bar - bg {
-    width: 100 %;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    border - radius: 4px;
-    overflow: hidden;
-}
-                .progress - bar - fill {
-    height: 100 %;
-    background: linear - gradient(90deg, var(--primary), var(--secondary));
-    border - radius: 4px;
-    transition: width 0.5s ease;
-}
+                .progress-bar-bg {
+                    width: 100%;
+                    height: 8px;
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 4px;
+                    overflow: hidden;
+                }
+                .progress-bar-fill {
+                    height: 100%;
+                    background: linear-gradient(90deg, var(--primary), var(--secondary));
+                    border-radius: 4px;
+                    transition: width 0.5s ease;
+                }
                 
-                .quick - link - btn {
-    padding: var(--spacing - lg);
-    border - radius: var(--border - radius);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.05);
-    color: white;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    flex - direction: column;
-    align - items: center;
-    gap: var(--spacing - sm);
-}
-                .quick - link - btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    transform: translateY(-2px);
-}
+                .quick-link-btn {
+                    padding: var(--spacing-lg);
+                    border-radius: var(--border-radius);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    background: rgba(255, 255, 255, 0.05);
+                    color: white;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: var(--spacing-sm);
+                }
+                .quick-link-btn:hover {
+                    background: rgba(255, 255, 255, 0.1);
+                    transform: translateY(-2px);
+                }
 
-                .gradient - text {
-    background: linear - gradient(135deg, var(--primary) 0 %, var(--secondary) 100 %);
-    -webkit - background - clip: text;
-    -webkit - text - fill - color: transparent;
-    background - clip: text;
-}
-`}</style>
+                .gradient-text {
+                    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                }
+            `}</style>
         </div>
     );
 };
 
 export default Dashboard;
-```

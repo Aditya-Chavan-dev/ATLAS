@@ -13,11 +13,15 @@ const api = axios.create({
 // Request interceptor to add authentication token
 api.interceptors.request.use(
     async (config) => {
+        console.log(`[API Request] ${config.method.toUpperCase()} ${config.baseURL}${config.url}`);
         try {
             const user = auth.currentUser;
             if (user) {
                 const token = await user.getIdToken();
+                console.log('[API Auth] Token attached:', token.substring(0, 10) + '...');
                 config.headers.Authorization = `Bearer ${token}`;
+            } else {
+                console.warn('[API Auth] No user logged in');
             }
         } catch (error) {
             console.error('Error getting auth token:', error);

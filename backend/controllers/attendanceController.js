@@ -1,6 +1,19 @@
 const { admin, db } = require('../config/firebaseConfig');
 
 /**
+ * Firebase doesn't allow undefined values - convert them to null
+ * @param {Object} obj - Object to sanitize
+ * @returns {Object} - Sanitized object
+ */
+const sanitizeForFirebase = (obj) => {
+    const sanitized = {};
+    for (const key in obj) {
+        sanitized[key] = obj[key] === undefined ? null : obj[key];
+    }
+    return sanitized;
+};
+
+/**
  * @desc    Mark Attendance (Clock In)
  * @route   POST /api/attendance/mark
  * @access  Private (Employee)
@@ -37,16 +50,35 @@ exports.markAttendance = async (req, res) => {
         const timestamp = now.getTime();
         const date = now.toISOString().split('T')[0]; // Format: YYYY-MM-DD
 
-        // 3. Check for Duplicate Entry
-        // We check if an attendance ID already exists for this employee on this date
+        // 3. Check for Duplicate Entry or Allow Re-marking if Rejected
         const todayAttendanceRef = db.ref(`employee_attendance/${employeeId}/${date}`);
         const todaySnapshot = await todayAttendanceRef.once('value');
 
         if (todaySnapshot.exists()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Attendance has already been marked for today.'
-            });
+            // Get the existing attendance record
+            const existingAttendanceId = todaySnapshot.val();
+            const existingAttendanceRef = db.ref(`attendance/${existingAttendanceId}`);
+            const existingAttendanceSnapshot = await existingAttendanceRef.once('value');
+            const existingAttendance = existingAttendanceSnapshot.val();
+
+            // If status is Rejected, allow re-marking by deleting old record
+            if (existingAttendance && existingAttendance.status === 'Rejected') {
+                console.log(`[Attendance] Deleting rejected attendance ${existingAttendanceId} to allow re-marking`);
+
+                // Delete the old rejected attendance record
+                const deleteUpdates = {};
+                deleteUpdates[`attendance/${existingAttendanceId}`] = null;
+                deleteUpdates[`employee_attendance/${employeeId}/${date}`] = null;
+                // Note: rejected records are not in pending_approvals
+
+                await db.ref().update(deleteUpdates);
+            } else {
+                // If status is not Rejected (Pending or Approved), don't allow duplicate
+                return res.status(400).json({
+                    success: false,
+                    message: `Attendance has already been marked for today and is ${existingAttendance?.status || 'in processing'}.`
+                });
+            }
         }
 
         // 4. Fetch Employee Details
@@ -86,7 +118,7 @@ exports.markAttendance = async (req, res) => {
         // 6. Atomic Update
         // We update multiple nodes simultaneously to ensure data consistency
         const updates = {};
-        updates[`attendance/${attendanceId}`] = attendanceData; // Main record
+        updates[`attendance/${attendanceId}`] = sanitizeForFirebase(attendanceData); // Main record
         updates[`employee_attendance/${employeeId}/${date}`] = attendanceId; // Index for quick lookup by employee/date
         updates[`pending_approvals/${attendanceId}`] = true; // Index for Manager's approval list
 
@@ -155,11 +187,11 @@ exports.editAttendance = async (req, res) => {
         // Preserve original data for audit trail
         const originalData = attendanceData.isEdited
             ? attendanceData.originalData
-            : {
+            : sanitizeForFirebase({
                 type: attendanceData.type,
                 siteName: attendanceData.siteName,
                 markedAt: attendanceData.markedAt
-            };
+            });
 
         // Update record
         const updates = {
@@ -170,7 +202,7 @@ exports.editAttendance = async (req, res) => {
             editedAt: new Date().toISOString()
         };
 
-        await attendanceRef.update(updates);
+        await attendanceRef.update(sanitizeForFirebase(updates));
 
         res.status(200).json({
             success: true,

@@ -128,7 +128,8 @@ const MarkAttendance = () => {
     }
 
     // VIEW: Already Marked Attendance (Read-Only View)
-    if (todayAttendance && !isEditing) {
+    // Show this only if attendance exists, not editing, and status is NOT Rejected
+    if (todayAttendance && !isEditing && todayAttendance.status !== 'Rejected') {
         return (
             <div className="employee-container fade-in">
                 <div className="attendance-card">

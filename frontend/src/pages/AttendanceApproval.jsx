@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { getPendingApprovals, approveAttendance, rejectAttendance } from '../services/attendanceService';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -7,16 +8,39 @@ import toast from '../utils/toast';
 import '../styles/ManagerStyles.css';
 
 /**
+ * Formats ISO timestamp to 12-hour format with AM/PM
+ * @param {string} isoString - ISO 8601 timestamp
+ * @returns {string} - Formatted time (e.g., "9:02 PM")
+ */
+const formatTime12Hour = (isoString) => {
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
+};
+
+/**
  * AttendanceApproval Page
  * Allows Managers/MD to review, approve, or reject pending attendance requests.
  */
 const AttendanceApproval = () => {
+    const { currentUser } = useAuth();
     const [pendingRequests, setPendingRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState(null);
 
     useEffect(() => {
         fetchPendingApprovals();
+
+        // Auto-refresh every 5 seconds for real-time updates
+        const interval = setInterval(() => {
+            fetchPendingApprovals();
+        }, 5000);
+
+        // Cleanup interval on unmount
+        return () => clearInterval(interval);
     }, []);
 
     /**
@@ -43,10 +67,7 @@ const AttendanceApproval = () => {
     const handleApprove = async (attendanceId) => {
         try {
             setProcessingId(attendanceId);
-            // TODO: Replace with actual current user ID in production
-            const mdId = 'md_aditya';
-
-            await approveAttendance(attendanceId, mdId);
+            await approveAttendance(attendanceId, currentUser.uid);
             toast.success('Attendance approved');
 
             // Optimistically remove from list
@@ -67,9 +88,7 @@ const AttendanceApproval = () => {
 
         try {
             setProcessingId(attendanceId);
-            const mdId = 'md_aditya';
-
-            await rejectAttendance(attendanceId, mdId);
+            await rejectAttendance(attendanceId, currentUser.uid);
             toast.success('Attendance rejected');
 
             // Optimistically remove from list
@@ -124,13 +143,13 @@ const AttendanceApproval = () => {
 
                                     <div className="flex gap-md text-sm">
                                         <div>
-                                            <span className="text-muted">Date: </span>
+                                            <span className="text-muted">📅 Date: </span>
                                             <span className="font-medium">{request.date}</span>
                                         </div>
                                         <div>
-                                            <span className="text-muted">Time: </span>
+                                            <span className="text-muted">🕐 Time: </span>
                                             <span className="font-medium">
-                                                {new Date(request.markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                {formatTime12Hour(request.markedAt)}
                                             </span>
                                         </div>
                                     </div>
@@ -139,18 +158,11 @@ const AttendanceApproval = () => {
                                 {/* Attendance Details */}
                                 <div className="details-box flex-1 min-w-200">
                                     <div className="mb-xs">
-                                        <span className="text-muted text-xs">Type</span>
+                                        <span className="text-muted text-xs">Location</span>
                                         <div className="font-bold">
-                                            {request.type === 'Office' ? '🏢 Office' : '🏗️ Site'}
+                                            {request.type === 'Office' ? '🏢 Office' : `🏗️ Site: ${request.siteName}`}
                                         </div>
                                     </div>
-
-                                    {request.type === 'Site' && (
-                                        <div>
-                                            <span className="text-muted text-xs">Site Name</span>
-                                            <div className="font-medium">{request.siteName}</div>
-                                        </div>
-                                    )}
 
                                     {/* Show Original Data if Edited */}
                                     {request.isEdited && request.originalData && (

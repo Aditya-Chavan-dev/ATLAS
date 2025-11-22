@@ -9,13 +9,16 @@ dotenv.config();
 
 if (!admin.apps.length) {
     try {
+        const serviceAccount = require('./serviceAccountKey.json');
+
         admin.initializeApp({
-            credential: admin.credential.applicationDefault(),
+            credential: admin.credential.cert(serviceAccount),
             databaseURL: process.env.FIREBASE_DATABASE_URL
         });
-        console.log('Firebase Admin Initialized');
+        console.log('Firebase Admin Initialized with serviceAccountKey.json');
     } catch (error) {
-        console.error('Firebase Admin Initialization Error:', error);
+        console.error('Firebase Admin Initialization Error:', error.message);
+        console.error('Make sure "serviceAccountKey.json" is present in backend/config/');
     }
 }
 
