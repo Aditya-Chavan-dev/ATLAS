@@ -1,0 +1,322 @@
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
+import {
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged,
+    GoogleAuthProvider,
+    setPersistence,
+    browserLocalPersistence
+} from 'firebase/auth'
+import {
+    ref,
+    get,
+    set,
+    child,
+    query,
+    orderByChild,
+    equalTo,
+    remove,
+    onValue,
+    off
+} from 'firebase/database'
+import { auth, database } from '../firebase/config'
+import { isMD } from '../md/config/mdAllowList'
+import { ROLES } from '../config/roleConfig'
+
+
+// Create Auth Context
+const AuthContext = createContext()
+
+// Custom hook to use auth context
+export const useAuth = () => {
+    const context = useContext(AuthContext)
+    if (!context) {
+        throw new Error('useAuth must be used within AuthProvider')
+    }
+    return context
+}
+
+// Auth Provider Component
+export const AuthProvider = ({ children }) => {
+    const [currentUser, setCurrentUser] = useState(null)
+    const [userRole, setUserRole] = useState(null)
+    const [userProfile, setUserProfile] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const listenerRefs = useRef({
+        profile: null,
+        email: null
+    })
+
+    const stopRealtimeListeners = () => {
+        Object.values(listenerRefs.current).forEach((cleanup) => cleanup?.())
+        listenerRefs.current = { profile: null, email: null }
+    }
+
+    const startRealtimeListeners = (user) => {
+        stopRealtimeListeners()
+        if (!user?.uid) return
+
+        const normalizedEmail = user.email?.toLowerCase()
+        const userRef = ref(database, `users/${user.uid}`)
+
+        const handleProfileSnapshot = (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val()
+                setUserRole(data.role)
+                setUserProfile(data)
+            } else {
+                setUserRole(null)
+                setUserProfile(null)
+            }
+        }
+
+        onValue(userRef, handleProfileSnapshot, (error) => {
+            console.error('❌ Realtime profile listener error:', error)
+        })
+
+        listenerRefs.current.profile = () => off(userRef, 'value', handleProfileSnapshot)
+
+        if (!normalizedEmail) return
+
+        const usersRef = ref(database, 'users')
+        const emailQuery = query(usersRef, orderByChild('email'), equalTo(normalizedEmail))
+
+        const handleEmailSnapshot = async (snapshot) => {
+            if (!snapshot.exists()) return
+
+            const data = snapshot.val()
+            const entries = Object.entries(data)
+            const hasRealUid = entries.some(([key]) => key === user.uid)
+
+            if (!hasRealUid && entries.length > 0) {
+                const [oldUid, profileData] = entries[0]
+                try {
+                    const updatedProfile = {
+                        ...profileData,
+                        uid: user.uid,
+                        email: normalizedEmail,
+                        photoURL: user.photoURL || profileData.photoURL || '',
+                        role: profileData.role || ROLES.EMPLOYEE
+                    }
+                    await set(ref(database, `users/${user.uid}`), updatedProfile)
+                    await remove(ref(database, `users/${oldUid}`))
+                    console.log('♻️ Auto-migrated placeholder record back to user UID:', normalizedEmail)
+                } catch (error) {
+                    console.error('❌ Error migrating placeholder record:', error)
+                }
+            }
+        }
+
+        onValue(emailQuery, handleEmailSnapshot, (error) => {
+            console.error('❌ Realtime email listener error:', error)
+        })
+
+        listenerRefs.current.email = () => off(emailQuery, 'value', handleEmailSnapshot)
+    }
+
+    useEffect(() => {
+        return () => {
+            stopRealtimeListeners()
+        }
+    }, [])
+
+    // Listen for auth state changes
+    useEffect(() => {
+        console.log('🔐 Setting up Firebase auth listener...')
+
+        // Default persistence is LOCAL (persists even after browser close)
+        // We ensure it here explicitly if needed, but Firebase default is usually local.
+        setPersistence(auth, browserLocalPersistence)
+            .then(() => {
+                console.log('✅ Auth persistence set to LOCAL (persists indefinitely)')
+            })
+            .catch((error) => {
+                console.error('❌ Error setting auth persistence:', error)
+            })
+
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            console.log('🔄 Auth state changed:', user ? user.email : 'No user')
+
+            stopRealtimeListeners()
+
+            if (user) {
+                // Determine role
+                const email = user.email
+                let role = null
+                let profileData = null
+
+                // 1. Check MD allowlist first
+                if (isMD(email)) {
+                    role = ROLES.MD
+                    setUserProfile(null)
+                    console.log('👑 MD user detected from allowlist')
+                } else {
+                    // 2. Check Firebase DB for employee
+                    try {
+                        const dbRef = ref(database)
+                        const userSnapshot = await get(child(dbRef, `users/${user.uid}`))
+
+                        if (userSnapshot.exists()) {
+                            profileData = userSnapshot.val()
+                            role = profileData.role
+                            console.log('👤 Employee profile loaded:', profileData)
+                            startRealtimeListeners(user)
+                        } else {
+                            console.log('⚠️ User not in allowlist or DB - unauthorized')
+                            // Still attach listener to detect if access is reinstated while logged in
+                            startRealtimeListeners(user)
+                        }
+                    } catch (error) {
+                        console.error('❌ Error fetching user profile:', error)
+                    }
+                }
+
+                setCurrentUser(user)
+                setUserRole(role)
+                setUserProfile(profileData)
+            } else {
+                setCurrentUser(null)
+                setUserRole(null)
+                setUserProfile(null)
+                console.log('👤 User logged out')
+            }
+
+            setLoading(false)
+        })
+
+        return unsubscribe
+    }, [])
+
+    // Google Sign In
+    const loginWithGoogle = async () => {
+        try {
+            const provider = new GoogleAuthProvider()
+            // Force account selection on every login
+            provider.setCustomParameters({
+                prompt: 'select_account'
+            })
+
+            const result = await signInWithPopup(auth, provider)
+            const user = result.user
+            const email = user.email
+
+            let role = null
+            let profileData = null
+
+            // 1. Check MD allowlist first
+            if (isMD(email)) {
+                role = ROLES.MD
+                console.log('👑 MD user logged in:', email)
+            } else {
+                // 2. Check Firebase DB for employee
+                const dbRef = ref(database)
+                let userSnapshot = await get(child(dbRef, `users/${user.uid}`))
+
+                if (userSnapshot.exists()) {
+                    // Existing employee with correct UID
+                    profileData = userSnapshot.val()
+                    role = profileData.role
+                    console.log('✅ Existing employee logged in:', email)
+                } else {
+                    // 3. Fallback: Check if added by MD (lookup by email)
+                    // This handles the first login where the user has a placeholder UID
+                    console.log('🔍 Checking for pre-added employee record by email...')
+                    const usersRef = ref(database, 'users')
+                    const emailQuery = query(usersRef, orderByChild('email'), equalTo(email))
+                    const emailSnapshot = await get(emailQuery)
+
+                    if (emailSnapshot.exists()) {
+                        // Found the pre-added record!
+                        const data = emailSnapshot.val()
+                        const oldUid = Object.keys(data)[0] // Get the placeholder UID (e.g. emp_123)
+                        profileData = data[oldUid]
+
+                        console.log('♻️ Found pre-added record. Migrating to real UID...', oldUid)
+
+                        // Update profile with real UID and photo
+                        const updatedProfile = {
+                            ...profileData,
+                            uid: user.uid,
+                            photoURL: user.photoURL || '',
+                            email: user.email // Ensure email matches exactly
+                        }
+
+                        // Save to new location (real UID)
+                        await set(ref(database, `users/${user.uid}`), updatedProfile)
+
+                        // Delete old placeholder record
+                        await remove(ref(database, `users/${oldUid}`))
+
+                        role = updatedProfile.role
+                        profileData = updatedProfile
+                        console.log('✅ Migration complete. Logged in as:', role)
+                    } else {
+                        // Not in allowlist and not in DB - unauthorized
+                        console.log('❌ Unauthorized user:', email)
+                        await signOut(auth)
+                        throw new Error('You are not authorized to access this system. Please contact your administrator.')
+                    }
+                }
+            }
+
+            // Update local state
+            setCurrentUser(user)
+            setUserRole(role)
+            setUserProfile(profileData)
+
+            return { user, role }
+        } catch (error) {
+            console.error('❌ Login error:', error)
+            throw error
+        }
+    }
+
+    // Logout
+    const logout = async () => {
+        try {
+            await signOut(auth)
+            // State updates handled by onAuthStateChanged
+        } catch (error) {
+            console.error('❌ Logout error:', error)
+            throw error
+        }
+    }
+
+    const value = {
+        currentUser,
+        userRole,
+        userProfile,
+        loading,
+        loginWithGoogle,
+        logout
+    }
+
+
+
+    // Add loading timeout to prevent infinite loading
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            if (loading) {
+                console.warn('⚠️ Auth loading timeout - forcing completion')
+                setLoading(false)
+            }
+        }, 5000) // 5 second timeout
+
+        return () => clearTimeout(timeout)
+    }, [loading])
+
+    return (
+        <AuthContext.Provider value={value}>
+            {loading ? (
+                <div className="flex items-center justify-center min-h-screen bg-slate-50">
+                    <div className="flex flex-col items-center space-y-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                        <p className="text-slate-500 text-sm font-medium">Loading...</p>
+                    </div>
+                </div>
+            ) : children}
+        </AuthContext.Provider>
+    )
+}
+
+export default AuthContext

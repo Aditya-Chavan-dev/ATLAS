@@ -1,0 +1,132 @@
+/* Theme Toggle Styles */
+
+.theme-toggle-wrapper {
+    display: inline-block;
+}
+
+.theme-toggle-container {
+    position: relative;
+    display: inline-grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    height: 36px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.theme-toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.theme-toggle-label {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    height: 100%;
+}
+
+.theme-toggle-track {
+    position: absolute;
+    inset: 0;
+    height: inherit;
+    width: auto;
+    background: var(--input-bg, rgba(0, 0, 0, 0.1));
+    border: 1px solid var(--glass-border);
+    border-radius: 9999px;
+    transition: background-color 0.2s;
+}
+
+.theme-toggle-input:checked+.theme-toggle-label .theme-toggle-track {
+    background: var(--accent-gradient);
+}
+
+.theme-toggle-thumb {
+    position: absolute;
+    z-index: 10;
+    height: 100%;
+    width: 50%;
+    background: white;
+    border-radius: 9999px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateX(0);
+}
+
+.theme-toggle-input:checked+.theme-toggle-label .theme-toggle-thumb {
+    transform: translateX(100%);
+}
+
+/* Icons */
+.theme-toggle-icon {
+    pointer-events: none;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-width: 32px;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    color: var(--text-secondary);
+}
+
+/* Moon Icon (Visible in Light Mode - Unchecked) */
+.theme-toggle-icon-moon {
+    margin-left: 0.125rem;
+    transform: translateX(100%);
+    /* Move to Right */
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Hide Moon in Dark Mode (Checked) */
+.theme-toggle-input:checked+.theme-toggle-label .theme-toggle-icon-moon {
+    transform: translateX(0);
+    /* Move back to Left (under thumb/hidden) */
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Sun Icon (Hidden in Light Mode - Unchecked) */
+.theme-toggle-icon-sun {
+    margin-right: 0.125rem;
+    transform: translateX(0);
+    /* Stay at Right (under thumb/hidden) */
+    opacity: 0;
+    visibility: hidden;
+    color: white;
+}
+
+/* Show Sun in Dark Mode (Checked) */
+.theme-toggle-input:checked+.theme-toggle-label .theme-toggle-icon-sun {
+    transform: translateX(-100%);
+    /* Move to Left */
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Screen reader only */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .theme-toggle-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .theme-toggle-thumb {
+    background: #1f2937;
+}

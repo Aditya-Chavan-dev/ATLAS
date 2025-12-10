@@ -1,0 +1,21 @@
+{
+    "rules": {
+        "users": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".indexOn": [
+                "email"
+            ],
+            "$uid": {
+                ".read": "auth != null",
+                ".write": "auth != null"
+            }
+        },
+        "attendance": {
+            ".read": "auth != null",
+            "$attendanceId": {
+                ".write": "auth != null"
+            }
+        }
+    }
+}

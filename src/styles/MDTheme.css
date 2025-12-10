@@ -1,0 +1,41 @@
+/* MD Theme - Completely Separate from Global/Employee Theme */
+
+:root {
+    /* MD Specific Color Palette - Premium Dark/Gold Theme */
+    --md-bg-primary: #0f172a;
+    /* Deep Slate */
+    --md-bg-secondary: #1e293b;
+    /* Lighter Slate */
+    --md-bg-card: #1e293b;
+
+    --md-text-primary: #f8fafc;
+    --md-text-secondary: #94a3b8;
+    --md-text-accent: #38bdf8;
+    /* Sky Blue */
+
+    --md-accent-color: #38bdf8;
+    --md-accent-hover: #0ea5e9;
+
+    --md-border-color: rgba(255, 255, 255, 0.1);
+    --md-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+    --md-font-family: 'Outfit', sans-serif;
+    /* Distinct font if available, else fallback */
+}
+
+/* MD Global Resets (Scoped) */
+.md-layout {
+    font-family: var(--md-font-family);
+    background-color: var(--md-bg-primary);
+    color: var(--md-text-primary);
+    min-height: 100vh;
+    display: flex;
+}
+
+.md-main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
