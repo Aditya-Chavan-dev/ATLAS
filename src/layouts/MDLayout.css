@@ -1,28 +1,42 @@
+/* MDLayout.css - Strict adherence to new specs */
+
 .md-layout-container {
     display: flex;
     min-height: 100vh;
-    background-color: #f8f9fa !important;
-    color: #1a1a1a !important;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--neutral-light);
+    /* #F3F4F6 */
+    color: var(--neutral-dark);
+    /* #1F2937 */
+    font-family: var(--font-body);
 }
 
 /* Sidebar Overlay (mobile) */
+/* Spec: Full width, overlays content with 80% opacity black background */
 .sidebar-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 40;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 1040;
+    /* Above navbar (1000) */
+    backdrop-filter: blur(2px);
 }
 
 /* Sidebar */
+/* Spec: Desktop/Tablet width 256px, Background Light Gray #F3F4F6 */
 .md-sidebar {
-    background-color: #ffffff;
-    border-right: 1px solid #e5e7eb;
+    background-color: var(--neutral-light);
+    border-right: 1px solid #E5E7EB;
     display: flex;
     flex-direction: column;
-    transition: transform 0.3s ease, width 0.3s ease;
-    z-index: 50;
-    width: 260px;
+    transition: transform 0.3s ease;
+    z-index: 1050;
+    /* Above overlay */
+    width: 256px;
+    position: fixed;
+    top: 64px;
+    /* Below Navbar */
+    left: 0;
+    bottom: 0;
 }
 
 /* Desktop sidebar states */
@@ -31,18 +45,15 @@
 }
 
 .md-sidebar.closed {
-    width: 0;
     transform: translateX(-100%);
 }
 
-/* Mobile sidebar - fixed position */
+/* Mobile sidebar */
+/* Spec: Hidden by default, shown as overlay sheet */
 .md-sidebar.mobile {
-    position: fixed;
     top: 0;
-    left: 0;
-    bottom: 0;
-    width: 280px;
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+    /* Full height on mobile */
+    z-index: 1100;
 }
 
 .md-sidebar.mobile.closed {
@@ -53,102 +64,74 @@
     transform: translateX(0);
 }
 
+/* Sidebar Content */
 .sidebar-header {
-    height: 64px;
+    /* Mobile only header inside sidebar, hidden on desktop since desktop has top navbar */
+    display: none;
+}
+
+.md-sidebar.mobile .sidebar-header {
     display: flex;
+    height: 64px;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.logo-area {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.logo-icon {
-    width: 32px;
-    height: 32px;
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    color: white;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 18px;
-    flex-shrink: 0;
-}
-
-.logo-text {
-    font-weight: 700;
-    font-size: 18px;
-    color: #111827;
-    white-space: nowrap;
-}
-
-.close-sidebar-btn {
-    background: none;
-    border: none;
-    padding: 8px;
-    color: #6b7280;
-    cursor: pointer;
-    border-radius: 6px;
-}
-
-.close-sidebar-btn:hover {
-    background: #f3f4f6;
-    color: #111827;
+    padding: 0 16px;
+    border-bottom: 1px solid #E5E7EB;
+    background-color: white;
+    /* Contrast header */
 }
 
 .sidebar-nav {
     flex: 1;
-    padding: 16px 12px;
+    padding: 16px 0;
+    /* Vertical padding 12px requested inside item, but cleaner with container padding */
     display: flex;
     flex-direction: column;
     gap: 4px;
     overflow-y: auto;
 }
 
+/* Nav Item Styling */
+/* Spec: Padding 16px horizontal, 12px vertical. Icon/Label aligned. */
 .nav-item {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 12px 16px;
-    border-radius: 8px;
-    color: #4b5563;
+    color: var(--neutral-dark);
     text-decoration: none;
     transition: all 0.2s ease;
-    white-space: nowrap;
+    font-size: 16px;
+    /* User spec */
 }
 
 .nav-item:hover {
-    background-color: #f3f4f6;
-    color: #111827;
+    background-color: var(--accent-blue);
+    /* Light blue #E0E7FF background on hover */
+    color: var(--brand-primary);
+    /* Blue text on hover */
 }
 
 .nav-item.active {
-    background-color: #eff6ff;
-    color: #2563eb;
+    background-color: var(--accent-blue);
+    /* Light blue background */
+    color: var(--brand-primary);
+    /* Blue text */
+    font-weight: 500;
 }
 
 .nav-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
+    width: 24px;
 }
 
-.nav-label {
-    font-size: 14px;
-    font-weight: 500;
-}
-
+/* Sidebar Footer */
 .sidebar-footer {
     padding: 16px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid #E5E7EB;
+    /* Divder line spec */
 }
 
 .logout-btn {
@@ -156,19 +139,23 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 16px;
+    padding: 16px;
+    /* Spec: 16px padding */
     border: none;
     background: none;
-    color: #ef4444;
+    color: var(--accent-red);
+    /* #EF4444 */
     cursor: pointer;
-    border-radius: 8px;
-    transition: background 0.2s;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
+    transition: opacity 0.2s;
 }
 
 .logout-btn:hover {
-    background-color: #fee2e2;
+    opacity: 0.8;
+    /* Spec: opacity 0.8 */
+    background-color: transparent;
+    /* No bg change specified, just opacity */
 }
 
 /* Main Wrapper */
@@ -178,299 +165,99 @@
     flex-direction: column;
     min-height: 100vh;
     width: 100%;
+    padding-top: 64px;
+    /* Space for fixed navbar */
     transition: margin-left 0.3s ease;
 }
 
 .md-main-wrapper.with-sidebar {
-    margin-left: 260px;
+    margin-left: 256px;
+    /* Push content when sidebar open */
 }
 
-/* Top Header */
-.md-top-header {
-    height: 64px;
-    background-color: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px;
-    position: sticky;
-    top: 0;
-    z-index: 30;
-}
-
-.toggle-sidebar-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #6b7280;
-    padding: 8px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.toggle-sidebar-btn:hover {
-    background-color: #f3f4f6;
-    color: #111827;
-}
-
-.header-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #111827;
-}
-
-.status-indicator {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 100px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-}
-
-.status-indicator.online {
-    background-color: #dcfce7;
-    color: #166534;
-}
-
-.status-indicator.offline {
-    background-color: #fee2e2;
-    color: #991b1b;
-}
-
-.status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    animation: pulse 2s infinite;
-}
-
-.status-indicator.online .status-dot {
-    background-color: #22c55e;
-}
-
-.status-indicator.offline .status-dot {
-    background-color: #ef4444;
-}
-
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
+@media (max-width: 768px) {
+    .md-main-wrapper.with-sidebar {
+        margin-left: 0;
+        /* Overlay on mobile, don't push content */
     }
-
-    50% {
-        opacity: 0.5;
-    }
-}
-
-.header-actions {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.user-profile {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.avatar {
-    width: 32px;
-    height: 32px;
-    background-color: #e0e7ff;
-    color: #3730a3;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 14px;
-}
-
-.user-role {
-    font-size: 14px;
-    color: #6b7280;
-    font-weight: 500;
-    display: none;
 }
 
 /* Page Content */
 .md-page-content {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
-    background-color: #f8f9fa;
-    padding-bottom: 80px;
-    /* Space for mobile nav */
+    padding: 24px;
+    /* Desktop Padding */
+    background-color: var(--neutral-light);
+}
+
+@media (max-width: 640px) {
+    .md-page-content {
+        padding: 16px;
+        /* Mobile Padding */
+        padding-bottom: 80px;
+        /* Space for bottom nav */
+    }
 }
 
 /* Mobile Bottom Navigation */
+/* Spec: Fixed at bottom, height 64px, visible < 768px */
 .mobile-bottom-nav {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     height: 64px;
-    background: #ffffff;
-    border-top: 1px solid #e5e7eb;
+    background: white;
+    box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1);
+    /* Top shadow */
     display: flex;
     justify-content: space-around;
+    /* Equal width tabs */
     align-items: center;
-    z-index: 40;
+    z-index: 1040;
     padding-bottom: env(safe-area-inset-bottom);
 }
 
 .bottom-nav-item {
+    flex: 1;
+    /* Equal width */
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 8px 12px;
-    color: #6b7280;
+    height: 100%;
+    color: var(--neutral-gray);
+    /* Gray inactive */
     text-decoration: none;
-    transition: color 0.2s;
-    min-width: 60px;
+    gap: 4px;
+    /* icon above text 8px spacing (reduced slightly for fit) */
 }
 
 .bottom-nav-item .nav-icon {
-    margin-bottom: 4px;
+    margin-bottom: 0;
 }
 
 .bottom-nav-item .nav-label {
-    font-size: 10px;
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: 400;
 }
 
 .bottom-nav-item.active {
-    color: #2563eb;
+    background-color: var(--accent-blue);
+    /* Light blue bg */
+    color: var(--brand-primary);
+    /* Blue text/icon */
 }
 
-.bottom-nav-item:hover {
-    color: #2563eb;
+/* Ripple effect simulated with active state */
+.bottom-nav-item:active {
+    background-color: #E0E7FF;
+    opacity: 0.8;
 }
 
-/* Tablet and Desktop */
 @media (min-width: 768px) {
-    .md-top-header {
-        padding: 0 24px;
-    }
-
-    .md-page-content {
-        padding: 24px;
-        padding-bottom: 24px;
-    }
-
-    .user-role {
-        display: block;
-    }
-
     .mobile-bottom-nav {
         display: none;
-    }
-}
-
-/* Notification Bell */
-.notification-bell {
-    position: relative;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #6b7280;
-    padding: 8px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-}
-
-.notification-bell:hover {
-    background: #f3f4f6;
-    color: #2563eb;
-}
-
-.bell-badge {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    min-width: 18px;
-    height: 18px;
-    background: #ef4444;
-    color: white;
-    font-size: 10px;
-    font-weight: 700;
-    border-radius: 9px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 4px;
-    animation: bellPulse 2s infinite;
-}
-
-@keyframes bellPulse {
-
-    0%,
-    100% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.1);
-    }
-}
-
-/* Nav Item Badge */
-.nav-badge {
-    margin-left: auto;
-    min-width: 20px;
-    height: 20px;
-    background: #ef4444;
-    color: white;
-    font-size: 11px;
-    font-weight: 700;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 6px;
-}
-
-/* Bottom Nav Badge */
-.bottom-nav-item .nav-icon {
-    position: relative;
-}
-
-.bottom-nav-badge {
-    position: absolute;
-    top: -6px;
-    right: -8px;
-    min-width: 16px;
-    height: 16px;
-    background: #ef4444;
-    color: white;
-    font-size: 9px;
-    font-weight: 700;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 3px;
-}
-
-/* Large Desktop */
-@media (min-width: 1200px) {
-    .md-page-content {
-        padding: 32px;
-        max-width: 1400px;
-        margin: 0 auto;
     }
 }

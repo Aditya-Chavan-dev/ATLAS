@@ -13,9 +13,32 @@
         },
         "attendance": {
             ".read": "auth != null",
+            ".indexOn": [
+                "employeeId",
+                "date"
+            ],
             "$attendanceId": {
                 ".write": "auth != null"
             }
+        },
+        "leaves": {
+            ".read": "auth != null",
+            ".write": "auth != null",
+            ".indexOn": [
+                "employeeId"
+            ]
+        },
+        "leaveHistory": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+        },
+        "audit": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+        },
+        "employees": {
+            ".read": "auth != null",
+            ".write": "auth != null"
         }
     }
 }

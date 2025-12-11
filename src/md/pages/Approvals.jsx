@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { ref, onValue, update, push } from 'firebase/database'
+import { ref, onValue, update, push, set } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
 import { format } from 'date-fns'
+import RefinedModal from '../../components/ui/RefinedModal'
+import ApiService from '../../services/api'
 import './Approvals.css'
 
 function MDApprovals() {
@@ -11,106 +13,155 @@ function MDApprovals() {
     const [loading, setLoading] = useState(true)
     const [processingId, setProcessingId] = useState(null)
 
+    // UI State
+    const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info' })
+    const [rejectModal, setRejectModal] = useState({ isOpen: false, item: null, reason: '' })
+
+    const showMessage = (title, message, type = 'info') => {
+        setModalConfig({ isOpen: true, title, message, type })
+    }
+
+    const closeMainModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }))
+
+    const [rawAttendance, setRawAttendance] = useState({})
+    const [rawLeaves, setRawLeaves] = useState({})
+
     useEffect(() => {
         const attendanceRef = ref(database, 'attendance')
-        const unsubscribe = onValue(attendanceRef, (snapshot) => {
-            const data = snapshot.val()
-            if (data) {
-                const allItems = Object.entries(data)
-                    .map(([id, item]) => ({ id, ...item }))
-                    .filter(item =>
-                        item.status === 'pending' ||
-                        item.status === 'correction_pending' ||
-                        item.status === 'edit_pending'
-                    )
-                    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        const leavesRef = ref(database, 'leaves')
 
-                setApprovals(allItems)
-            } else {
-                setApprovals([])
-            }
-            setLoading(false)
+        const unsubAtt = onValue(attendanceRef, (snapshot) => {
+            setRawAttendance(snapshot.val() || {})
         })
 
-        return () => unsubscribe()
+        const unsubLeaves = onValue(leavesRef, (snapshot) => {
+            setRawLeaves(snapshot.val() || {})
+        })
+
+        return () => {
+            unsubAtt()
+            unsubLeaves()
+        }
     }, [])
 
-    const logAudit = async (action, target, details) => {
-        try {
-            const auditRef = ref(database, 'audit')
-            await push(auditRef, {
-                actor: userProfile?.email || 'MD',
-                action,
-                target,
-                details,
-                timestamp: Date.now()
-            })
-        } catch (error) {
-            console.error("Audit log failed:", error)
-        }
-    }
+    useEffect(() => {
+        const attItems = Object.entries(rawAttendance)
+            .map(([id, item]) => ({ id, ...item, reqType: 'attendance' }))
+            .filter(item =>
+                item.status === 'pending' ||
+                item.status === 'correction_pending' ||
+                item.status === 'edit_pending'
+            )
 
-    const createNotification = async (userId, type, title, message) => {
-        try {
-            const notificationRef = ref(database, `notifications/${userId}`)
-            await push(notificationRef, {
-                type,
-                title,
-                message,
-                read: false,
-                timestamp: new Date().toISOString()
+        const leaveItems = []
+        Object.entries(rawLeaves).forEach(([uid, userLeaves]) => {
+            Object.entries(userLeaves).forEach(([leaveId, leave]) => {
+                if (leave.status === 'pending' || leave.status === 'auto-blocked') {
+                    leaveItems.push({
+                        id: leaveId,
+                        ...leave,
+                        reqType: 'leave',
+                        uid // Ensure uid is passed for approvals
+                    })
+                }
             })
-        } catch (error) {
-            console.error("Notification creation failed:", error)
-        }
-    }
+        })
+
+        const merged = [...attItems, ...leaveItems].sort((a, b) => {
+            const timeA = a.timestamp || a.appliedAt || 0
+            const timeB = b.timestamp || b.appliedAt || 0
+            return timeB - timeA
+        })
+
+        setApprovals(merged)
+        setLoading(false)
+    }, [rawAttendance, rawLeaves])
 
     const handleAction = async (item, status, reason = '') => {
         setProcessingId(item.id)
         try {
-            const updates = {
-                status: status,
-                actionTimestamp: Date.now(),
-                approvedAt: status === 'approved' ? new Date().toISOString() : null,
-                rejectedAt: status === 'rejected' ? new Date().toISOString() : null,
-                handledBy: userProfile?.email || 'MD',
-                mdReason: reason || null
+            if (item.reqType === 'leave') {
+                try {
+                    // Try Server first
+                    const endpoint = status === 'approved' ? '/api/leave/approve' : '/api/leave/reject'
+                    await ApiService.post(endpoint, {
+                        leaveId: item.id,
+                        employeeId: item.employeeId || item.uid,
+                        mdId: currentUser.uid,
+                        mdName: userProfile?.email || 'MD', // Safe fallback for undefined name
+                        reason
+                    });
+                } catch (apiError) {
+                    console.warn("API Error, falling back to direct DB write", apiError)
+
+                    // Fallback: Direct DB Write
+                    const leaveRef = ref(database, `leaves/${item.uid}/${item.id}`)
+
+                    // Construct safe action data ensuring no undefined values
+                    const actionDataEntry = {
+                        by: currentUser.uid,
+                        name: userProfile?.email || 'MD', // Fallback if name/email is missing
+                        at: new Date().toISOString(),
+                        reason: reason || '' // Ensure empty string instead of undefined
+                    };
+
+                    await update(leaveRef, {
+                        status: status,
+                        actionData: actionDataEntry
+                    })
+                }
+
+            } else {
+                // Attendance Logic (Client-Side)
+                const updates = {
+                    status: status,
+                    actionTimestamp: Date.now(),
+                    approvedAt: status === 'approved' ? new Date().toISOString() : null,
+                    rejectedAt: status === 'rejected' ? new Date().toISOString() : null,
+                    handledBy: userProfile?.email || 'MD',
+                    mdReason: reason || null
+                }
+                if ((item.status === 'correction_pending' || item.isCorrection) && status === 'approved') {
+                    updates.isCorrection = false
+                }
+                await update(ref(database, `attendance/${item.id}`), updates)
+
+                // Log Audit
+                const auditRef = ref(database, 'audit')
+                await push(auditRef, {
+                    actor: userProfile?.email || 'MD',
+                    action: status === 'approved' ? 'approveAttendance' : 'rejectAttendance',
+                    target: { employeeId: item.employeeEmail, date: item.date },
+                    details: { oldStatus: item.status, newStatus: status, reason },
+                    timestamp: Date.now()
+                })
             }
-
-            // If this is a correction request being approved, clear the correction flag
-            if ((item.status === 'correction_pending' || item.isCorrection) && status === 'approved') {
-                updates.isCorrection = false
+            if (status === 'approved') {
+                showMessage('Approved', 'Request has been approved successfully.', 'success')
+            } else {
+                showMessage('Rejected', 'Request has been rejected.', 'info')
             }
-
-            console.log('Approving item:', item.id, 'with updates:', updates)
-
-            // Update attendance record
-            await update(ref(database, `attendance/${item.id}`), updates)
-
-            // Create notification for employee
-            const notificationType = status === 'approved' ? 'approval' : 'rejection'
-            const notificationTitle = status === 'approved' ? '✅ Attendance Approved' : '❌ Attendance Rejected'
-            const notificationMessage = status === 'approved'
-                ? `Your attendance for ${item.date} has been approved.`
-                : `Your attendance for ${item.date} was rejected.${reason ? ` Reason: ${reason}` : ''}`
-
-            if (item.employeeId) {
-                await createNotification(item.employeeId, notificationType, notificationTitle, notificationMessage)
-            }
-
-            // Log Audit
-            await logAudit(
-                status === 'approved' ? 'approveAttendance' : 'rejectAttendance',
-                { employeeId: item.employeeEmail, date: item.date },
-                { oldStatus: item.status, newStatus: status, reason }
-            )
-
         } catch (error) {
             console.error("Error updating status:", error)
-            alert("Failed to update status. Please try again.")
+            showMessage("Error", error.message || "Failed to update status. Please try again.", "error")
         } finally {
             setProcessingId(null)
+            setRejectModal({ isOpen: false, item: null, reason: '' })
         }
+    }
+
+    const openRejectDialog = (item) => {
+        setRejectModal({ isOpen: true, item, reason: '' })
+    }
+
+    const confirmReject = () => {
+        const { item, reason } = rejectModal
+        if (!item) return
+        if (!reason.trim()) {
+            alert("Please provide a reason for rejection")
+            return
+        }
+        handleAction(item, 'rejected', reason)
     }
 
     const formatDate = (dateStr) => {
@@ -125,7 +176,7 @@ function MDApprovals() {
         <div className="approvals-container">
             <header className="approvals-header">
                 <h1>Approvals</h1>
-                <p>Manage pending attendance requests</p>
+                <p>Manage pending requests</p>
             </header>
 
             <div className="approvals-list">
@@ -142,12 +193,14 @@ function MDApprovals() {
                     </div>
                 ) : (
                     approvals.map(item => {
-                        const isCorrection = item.status === 'correction_pending' || item.isCorrection
+                        const isLeave = item.reqType === 'leave'
+                        const isCorrection = !isLeave && (item.status === 'correction_pending' || item.isCorrection)
+
                         return (
-                            <div key={item.id} className={`approval-card ${isCorrection ? 'correction' : ''}`}>
-                                {isCorrection && (
-                                    <div className="correction-badge">📝 Correction Request</div>
-                                )}
+                            <div key={item.id} className={`approval-card ${isCorrection ? 'correction' : ''} ${isLeave ? 'leave-card' : ''}`}>
+                                {isCorrection && <div className="correction-badge">📝 Correction Request</div>}
+                                {isLeave && <div className="correction-badge" style={{ background: '#e0e7ff', color: '#4338ca' }}>📅 Leave Request</div>}
+
                                 <div className="approval-info">
                                     <div className="user-avatar">
                                         {(item.employeeName || 'U').charAt(0).toUpperCase()}
@@ -155,13 +208,26 @@ function MDApprovals() {
                                     <div className="request-details">
                                         <h3>{item.employeeName || 'Unknown'}</h3>
                                         <div className="request-meta">
-                                            <span className="meta-date">{formatDate(item.date)}</span>
-                                            <span className="meta-dot">•</span>
-                                            <span className="meta-location">
-                                                {item.location === 'office' ? '🏢 Office' : '🏗️ Site'}
-                                                {item.siteName && ` - ${item.siteName}`}
-                                            </span>
+                                            {isLeave ? (
+                                                <>
+                                                    <span className="font-bold text-slate-700">{item.type}</span>
+                                                    <span className="meta-dot">•</span>
+                                                    <span>{formatDate(item.from)} - {formatDate(item.to)}</span>
+                                                    <span className="meta-dot">•</span>
+                                                    <span>{item.totalDays} Days</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="meta-date">{formatDate(item.date)}</span>
+                                                    <span className="meta-dot">•</span>
+                                                    <span className="meta-location">
+                                                        {item.location === 'office' ? '🏢 Office' : '🏗️ Site'}
+                                                        {item.siteName && ` - ${item.siteName}`}
+                                                    </span>
+                                                </>
+                                            )}
                                         </div>
+                                        {/* Correction Details */}
                                         {isCorrection && item.previousLocation && (
                                             <div className="correction-details">
                                                 <span className="correction-from">
@@ -173,15 +239,16 @@ function MDApprovals() {
                                                 </span>
                                             </div>
                                         )}
+                                        {/* Leave Reason */}
+                                        {isLeave && item.reason && (
+                                            <div className="text-sm text-slate-500 mt-1 italic">"{item.reason}"</div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="approval-actions">
                                     <button
                                         className="action-btn reject-btn"
-                                        onClick={() => {
-                                            const reason = prompt("Reason for rejection (optional):")
-                                            if (reason !== null) handleAction(item, 'rejected', reason)
-                                        }}
+                                        onClick={() => openRejectDialog(item)}
                                         disabled={processingId === item.id}
                                     >
                                         Reject
@@ -199,6 +266,41 @@ function MDApprovals() {
                     })
                 )}
             </div>
+
+            {/* General Message Modal */}
+            <RefinedModal
+                isOpen={modalConfig.isOpen}
+                onClose={closeMainModal}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                type={modalConfig.type}
+            />
+
+            {/* Rejection Input Modal */}
+            <RefinedModal
+                isOpen={rejectModal.isOpen}
+                onClose={() => setRejectModal({ ...rejectModal, isOpen: false })}
+                title="Reject Request"
+                message="Please provide a reason for rejecting this request."
+                type="warning"
+                primaryAction={{
+                    label: 'Confirm Rejection',
+                    onClick: confirmReject
+                }}
+                secondaryAction={{
+                    label: 'Cancel',
+                    onClick: () => setRejectModal({ ...rejectModal, isOpen: false })
+                }}
+            >
+                <textarea
+                    value={rejectModal.reason}
+                    onChange={(e) => setRejectModal(prev => ({ ...prev, reason: e.target.value }))}
+                    className="w-full mt-2 p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm"
+                    rows={3}
+                    placeholder="Enter rejection reason..."
+                    autoFocus
+                />
+            </RefinedModal>
         </div>
     )
 }

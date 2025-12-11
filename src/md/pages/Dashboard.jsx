@@ -21,55 +21,97 @@ function MDDashboard() {
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
 
     useEffect(() => {
+        const usersRef = ref(database, 'users')
         const attendanceRef = ref(database, 'attendance')
-        const unsubscribe = onValue(attendanceRef, (snapshot) => {
-            const data = snapshot.val()
-            if (data) {
-                const records = Object.values(data)
-                setAttendanceData(records)
+        const leavesRef = ref(database, 'leaves')
 
-                // Process Stats for Today
-                const today = new Date().toISOString().split('T')[0]
-                const todayRecords = records.filter(r => r.date === today)
+        // Internal stores to avoid stale closures in effects
+        let rawUsers = {}
+        let rawAttendance = {}
+        let rawLeaves = {}
 
-                // Get Unique Employees
-                const empMap = new Map()
-                records.forEach(r => {
-                    if (!empMap.has(r.employeeEmail)) {
-                        empMap.set(r.employeeEmail, {
-                            email: r.employeeEmail,
-                            name: r.employeeName,
-                            lastSeen: r.date
-                        })
-                    } else {
-                        // Update last seen
-                        const existing = empMap.get(r.employeeEmail)
-                        if (new Date(r.date) > new Date(existing.lastSeen)) {
-                            existing.lastSeen = r.date
-                        }
+        const updateState = () => {
+            // Basic User List
+            const userList = Object.entries(rawUsers)
+                .map(([uid, user]) => ({ uid, ...user, lastSeen: 'Never' }))
+                .filter(u => u.role !== 'md' && u.role !== 'admin')
+
+            const attRecords = Object.values(rawAttendance)
+            const leaveRecords = []
+            Object.values(rawLeaves).forEach(userLeaves => {
+                Object.values(userLeaves).forEach(l => leaveRecords.push(l))
+            })
+
+            // Today Info
+            const today = new Date().toISOString().split('T')[0]
+            const todayAttendance = attRecords.filter(r => r.date === today)
+
+            // Check Leaves for Today
+            const todayLeaves = leaveRecords.filter(l => {
+                if (l.status !== 'approved') return false
+                const start = new Date(l.from)
+                const end = new Date(l.to)
+                start.setHours(0, 0, 0, 0)
+                end.setHours(0, 0, 0, 0)
+                const t = new Date(today)
+                t.setHours(0, 0, 0, 0)
+                return t >= start && t <= end
+            })
+
+            // Map Last Seen
+            const userMap = new Map()
+            userList.forEach(u => userMap.set(u.uid, u))
+
+            attRecords.forEach(r => {
+                const u = userMap.get(r.employeeId) // Assuming employeeId is uid.
+                if (u) {
+                    if (!u.lastSeen || u.lastSeen === 'Never' || r.date > u.lastSeen) {
+                        u.lastSeen = r.date
                     }
-                })
-                const empList = Array.from(empMap.values())
-                setEmployees(empList)
+                } else {
+                    // Fallback if employeeId was email in old records
+                    const uByEmail = userList.find(user => user.email === r.employeeEmail)
+                    if (uByEmail && (!uByEmail.lastSeen || uByEmail.lastSeen === 'Never' || r.date > uByEmail.lastSeen)) {
+                        uByEmail.lastSeen = r.date
+                    }
+                }
+            })
 
-                // Calculate Stats
-                const present = todayRecords.filter(r => r.status === 'approved').length
-                const site = todayRecords.filter(r => r.status === 'approved' && r.location === 'site').length
-                // Leaves logic would go here if we had explicit leave records
+            setAttendanceData(attRecords)
+            setEmployees(userList)
 
-                setStats({
-                    totalEmployees: empList.length,
-                    presentToday: present,
-                    onLeave: 0, // Placeholder
-                    onSite: site
-                })
+            // Stats
+            setStats({
+                totalEmployees: userList.length,
+                presentToday: todayAttendance.filter(r => r.status === 'approved').length,
+                onLeave: todayLeaves.length,
+                onSite: todayAttendance.filter(r => r.status === 'approved' && r.location === 'site').length
+            })
 
-                // --- 2nd MD Auto-Attendance Logic ---
-                handleSecondMDAttendance(records, today)
-            }
+            // Handle 2nd MD (using all records)
+            handleSecondMDAttendance(attRecords, today)
+
             setLoading(false)
+        }
+
+        const unsubUsers = onValue(usersRef, (snap) => {
+            rawUsers = snap.val() || {}
+            updateState()
         })
-        return () => unsubscribe()
+        const unsubAtt = onValue(attendanceRef, (snap) => {
+            rawAttendance = snap.val() || {}
+            updateState()
+        })
+        const unsubLeaves = onValue(leavesRef, (snap) => {
+            rawLeaves = snap.val() || {}
+            updateState()
+        })
+
+        return () => {
+            unsubUsers()
+            unsubAtt()
+            unsubLeaves()
+        }
     }, [])
 
     const handleSecondMDAttendance = async (records, todayStr) => {
@@ -219,7 +261,7 @@ function MDDashboard() {
                                 </div>
                                 <button
                                     className="view-profile-btn"
-                                    onClick={() => navigate(`/md/profiles/${encodeURIComponent(emp.email)}`)}
+                                    onClick={() => navigate(`/md/profiles/${emp.uid}`)}
                                 >
                                     View Profile
                                 </button>

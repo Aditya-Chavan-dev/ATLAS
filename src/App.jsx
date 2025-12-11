@@ -86,7 +86,7 @@ function AppContent() {
         return (
             <Routes>
                 <Route path="/md" element={<MDLayout />}>
-                    <Route index element={<MDLandingRedirect />} />
+                    <Route index element={<Navigate to="/md/dashboard" replace />} />
                     <Route path="dashboard" element={<MDDashboard />} />
                     <Route path="approvals" element={<MDApprovals />} />
                     <Route path="employees" element={<MDEmployeeManagement />} />
@@ -116,10 +116,15 @@ function AppContent() {
     )
 }
 
+import PWAUpdater from './components/PWAUpdater'
+
+// ...
+
 function App() {
     return (
         <AuthProvider>
             <ThemeProvider>
+                <PWAUpdater />
                 <AppContent />
             </ThemeProvider>
         </AuthProvider>

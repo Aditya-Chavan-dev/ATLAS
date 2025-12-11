@@ -1,6 +1,7 @@
 .approvals-container {
     max-width: 800px;
     margin: 0 auto;
+    padding-bottom: 80px; /* Space for bottom nav */
 }
 
 .approvals-header {
@@ -144,6 +145,10 @@
     font-weight: 600;
     color: #111827;
     margin: 0 0 6px 0;
+    /* Adjust for mobile text overflow */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; 
 }
 
 .request-meta {
@@ -174,9 +179,8 @@
     border-radius: 6px;
     font-size: 12px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
+    flex-direction: column; /* Stack on mobile */
+    gap: 4px;
 }
 
 .correction-from {
@@ -186,6 +190,7 @@
 .correction-arrow {
     color: #d97706;
     font-weight: 600;
+    display: none; /* Hide arrow on mobile column layout */
 }
 
 .correction-to {
@@ -194,19 +199,22 @@
 }
 
 .approval-actions {
-    display: flex;
+    display: grid; /* Grid for equal buttons on mobile */
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
-    justify-content: flex-end;
 }
 
 .action-btn {
-    padding: 10px 20px;
+    padding: 12px 20px; /* Larger touch targets */
     border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
     border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .action-btn:disabled {
@@ -248,6 +256,23 @@
     }
 
     .approval-actions {
+        display: flex; /* Restore flex for desktop */
         flex-shrink: 0;
+        justify-content: flex-end;
+        width: auto;
+    }
+
+    .action-btn {
+        padding: 10px 20px;
+    }
+
+    .correction-details {
+        flex-direction: row; /* Row on desktop */
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .correction-arrow {
+        display: inline;
     }
 }

@@ -14,7 +14,8 @@ export default function RefinedModal({
     message,
     type = 'info', // 'success', 'error', 'warning', 'info'
     primaryAction, // { label: string, onClick: () => void }
-    secondaryAction // { label: string, onClick: () => void }
+    secondaryAction, // { label: string, onClick: () => void }
+    children
 }) {
     const getIcon = () => {
         switch (type) {
@@ -79,9 +80,15 @@ export default function RefinedModal({
                                                 {title}
                                             </Dialog.Title>
                                             <div className="mt-2">
-                                                <p className="text-sm text-slate-500">
-                                                    {message}
-                                                </p>
+                                                {children ? (
+                                                    <div className="text-sm text-slate-500">
+                                                        {children}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm text-slate-500">
+                                                        {message}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

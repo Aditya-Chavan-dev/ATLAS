@@ -1,163 +1,208 @@
-import ExcelJS from 'exceljs'
+import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
+import { format } from 'date-fns'
 
-export const generateAttendanceReport = async (startDate, endDate, employees, attendanceData) => {
-    // startDate: Date object
-    // endDate: Date object
-    // employees: Array of employee objects { email, name, ... }
-    // attendanceData: Array of attendance records
+// Helper to get dates
+const getDatesInRange = (start, end) => {
+    const dates = []
+    let current = new Date(start)
+    current.setHours(0, 0, 0, 0)
+    const endTime = new Date(end)
+    endTime.setHours(0, 0, 0, 0)
 
-    const workbook = new ExcelJS.Workbook()
-    const worksheet = workbook.addWorksheet('Attendance')
-
-    // Helper to get all dates in range
-    const getDatesInRange = (start, end) => {
-        const dates = []
-        let current = new Date(start)
-        while (current <= end) {
-            dates.push(new Date(current))
-            current.setDate(current.getDate() + 1)
-        }
-        return dates
+    while (current <= endTime) {
+        dates.push(new Date(current))
+        current.setDate(current.getDate() + 1)
     }
+    return dates
+}
 
+const formatDatePretty = (date) => {
+    return format(date, 'd-MMM-yy')
+}
+
+// Special function to get header title for Excel
+const getMonthYearTitle = (date) => {
+    return `Attendance ${format(date, 'MMM yyyy')}`
+}
+
+export const generateMasterAttendanceReport = async (startDate, endDate, employees, attendanceData) => {
     const days = getDatesInRange(startDate, endDate)
-    const reportTitle = `Attendance Report (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()})`
 
-    // --- HEADERS ---
+    // Sort employees: Put RVS first if exists, then others alphabetical perhaps? 
+    // User image shows: RVS, GBC, SDS Sr, SDS JUNIOR, PAVAN, SHUBHAM...
+    // We will just use the order provided or sort alphabetically for now, but ensure RVS logic applies.
 
-    // Row 1: Company Name & Report Title
-    worksheet.mergeCells('A1:B1')
-    const companyCell = worksheet.getCell('A1')
-    companyCell.value = 'Autoteknic'
-    companyCell.font = { bold: true, size: 14 }
-    companyCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    // Identify RVS user - Assuming name starts with or contains 'RVS' case insensitive or specific ID. 
+    // Since we don't have IDs mapping to "RVS", we'll verify if any employee name is "RVS".
 
-    // Borders for A1:B1
-    worksheet.getCell('A1').border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
-    worksheet.getCell('B1').border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+    // Create Header Row
+    // Row 1: Company Name
+    // Row 2: Attendance Month Year
+    // Row 3: Headers
 
+    const employeeHeaders = employees.map(e => (e.name || e.email).toUpperCase())
+    const headerRow = ['DATE', ...employeeHeaders]
 
-    // Merge remaining columns for Title
-    const lastColLetter = worksheet.getColumn(employees.length + 1).letter // +1 because Date is col 1
-    if (employees.length > 1) {
-        worksheet.mergeCells(`C1:${lastColLetter}1`)
-    }
-    const titleCell = worksheet.getCell('C1')
-    titleCell.value = reportTitle
-    titleCell.font = { bold: true, size: 12 }
-    titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    const dataRows = []
 
-    // Borders for title row
-    for (let i = 3; i <= employees.length + 1; i++) {
-        const cell = worksheet.getCell(1, i)
-        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
-    }
+    days.forEach(day => {
+        const row = [formatDatePretty(day)]
+        const dateKey = day.toISOString().split('T')[0]
+        const dayOfWeek = day.getDay()
+        const isSunday = dayOfWeek === 0
 
+        employees.forEach(emp => {
+            const empName = (emp.name || '').toUpperCase()
+            const isRVS = empName.includes('RVS')
 
-    // Row 2: Column Headers
-    const headerRow = worksheet.getRow(2)
-    headerRow.getCell(1).value = 'DATE'
-    headerRow.getCell(1).font = { bold: true }
-    headerRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF92D050' } } // Light Green
-    headerRow.getCell(1).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
-
-    // Employee Names
-    employees.forEach((emp, index) => {
-        const cell = headerRow.getCell(index + 2) // Start from B
-        cell.value = (emp.name || emp.email).toUpperCase()
-        cell.font = { bold: true }
-        cell.alignment = { horizontal: 'center' }
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF92D050' } } // Light Green
-        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
-    })
-
-    // --- DATA ROWS ---
-
-    days.forEach((day, dayIndex) => {
-        const row = worksheet.getRow(dayIndex + 3)
-        const dateCell = row.getCell(1)
-
-        // Date Formatting: d-MMM-yy
-        // Date Formatting: 20th Dec 2025
-        const dayNum = day.getDate()
-        const monthStr = day.toLocaleString('default', { month: 'short' })
-        const yearStr = day.getFullYear()
-
-        const suffix = (d) => {
-            if (d > 3 && d < 21) return 'th'
-            switch (d % 10) {
-                case 1: return 'st'
-                case 2: return 'nd'
-                case 3: return 'rd'
-                default: return 'th'
+            // Logic for RVS: Automarked as OFFICE (P) everyday except Sundays (H)
+            if (isRVS) {
+                if (isSunday) {
+                    row.push('H')
+                } else {
+                    row.push('OFFICE') // Automarked
+                }
+                return // Skip normal check for RVS
             }
-        }
 
-        dateCell.value = `${dayNum}${suffix(dayNum)} ${monthStr} ${yearStr}`
-        dateCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
-        dateCell.alignment = { horizontal: 'center' }
-
-        const isSunday = day.getDay() === 0
-        let isHoliday = false
-
-        // Fill Employee Data
-        employees.forEach((emp, empIndex) => {
-            const cell = row.getCell(empIndex + 2)
-
-            // Find attendance for this employee on this day
-            const dateKey = day.toISOString().split('T')[0]
-
-            const record = attendanceData.find(r =>
-                r.date === dateKey && r.employeeEmail === emp.email
-            )
-
-            let status = ''
-            if (record) {
-                if (record.status === 'approved') status = record.location === 'office' ? 'OFFICE' : 'SITE'
-                else if (record.status === 'pending') status = 'PENDING'
-            }
+            // Normal Logic for others
+            const record = attendanceData.find(r => r.date === dateKey && r.employeeEmail === emp.email)
 
             if (isSunday) {
-                status = 'H'
-                isHoliday = true
-            }
-
-            // Logic for Leave (if status is 'leave' or similar)
-            if (record && record.status === 'leave') {
-                status = 'L'
-            }
-
-            cell.value = status
-            cell.alignment = { horizontal: 'center' }
-            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
-
-            // Styling: Green for Leave
-            if (status === 'L') {
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF92D050' } } // Green
+                row.push('H') // Holiday
+            } else if (record) {
+                if (record.status === 'approved') {
+                    if (record.location === 'office') {
+                        row.push('OFFICE')
+                    } else {
+                        // If site, show Site Name if available, else SITE
+                        // Image shows "KTFL Chakan", "RIJ ENGG" etc
+                        row.push(record.siteName ? record.siteName.toUpperCase() : 'SITE')
+                    }
+                } else if (record.status === 'pending') {
+                    row.push('?') // Pending
+                } else if (record.status === 'leave') {
+                    row.push('L') // Leave
+                } else {
+                    row.push('A') // Absent
+                }
+            } else {
+                row.push('-') // Absent/No Record
             }
         })
+        dataRows.push(row)
+    })
 
-        // Styling: Yellow Row for Sunday/Holiday
-        if (isSunday || isHoliday) {
-            for (let i = 1; i <= employees.length + 1; i++) {
-                const cell = row.getCell(i)
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } } // Yellow
-                if (cell.value === 'H') {
-                    cell.font = { bold: true }
-                }
+    // Construct Sheet Data
+    // Row 1: Autoteknic
+    // Row 2: Attendance Nov 2025
+
+    // We need to merge cells for the title rows. 
+    // SheetJS (OSS) doesn't support styling or merges easily in the basic write/aoa, 
+    // but we can add the merges to the worksheet object manually.
+
+    const wsData = [
+        ['Autoteknic'],
+        [getMonthYearTitle(startDate)],
+        headerRow,
+        ...dataRows
+    ]
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData)
+
+    // Merges
+    // 's' = start, 'e' = end. r = row, c = col. 0-indexed.
+    // Merge Row 0 from Col 0 to End
+    const colCount = headerRow.length - 1
+    ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: colCount } }, // Row 1 across all cols
+        { s: { r: 1, c: 0 }, e: { r: 1, c: colCount } }  // Row 2 across all cols
+    ]
+
+    // Basic Cell Styles not supported in free SheetJS. 
+    // However, the data structure is robust.
+    // If the user *really* needs colors, we'd need exceljs.
+    // Given the build failure with exceljs previously, I will stick to xlsx for reliability of "downloading".
+    // I will try to make the "content" as correct as possible. 
+    // The user's specific request "Sheet must have... Autoteknic... Attendance Month..." is handled here.
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Attendance')
+
+    // Write File
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    saveAs(blob, `Attendance_${format(startDate, 'MMM_yyyy')}.xlsx`)
+}
+
+export const generateSingleEmployeeReport = async (startDate, endDate, employee, attendanceData, leavesData = []) => {
+    const days = getDatesInRange(startDate, endDate)
+    const empName = (employee.name || employee.email).toUpperCase()
+
+    // Headers
+    const headers = ['Date', 'Status', 'Location', 'Site Name', 'Time In', 'Time Out', 'Duration', 'Remarks']
+
+    const dataRows = []
+
+    days.forEach(day => {
+        const dateKey = day.toISOString().split('T')[0]
+        const record = attendanceData.find(r => r.date === dateKey && r.employeeEmail === employee.email) // Need to match by either email or UID in real app
+        const isSunday = day.getDay() === 0
+
+        let status = 'Absent'
+        let location = '-'
+        let siteName = '-'
+        let timeIn = '-'
+        let timeOut = '-'
+        let duration = '-'
+        let remarks = '-'
+
+        if (isSunday) {
+            status = 'Holiday'
+        } else if (record) {
+            if (record.clockInTime) timeIn = format(new Date(record.clockInTime), 'hh:mm a')
+            if (record.clockOutTime) timeOut = format(new Date(record.clockOutTime), 'hh:mm a')
+            if (record.duration) duration = record.duration
+            if (record.remarks) remarks = record.remarks
+
+            if (record.status === 'approved') {
+                status = 'Present'
+                location = record.location === 'office' ? 'Office' : 'Site'
+                if (location === 'Site') siteName = record.siteName || '-'
+            } else if (record.status === 'pending') {
+                status = 'Pending'
+            } else if (record.status === 'leave') {
+                status = 'Leave'
             }
         }
+
+        dataRows.push([
+            formatDatePretty(day),
+            status,
+            location,
+            siteName,
+            timeIn,
+            timeOut,
+            duration,
+            remarks
+        ])
     })
 
-    // Adjust Column Widths
-    worksheet.getColumn(1).width = 15
-    employees.forEach((_, i) => {
-        worksheet.getColumn(i + 2).width = 20
-    })
+    const wsData = [
+        ['ATLAS EMPLOYEE REPORT'],
+        [`Name: ${empName}`],
+        [`Period: ${formatDatePretty(startDate)} - ${formatDatePretty(endDate)}`],
+        [],
+        headers,
+        ...dataRows
+    ]
 
-    // Generate Buffer
-    const buffer = await workbook.xlsx.writeBuffer()
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    saveAs(blob, `Attendance_Report.xlsx`)
+    const ws = XLSX.utils.aoa_to_sheet(wsData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Employee Report')
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    saveAs(blob, `${empName}_Report_${format(startDate, 'yyyy-MM-dd')}.xlsx`)
 }

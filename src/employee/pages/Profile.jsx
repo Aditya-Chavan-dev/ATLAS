@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { UserCircleIcon, ArrowRightOnRectangleIcon, PhoneIcon, EnvelopeIcon, BriefcaseIcon, PencilSquareIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
@@ -10,10 +10,20 @@ export default function EmployeeProfile() {
     const navigate = useNavigate()
     const [isEditing, setIsEditing] = useState(false)
     const [editForm, setEditForm] = useState({
-        name: userProfile?.name || currentUser?.displayName || '',
-        phone: userProfile?.phone || ''
+        name: '',
+        phone: ''
     })
     const [isSaving, setIsSaving] = useState(false)
+
+    // Sync form with profile when loaded
+    useEffect(() => {
+        if (userProfile && !isEditing) {
+            setEditForm({
+                name: userProfile.name || currentUser?.displayName || '',
+                phone: userProfile.phone || ''
+            })
+        }
+    }, [userProfile, currentUser, isEditing])
 
     // Show loading while userProfile loads
     if (!userProfile) {
@@ -23,15 +33,6 @@ export default function EmployeeProfile() {
                 <p className="text-slate-500 text-sm">Loading profile...</p>
             </div>
         )
-    }
-
-    // Sync form with profile when valid
-
-    if (!isEditing && userProfile && (editForm.name !== userProfile.name || editForm.phone !== userProfile.phone)) {
-        setEditForm({
-            name: userProfile.name || currentUser?.displayName || '',
-            phone: userProfile.phone || ''
-        })
     }
 
     const handleLogout = async () => {
@@ -76,6 +77,7 @@ export default function EmployeeProfile() {
                         <button
                             onClick={() => {
                                 setIsEditing(true)
+                                // create a local copy to edit so we don't rely on the effect immediately
                                 setEditForm({
                                     name: userProfile?.name || currentUser?.displayName || '',
                                     phone: userProfile?.phone || ''
