@@ -21,6 +21,45 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
             timestamp: new Date().toISOString(),
             click_action: 'FLUTTER_NOTIFICATION_CLICK'
         },
+        // Android specific settings for banner notification
+        android: {
+            priority: 'high',
+            notification: {
+                title,
+                body,
+                priority: 'high',
+                defaultSound: true,
+                defaultVibrateTimings: true,
+                visibility: 'public', // Show on lock screen
+                notificationCount: 1
+            }
+        },
+        // Web push specific settings for banner notification
+        webpush: {
+            notification: {
+                title,
+                body,
+                icon: '/icon-192x192.png',
+                badge: '/icon-192x192.png',
+                requireInteraction: true, // Keep notification visible
+                tag: 'attendance-reminder',
+                renotify: true,
+                vibrate: [200, 100, 200],
+                actions: [
+                    {
+                        action: 'mark',
+                        title: 'Mark Attendance'
+                    },
+                    {
+                        action: 'dismiss',
+                        title: 'Dismiss'
+                    }
+                ]
+            },
+            fcmOptions: {
+                link: 'https://atlas-011.web.app/dashboard'
+            }
+        },
         tokens: validTokens
     };
 
@@ -47,3 +86,4 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
 };
 
 module.exports = { sendPushNotification };
+

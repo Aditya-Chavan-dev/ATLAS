@@ -41,34 +41,57 @@ const getEmployeesWithoutAttendance = async (dateStr) => {
 
 exports.triggerReminder = async (req, res) => {
     try {
-        const today = getTodayDateIST();
-        const pendingEmployees = await getEmployeesWithoutAttendance(today);
+        // Get ALL employees (not just pending)
+        const usersSnapshot = await db.ref('users').once('value');
+        const users = usersSnapshot.val() || {};
 
-        if (pendingEmployees.length === 0) {
+        const allEmployees = [];
+
+        Object.entries(users).forEach(([uid, user]) => {
+            // Skip MD and admin users
+            if (user.role === 'md' || user.role === 'admin') return;
+
+            // Only include users with FCM tokens
+            if (!user.fcmToken) return;
+
+            allEmployees.push({
+                uid,
+                fcmToken: user.fcmToken,
+                name: user.name || user.displayName || 'Employee',
+                email: user.email
+            });
+        });
+
+        if (allEmployees.length === 0) {
             return res.json({
                 success: true,
-                message: 'All employees have marked attendance',
-                pendingCount: 0
+                message: 'No employees found with notification tokens',
+                employeeCount: 0
             });
         }
 
-        const tokens = pendingEmployees.map(emp => emp.fcmToken);
+        const tokens = allEmployees.map(emp => emp.fcmToken);
         const result = await sendPushNotification(
             tokens,
             '📍 Mark Your Attendance',
             'Please mark your attendance for today.',
-            { type: 'MANUAL_REMINDER', date: today }
+            {
+                type: 'MANUAL_REMINDER',
+                date: new Date().toISOString().split('T')[0],
+                requireInteraction: 'true' // For banner notification
+            }
         );
 
         res.json({
             success: true,
-            pendingEmployees: pendingEmployees.length,
+            employeeCount: allEmployees.length,
             ...result
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
+
 
 exports.sendTestNotification = async (req, res) => {
     const { token, title, body } = req.body;
