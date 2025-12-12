@@ -19,6 +19,11 @@ function MDDashboard() {
     const [employees, setEmployees] = useState([])
     const [attendanceData, setAttendanceData] = useState([])
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+    const [sendingNotification, setSendingNotification] = useState(false)
+    const [notificationResult, setNotificationResult] = useState(null)
+
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
 
     useEffect(() => {
         const usersRef = ref(database, 'users')
@@ -155,6 +160,48 @@ function MDDashboard() {
         }
     }
 
+    const handleSendReminder = async () => {
+        setSendingNotification(true)
+        setNotificationResult(null)
+
+        try {
+            const response = await fetch(`${API_URL}/api/trigger-reminder`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+
+            const data = await response.json()
+
+            if (response.ok) {
+                setNotificationResult({
+                    success: true,
+                    message: data.pendingEmployees === 0
+                        ? 'All employees have marked attendance!'
+                        : `Reminder sent to ${data.pendingEmployees} employee(s)`,
+                    count: data.pendingEmployees
+                })
+            } else {
+                setNotificationResult({
+                    success: false,
+                    message: data.error || 'Failed to send reminder'
+                })
+            }
+        } catch (error) {
+            console.error('Error sending reminder:', error)
+            setNotificationResult({
+                success: false,
+                message: 'Network error. Please check if backend is running.'
+            })
+        } finally {
+            setSendingNotification(false)
+            // Clear message after 5 seconds
+            setTimeout(() => setNotificationResult(null), 5000)
+        }
+    }
+
+
     const getDaysInMonth = (monthStr) => {
         const [year, month] = monthStr.split('-')
         const date = new Date(year, month, 0)
@@ -185,6 +232,25 @@ function MDDashboard() {
                         <p>Overview of attendance and employee status</p>
                     </div>
                     <div className="header-controls">
+                        <button
+                            className="send-reminder-btn"
+                            onClick={handleSendReminder}
+                            disabled={sendingNotification}
+                        >
+                            {sendingNotification ? (
+                                <>
+                                    <span className="spinner"></span>
+                                    Sending...
+                                </>
+                            ) : (
+                                <>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                                    </svg>
+                                    Send Reminder
+                                </>
+                            )}
+                        </button>
                         <div className="view-toggle">
                             <button
                                 className={`toggle-btn ${viewMode === 'cards' ? 'active' : ''}`}
@@ -210,6 +276,16 @@ function MDDashboard() {
                         )}
                     </div>
                 </header>
+
+                {/* Notification Result Message */}
+                {notificationResult && (
+                    <div className={`notification-result ${notificationResult.success ? 'success' : 'error'}`}>
+                        <span className="result-icon">
+                            {notificationResult.success ? '✅' : '❌'}
+                        </span>
+                        <span className="result-message">{notificationResult.message}</span>
+                    </div>
+                )}
 
                 {/* Summary Stats */}
                 <div className="stats-grid">
