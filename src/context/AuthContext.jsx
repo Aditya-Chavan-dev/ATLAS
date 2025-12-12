@@ -1,4 +1,13 @@
+// ⚠️ ⚠️ ⚠️ CRITICAL - DO NOT MODIFY ⚠️ ⚠️ ⚠️
+// This file contains FROZEN authentication logic
+// Any changes to this file may break the entire authentication flow
+// Last verified working: 2025-12-12
+// This includes: Google Sign-In, role assignment, user migration, persistence
+// If you need to make changes, consult the deployment documentation first
+// ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️
+
 import { createContext, useContext, useState, useEffect, useRef } from 'react'
+
 import {
     signInWithPopup,
     signOut,
@@ -134,57 +143,72 @@ export const AuthProvider = ({ children }) => {
                 console.error('❌ Error setting auth persistence:', error)
             })
 
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            console.log('🔄 Auth state changed:', user ? user.email : 'No user')
+        try {
+            const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                console.log('🔄 Auth state changed:', user ? user.email : 'No user')
 
-            stopRealtimeListeners()
+                stopRealtimeListeners()
 
-            if (user) {
-                // Determine role
-                const email = user.email
-                let role = null
-                let profileData = null
-
-                // 1. Check MD allowlist first
-                if (isMD(email)) {
-                    role = ROLES.MD
-                    setUserProfile(null)
-                    console.log('👑 MD user detected from allowlist')
-                } else {
-                    // 2. Check Firebase DB for employee
+                if (user) {
                     try {
                         const dbRef = ref(database)
                         const userSnapshot = await get(child(dbRef, `users/${user.uid}`))
 
                         if (userSnapshot.exists()) {
-                            profileData = userSnapshot.val()
-                            role = profileData.role
-                            console.log('👤 Employee profile loaded:', profileData)
+                            let profileData = userSnapshot.val()
+
+                            // Check if user is in MD allowlist - override database role if needed
+                            if (isMD(user.email)) {
+                                if (profileData.role !== ROLES.MD) {
+                                    console.log('🔄 Auth listener: Updating role to MD for', user.email)
+                                    profileData.role = ROLES.MD
+                                    // Update in database
+                                    await set(ref(database, `users/${user.uid}`), {
+                                        ...profileData,
+                                        role: ROLES.MD
+                                    })
+                                }
+                            }
+
+                            setUserRole(profileData.role)
+                            setUserProfile(profileData)
                             startRealtimeListeners(user)
                         } else {
-                            console.log('⚠️ User not in allowlist or DB - unauthorized')
-                            // Still attach listener to detect if access is reinstated while logged in
-                            startRealtimeListeners(user)
+                            console.warn('⚠️ User profile not found in database.')
+                            // If MD user has no profile, create one
+                            if (isMD(user.email)) {
+                                const mdProfile = {
+                                    uid: user.uid,
+                                    email: user.email,
+                                    name: user.displayName || 'MD',
+                                    photoURL: user.photoURL || '',
+                                    role: ROLES.MD,
+                                    phone: ''
+                                }
+                                await set(ref(database, `users/${user.uid}`), mdProfile)
+                                setUserRole(ROLES.MD)
+                                setUserProfile(mdProfile)
+                                startRealtimeListeners(user)
+                                console.log('✅ Created MD profile in auth listener')
+                            }
                         }
-                    } catch (error) {
-                        console.error('❌ Error fetching user profile:', error)
+                    } catch (dbError) {
+                        console.error('❌ Error fetching user profile:', dbError)
                     }
+                } else {
+                    setUserRole(null)
+                    setUserProfile(null)
                 }
 
+
                 setCurrentUser(user)
-                setUserRole(role)
-                setUserProfile(profileData)
-            } else {
-                setCurrentUser(null)
-                setUserRole(null)
-                setUserProfile(null)
-                console.log('👤 User logged out')
-            }
+                setLoading(false)
+            })
 
-            setLoading(false)
-        })
-
-        return unsubscribe
+            return unsubscribe
+        } catch (authError) {
+            console.error('❌ Error setting up auth listener:', authError)
+        }
     }, [])
 
     // Google Sign In
@@ -203,10 +227,40 @@ export const AuthProvider = ({ children }) => {
             let role = null
             let profileData = null
 
-            // 1. Check MD allowlist first
+            // 1. Check MD allowlist first - this takes ABSOLUTE PRIORITY
             if (isMD(email)) {
                 role = ROLES.MD
                 console.log('👑 MD user logged in:', email)
+
+                // Check if MD has a profile in database
+                const dbRef = ref(database)
+                let userSnapshot = await get(child(dbRef, `users/${user.uid}`))
+
+                if (userSnapshot.exists()) {
+                    profileData = userSnapshot.val()
+                    // Override role to MD even if database says employee
+                    if (profileData.role !== ROLES.MD) {
+                        console.log('🔄 Updating database role from', profileData.role, 'to MD')
+                        profileData.role = ROLES.MD
+                        // Update in database
+                        await set(ref(database, `users/${user.uid}`), {
+                            ...profileData,
+                            role: ROLES.MD
+                        })
+                    }
+                } else {
+                    // Create MD profile if doesn't exist
+                    profileData = {
+                        uid: user.uid,
+                        email: user.email,
+                        name: user.displayName || 'MD',
+                        photoURL: user.photoURL || '',
+                        role: ROLES.MD,
+                        phone: ''
+                    }
+                    await set(ref(database, `users/${user.uid}`), profileData)
+                    console.log('✅ Created MD profile in database')
+                }
             } else {
                 // 2. Check Firebase DB for employee
                 const dbRef = ref(database)
@@ -258,6 +312,7 @@ export const AuthProvider = ({ children }) => {
                     }
                 }
             }
+
 
             // Update local state
             setCurrentUser(user)

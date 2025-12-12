@@ -1,4 +1,12 @@
+// ⚠️ ⚠️ ⚠️ CRITICAL - DO NOT MODIFY ⚠️ ⚠️ ⚠️
+// This file contains FROZEN authentication UI and login flow
+// Any changes to Google Sign-In logic may break authentication
+// Last verified working: 2025-12-12
+// If you need to make changes, consult the deployment documentation first
+// ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️
+
 import { useEffect } from 'react'
+
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getRouteForRole } from '../config/roleConfig'

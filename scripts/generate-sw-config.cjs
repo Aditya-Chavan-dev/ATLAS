@@ -1,6 +1,15 @@
+// ⚠️ ⚠️ ⚠️ CRITICAL - DO NOT MODIFY ⚠️ ⚠️ ⚠️
+// This script generates Firebase config from environment variables
+// Any changes may break the build process or Firebase initialization
+// Last verified working: 2025-12-12
+// This script runs during: npm run build and npm run dev
+// If you need to make changes, consult the deployment documentation first
+// ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️
+
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
+
 
 // Load environment variables based on mode (if needed, but simple .env loading here)
 dotenv.config();

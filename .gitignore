@@ -15,9 +15,21 @@ dist-ssr
 # Environment variables
 .env
 .env.local
+.env.*.local
 
 # Firebase config (contains API keys)
 public/config/firebase-config.json
+
+# Service accounts and credentials
+serviceAccountKey.json
+**/serviceAccount*.json
+*.pem
+*.key
+
+# Verification and debug scripts (may contain sensitive data)
+verify-env.js
+check-config.ps1
+verify-output.txt
 
 # Editor directories and files
 .vscode/*

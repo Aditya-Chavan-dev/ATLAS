@@ -92,24 +92,31 @@
 
 ## 📝 Environment Variables (Configured)
 
+**⚠️ SECURITY NOTE**: Actual values are stored securely in `.env` file (not committed to git)
+
 ### Frontend (.env)
 ```
-VITE_FIREBASE_API_KEY=AIzaSyBDzlNMXnr8vxHLdJBGBPNHKqYJJPmEQzA
-VITE_FIREBASE_AUTH_DOMAIN=atlas-011.firebaseapp.com
-VITE_FIREBASE_DATABASE_URL=https://atlas-011-default-rtdb.firebaseio.com
-VITE_FIREBASE_PROJECT_ID=atlas-011
-VITE_FIREBASE_STORAGE_BUCKET=atlas-011.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=1085829854896
-VITE_FIREBASE_APP_ID=1:1085829854896:web:c2e4e0e5a6a1e6f8d4abd3
+VITE_FIREBASE_API_KEY=<configured-in-env-file>
+VITE_FIREBASE_AUTH_DOMAIN=<configured-in-env-file>
+VITE_FIREBASE_DATABASE_URL=<configured-in-env-file>
+VITE_FIREBASE_PROJECT_ID=<configured-in-env-file>
+VITE_FIREBASE_STORAGE_BUCKET=<configured-in-env-file>
+VITE_FIREBASE_MESSAGING_SENDER_ID=<configured-in-env-file>
+VITE_FIREBASE_APP_ID=<configured-in-env-file>
 VITE_API_URL=https://atlas-backend-gncd.onrender.com
 ```
 
+See `.env.example` for template.
+
 ### Backend (Render Environment Variables)
 ```
-FIREBASE_SERVICE_ACCOUNT=[Your service account JSON]
-FIREBASE_DATABASE_URL=https://atlas-011-default-rtdb.firebaseio.com
+FIREBASE_SERVICE_ACCOUNT=<configured-in-render-dashboard>
+FIREBASE_DATABASE_URL=<configured-in-render-dashboard>
 PORT=5000
 ```
+
+**Note**: Service account JSON is configured directly in Render dashboard, never committed to git.
+
 
 ---
 
