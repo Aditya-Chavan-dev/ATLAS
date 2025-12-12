@@ -1,5 +1,5 @@
 const ExcelJS = require('exceljs');
-const admin = require('../config/firebase');
+const { admin, db } = require('../config/firebase');
 
 const exportAttendanceReport = async (req, res) => {
     try {
@@ -13,7 +13,7 @@ const exportAttendanceReport = async (req, res) => {
         const yearNum = parseInt(year);
 
         // Fetch all employees
-        const usersSnapshot = await admin.database().ref('users').once('value');
+        const usersSnapshot = await db.ref('users').once('value');
         const usersData = usersSnapshot.val() || {};
 
         const employees = Object.entries(usersData)
@@ -29,12 +29,13 @@ const exportAttendanceReport = async (req, res) => {
             });
 
         // Fetch all attendance records
-        const attendanceSnapshot = await admin.database().ref('attendance').once('value');
+        const attendanceSnapshot = await db.ref('attendance').once('value');
         const attendanceData = attendanceSnapshot.val() || {};
         const attendanceRecords = Object.values(attendanceData);
 
         // Fetch all leaves
-        const leavesSnapshot = await admin.database().ref('leaves').once('value');
+        const leavesSnapshot = await db.ref('leaves').once('value');
+
         const leavesData = leavesSnapshot.val() || {};
         const allLeaves = [];
         Object.values(leavesData).forEach(userLeaves => {
