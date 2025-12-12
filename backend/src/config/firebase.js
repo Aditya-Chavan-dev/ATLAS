@@ -1,8 +1,16 @@
 const admin = require('firebase-admin');
 require('dotenv').config();
 
+console.log('🔧 Initializing Firebase Admin SDK...');
+console.log('Environment check:', {
+    hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+    hasDatabaseURL: !!process.env.FIREBASE_DATABASE_URL,
+    nodeEnv: process.env.NODE_ENV || 'development'
+});
+
 const initializeFirebase = () => {
     if (admin.apps.length > 0) {
+        console.log('✅ Firebase already initialized');
         return admin.apps[0];
     }
 
@@ -12,24 +20,47 @@ const initializeFirebase = () => {
         try {
             const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
             credential = admin.credential.cert(serviceAccount);
-            console.log('✅ Firebase initialized with environment variable');
+            console.log('✅ Firebase credential loaded from FIREBASE_SERVICE_ACCOUNT');
         } catch (error) {
-            console.error('❌ Error parsing FIREBASE_SERVICE_ACCOUNT:', error);
-            process.exit(1);
+            console.error('❌ Error parsing FIREBASE_SERVICE_ACCOUNT:', error.message);
+            throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT JSON');
         }
     } else {
-        console.log('⚠️ No FIREBASE_SERVICE_ACCOUNT found. Using default credentials.');
-        credential = admin.credential.applicationDefault();
+        console.error('❌ FIREBASE_SERVICE_ACCOUNT environment variable is missing!');
+        throw new Error('FIREBASE_SERVICE_ACCOUNT is required');
     }
 
-    return admin.initializeApp({
-        credential: credential,
-        databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://atlas-011-default-rtdb.firebaseio.com'
-    });
+    const databaseURL = process.env.FIREBASE_DATABASE_URL || 'https://atlas-011-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+    console.log('🔗 Connecting to Firebase Database:', databaseURL);
+
+    try {
+        const app = admin.initializeApp({
+            credential: credential,
+            databaseURL: databaseURL
+        });
+        console.log('✅ Firebase Admin SDK initialized successfully');
+        return app;
+    } catch (error) {
+        console.error('❌ Failed to initialize Firebase:', error.message);
+        throw error;
+    }
 };
 
-const app = initializeFirebase();
-const db = admin.database();
-const messaging = admin.messaging();
+// Initialize Firebase
+let app, db, messaging;
+
+try {
+    app = initializeFirebase();
+    db = admin.database();
+    messaging = admin.messaging();
+    console.log('✅ Firebase services ready (database, messaging)');
+} catch (error) {
+    console.error('❌ CRITICAL: Firebase initialization failed:', error.message);
+    console.error('The server will start but Firebase features will not work.');
+    console.error('Please check your environment variables on Render dashboard.');
+    // Don't exit - let the server start so we can see health check
+}
 
 module.exports = { admin, db, messaging };
+

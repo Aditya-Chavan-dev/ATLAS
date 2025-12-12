@@ -102,12 +102,26 @@ const exportAttendanceReport = async (req, res) => {
             // Date column
             const dateCell = row.getCell(1);
             dateCell.value = `${date.getDate()}-${monthName}-${yearNum.toString().slice(-2)}`;
-            dateCell.font = { bold: true };
+            dateCell.font = { bold: true, size: 11 };
+            dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+            // Highlight Sunday dates in yellow
+            if (isSunday) {
+                dateCell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFFFFF00' } // Yellow
+                };
+            }
 
             employees.forEach((emp, empIndex) => {
                 const cell = row.getCell(empIndex + 2);
                 const empName = (emp.name || '').toUpperCase();
                 const isRVS = empName.includes('RVS');
+
+                // Default font - BOLD everywhere
+                cell.font = { bold: true, size: 10 };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
 
                 // RVS auto-marking logic
                 if (isRVS) {
@@ -116,12 +130,11 @@ const exportAttendanceReport = async (req, res) => {
                         cell.fill = {
                             type: 'pattern',
                             pattern: 'solid',
-                            fgColor: { argb: 'FFFFFF00' } // Yellow
+                            fgColor: { argb: 'FFFFFF00' } // Yellow for Sunday
                         };
                     } else {
                         cell.value = 'OFFICE';
                     }
-                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
                     return;
                 }
 
@@ -142,14 +155,14 @@ const exportAttendanceReport = async (req, res) => {
                     cell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
-                        fgColor: { argb: 'FFFFFF00' } // Yellow
+                        fgColor: { argb: 'FFFFFF00' } // Yellow for Sunday
                     };
                 } else if (leave) {
                     cell.value = 'L';
                     cell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
-                        fgColor: { argb: 'FF90EE90' } // Light green
+                        fgColor: { argb: 'FF90EE90' } // Light green for leave
                     };
                 } else {
                     // Check attendance record
@@ -168,30 +181,40 @@ const exportAttendanceReport = async (req, res) => {
                         cell.value = '';
                     }
                 }
-
-                cell.alignment = { horizontal: 'center', vertical: 'middle' };
             });
         });
 
-        // Set column widths
-        worksheet.getColumn(1).width = 15;
-        for (let i = 2; i <= employees.length + 1; i++) {
-            worksheet.getColumn(i).width = 18;
-        }
 
-        // Add borders to all cells
+        // Set column widths dynamically based on content
+        worksheet.getColumn(1).width = 15; // Date column
+
+        employees.forEach((emp, index) => {
+            const empName = (emp.name || emp.email).toUpperCase();
+            // Calculate width based on name length, minimum 12, maximum 25
+            const nameLength = empName.length;
+            const columnWidth = Math.max(12, Math.min(25, nameLength + 2));
+            worksheet.getColumn(index + 2).width = columnWidth;
+        });
+
+        // Add borders to all cells with data
         worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber >= 3) {
+            if (rowNumber >= 3) { // From header row onwards
                 row.eachCell((cell) => {
                     cell.border = {
-                        top: { style: 'thin' },
-                        left: { style: 'thin' },
-                        bottom: { style: 'thin' },
-                        right: { style: 'thin' }
+                        top: { style: 'thin', color: { argb: 'FF000000' } },
+                        left: { style: 'thin', color: { argb: 'FF000000' } },
+                        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+                        right: { style: 'thin', color: { argb: 'FF000000' } }
                     };
                 });
             }
         });
+
+        // Set row heights for better visibility
+        worksheet.getRow(1).height = 25; // Title row
+        worksheet.getRow(2).height = 20; // Subtitle row
+        worksheet.getRow(3).height = 20; // Header row
+
 
         // Generate buffer
         const buffer = await workbook.xlsx.writeBuffer();
