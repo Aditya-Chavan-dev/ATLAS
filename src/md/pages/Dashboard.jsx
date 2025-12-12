@@ -177,10 +177,10 @@ function MDDashboard() {
             if (response.ok) {
                 setNotificationResult({
                     success: true,
-                    message: data.pendingEmployees === 0
-                        ? 'All employees have marked attendance!'
-                        : `Reminder sent to ${data.pendingEmployees} employee(s)`,
-                    count: data.pendingEmployees
+                    message: data.employeeCount === 0
+                        ? 'No employees found with notification tokens'
+                        : `Reminder sent to ${data.employeeCount} employee(s)`,
+                    count: data.employeeCount
                 })
             } else {
                 setNotificationResult({
