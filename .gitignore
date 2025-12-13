@@ -41,3 +41,19 @@ verify-output.txt
 *.njsproj
 *.sln
 *.sw?
+
+# Additional security patterns
+*.secrets
+*.credentials
+**/secrets/
+**/credentials/
+.npmrc
+.yarnrc
+
+# Debug and log files that might contain sensitive data
+build_*.txt
+*_error.txt
+vite_error.txt
+build_error.log
+build_output_full.txt
+

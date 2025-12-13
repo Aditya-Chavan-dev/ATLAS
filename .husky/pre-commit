@@ -1,0 +1,60 @@
+#!/bin/sh
+#
+# Pre-commit hook to prevent committing secrets
+# Scans staged files for patterns that look like API keys or secrets
+#
+
+echo "🔒 Scanning for secrets..."
+
+# Get staged files (excluding certain file types)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | grep -v "\.md$" | grep -v "package-lock\.json$" | grep -v "yarn\.lock$" | grep -v "\.secretsignore$")
+
+if [ -z "$STAGED_FILES" ]; then
+    echo "✅ No files to scan"
+    exit 0
+fi
+
+FOUND=0
+
+# Check for Firebase API keys (AIzaSy followed by 33 chars)
+if echo "$STAGED_FILES" | xargs grep -lE "AIzaSy[a-zA-Z0-9_-]{33}" 2>/dev/null | grep -v "\.md$"; then
+    echo "🚨 Firebase API Key detected!"
+    FOUND=1
+fi
+
+# Check for Google OAuth tokens
+if echo "$STAGED_FILES" | xargs grep -lE "ya29\.[a-zA-Z0-9_-]{50,}" 2>/dev/null; then
+    echo "🚨 Google OAuth token detected!"
+    FOUND=1
+fi
+
+# Check for private keys
+if echo "$STAGED_FILES" | xargs grep -lE "-----BEGIN (RSA |EC )?PRIVATE KEY-----" 2>/dev/null; then
+    echo "🚨 Private key detected!"
+    FOUND=1
+fi
+
+# Check for AWS keys
+if echo "$STAGED_FILES" | xargs grep -lE "AKIA[0-9A-Z]{16}" 2>/dev/null; then
+    echo "🚨 AWS Access Key detected!"
+    FOUND=1
+fi
+
+# Check for GitHub tokens
+if echo "$STAGED_FILES" | xargs grep -lE "ghp_[a-zA-Z0-9]{36}" 2>/dev/null; then
+    echo "🚨 GitHub token detected!"
+    FOUND=1
+fi
+
+if [ $FOUND -eq 1 ]; then
+    echo ""
+    echo "❌ COMMIT BLOCKED: Secrets detected in staged files!"
+    echo ""
+    echo "To bypass (NOT recommended): git commit --no-verify"
+    echo "Better: Remove the secret and use environment variables"
+    echo ""
+    exit 1
+fi
+
+echo "✅ No secrets detected"
+exit 0
