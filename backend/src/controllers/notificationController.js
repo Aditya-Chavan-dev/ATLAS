@@ -28,26 +28,22 @@ exports.unsubscribeFromBroadcast = async (req, res) => {
     }
 };
 
+// UPDATED: Use new /employees structure with nested attendance
 const getEmployeesWithoutAttendance = async (dateStr) => {
     try {
-        const usersSnapshot = await db.ref('users').once('value');
-        const users = usersSnapshot.val() || {};
-
-        const attendanceSnapshot = await db.ref('attendance').once('value');
-        const allAttendance = attendanceSnapshot.val() || {};
-
-        const todayAttendanceEmployeeIds = new Set();
-        Object.values(allAttendance).forEach(record => {
-            if (record.date === dateStr && record.employeeId) {
-                todayAttendanceEmployeeIds.add(record.employeeId);
-            }
-        });
+        // NEW: Query /employees which contains both profile and nested attendance
+        const employeesSnapshot = await db.ref('employees').once('value');
+        const employees = employeesSnapshot.val() || {};
 
         const pendingEmployees = [];
 
-        Object.entries(users).forEach(([uid, user]) => {
-            if (user.role === 'md' || user.role === 'admin') return;
-            if (todayAttendanceEmployeeIds.has(uid)) return;
+        Object.entries(employees).forEach(([uid, emp]) => {
+            // Skip MD and admin roles
+            if (emp.role === 'md' || emp.role === 'admin') return;
+
+            // Check if employee has attendance for today (in nested structure)
+            const hasAttendance = emp.attendance && emp.attendance[dateStr];
+            if (hasAttendance) return;
             // if (!user.fcmToken) return; // Allow listing even if no token, for UI
 
             pendingEmployees.push({
@@ -69,17 +65,16 @@ exports.triggerReminder = async (req, res) => {
     try {
         console.log('📢 Triggering Manual Reminder to ALL employees...');
 
-        // Get all users from database
-        const usersSnapshot = await db.ref('users').once('value');
+        // NEW: Query /employees instead of /users
+        const usersSnapshot = await db.ref('employees').once('value');
         const users = usersSnapshot.val() || {};
 
-        // Collect all employee FCM tokens (excluding MD/admin roles)
+        // Collect all employee FCM tokens
         const employeeTokens = [];
         const employeeNames = [];
 
         Object.entries(users).forEach(([uid, user]) => {
-            // Include all users except MD and admin (they should also get reminders if needed)
-            // Actually, user wants ALL profiles to receive notifications
+            // Include all profiles with FCM tokens
             if (user.fcmToken && typeof user.fcmToken === 'string' && user.fcmToken.length > 0) {
                 employeeTokens.push(user.fcmToken);
                 employeeNames.push(user.name || user.email || uid);

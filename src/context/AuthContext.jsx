@@ -1,10 +1,7 @@
-// ⚠️ ⚠️ ⚠️ CRITICAL - DO NOT MODIFY ⚠️ ⚠️ ⚠️
-// This file contains FROZEN authentication logic
-// Any changes to this file may break the entire authentication flow
-// Last verified working: 2025-12-12
-// This includes: Google Sign-In, role assignment, user migration, persistence
-// If you need to make changes, consult the deployment documentation first
-// ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️
+// AuthContext - Updated 2025-12-13
+// Database structure changed from /users to /employees
+// Employee data now includes: employeeId, dateOfBirth
+// Attendance nested under /employees/{uid}/attendance/{date}
 
 import { createContext, useContext, useState, useEffect, useRef } from 'react'
 
@@ -66,7 +63,7 @@ export const AuthProvider = ({ children }) => {
         if (!user?.uid) return
 
         const normalizedEmail = user.email?.toLowerCase()
-        const userRef = ref(database, `users/${user.uid}`)
+        const userRef = ref(database, `employees/${user.uid}`)
 
         const handleProfileSnapshot = (snapshot) => {
             if (snapshot.exists()) {
@@ -87,8 +84,8 @@ export const AuthProvider = ({ children }) => {
 
         if (!normalizedEmail) return
 
-        const usersRef = ref(database, 'users')
-        const emailQuery = query(usersRef, orderByChild('email'), equalTo(normalizedEmail))
+        const employeesRef = ref(database, 'employees')
+        const emailQuery = query(employeesRef, orderByChild('email'), equalTo(normalizedEmail))
 
         const handleEmailSnapshot = async (snapshot) => {
             if (!snapshot.exists()) return
@@ -107,8 +104,8 @@ export const AuthProvider = ({ children }) => {
                         photoURL: user.photoURL || profileData.photoURL || '',
                         role: profileData.role || ROLES.EMPLOYEE
                     }
-                    await set(ref(database, `users/${user.uid}`), updatedProfile)
-                    await remove(ref(database, `users/${oldUid}`))
+                    await set(ref(database, `employees/${user.uid}`), updatedProfile)
+                    await remove(ref(database, `employees/${oldUid}`))
                     console.log('♻️ Auto-migrated placeholder record back to user UID:', normalizedEmail)
                 } catch (error) {
                     console.error('❌ Error migrating placeholder record:', error)
@@ -152,7 +149,7 @@ export const AuthProvider = ({ children }) => {
                 if (user) {
                     try {
                         const dbRef = ref(database)
-                        const userSnapshot = await get(child(dbRef, `users/${user.uid}`))
+                        const userSnapshot = await get(child(dbRef, `employees/${user.uid}`))
 
                         if (userSnapshot.exists()) {
                             let profileData = userSnapshot.val()
@@ -163,7 +160,7 @@ export const AuthProvider = ({ children }) => {
                                     console.log('🔄 Auth listener: Updating role to MD for', user.email)
                                     profileData.role = ROLES.MD
                                     // Update in database
-                                    await set(ref(database, `users/${user.uid}`), {
+                                    await set(ref(database, `employees/${user.uid}`), {
                                         ...profileData,
                                         role: ROLES.MD
                                     })
@@ -185,7 +182,7 @@ export const AuthProvider = ({ children }) => {
                                     role: ROLES.MD,
                                     phone: ''
                                 }
-                                await set(ref(database, `users/${user.uid}`), mdProfile)
+                                await set(ref(database, `employees/${user.uid}`), mdProfile)
                                 setUserRole(ROLES.MD)
                                 setUserProfile(mdProfile)
                                 startRealtimeListeners(user)
@@ -234,7 +231,7 @@ export const AuthProvider = ({ children }) => {
 
                 // Check if MD has a profile in database
                 const dbRef = ref(database)
-                let userSnapshot = await get(child(dbRef, `users/${user.uid}`))
+                let userSnapshot = await get(child(dbRef, `employees/${user.uid}`))
 
                 if (userSnapshot.exists()) {
                     profileData = userSnapshot.val()
@@ -243,7 +240,7 @@ export const AuthProvider = ({ children }) => {
                         console.log('🔄 Updating database role from', profileData.role, 'to MD')
                         profileData.role = ROLES.MD
                         // Update in database
-                        await set(ref(database, `users/${user.uid}`), {
+                        await set(ref(database, `employees/${user.uid}`), {
                             ...profileData,
                             role: ROLES.MD
                         })
@@ -258,13 +255,13 @@ export const AuthProvider = ({ children }) => {
                         role: ROLES.MD,
                         phone: ''
                     }
-                    await set(ref(database, `users/${user.uid}`), profileData)
+                    await set(ref(database, `employees/${user.uid}`), profileData)
                     console.log('✅ Created MD profile in database')
                 }
             } else {
                 // 2. Check Firebase DB for employee
                 const dbRef = ref(database)
-                let userSnapshot = await get(child(dbRef, `users/${user.uid}`))
+                let userSnapshot = await get(child(dbRef, `employees/${user.uid}`))
 
                 if (userSnapshot.exists()) {
                     // Existing employee with correct UID
@@ -275,8 +272,8 @@ export const AuthProvider = ({ children }) => {
                     // 3. Fallback: Check if added by MD (lookup by email)
                     // This handles the first login where the user has a placeholder UID
                     console.log('🔍 Checking for pre-added employee record by email...')
-                    const usersRef = ref(database, 'users')
-                    const emailQuery = query(usersRef, orderByChild('email'), equalTo(email))
+                    const employeesRef = ref(database, 'employees')
+                    const emailQuery = query(employeesRef, orderByChild('email'), equalTo(email))
                     const emailSnapshot = await get(emailQuery)
 
                     if (emailSnapshot.exists()) {
@@ -296,10 +293,10 @@ export const AuthProvider = ({ children }) => {
                         }
 
                         // Save to new location (real UID)
-                        await set(ref(database, `users/${user.uid}`), updatedProfile)
+                        await set(ref(database, `employees/${user.uid}`), updatedProfile)
 
                         // Delete old placeholder record
-                        await remove(ref(database, `users/${oldUid}`))
+                        await remove(ref(database, `employees/${oldUid}`))
 
                         role = updatedProfile.role
                         profileData = updatedProfile

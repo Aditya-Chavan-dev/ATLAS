@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { ref, onValue, set, push } from 'firebase/database'
+import { ref, onValue, set } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { useNavigate } from 'react-router-dom'
 import './Dashboard.css'
@@ -26,30 +26,62 @@ function MDDashboard() {
 
 
     useEffect(() => {
-        const usersRef = ref(database, 'users')
-        const attendanceRef = ref(database, 'attendance')
+        // NEW: Query /employees which contains both profile and attendance
+        const employeesRef = ref(database, 'employees')
         const leavesRef = ref(database, 'leaves')
 
         // Internal stores to avoid stale closures in effects
-        let rawUsers = {}
-        let rawAttendance = {}
+        let rawEmployees = {}
         let rawLeaves = {}
 
         const updateState = () => {
-            // Basic User List
-            const userList = Object.entries(rawUsers)
-                .map(([uid, user]) => ({ uid, ...user, lastSeen: 'Never' }))
-                .filter(u => u.role !== 'md' && u.role !== 'admin')
+            const today = new Date().toISOString().split('T')[0]
 
-            const attRecords = Object.values(rawAttendance)
+            // Build user list and aggregate attendance from nested structure
+            const userList = []
+            const allAttendance = []
+
+            Object.entries(rawEmployees).forEach(([uid, empData]) => {
+                // Skip MD and admin roles
+                if (empData.role === 'md' || empData.role === 'admin') return
+
+                // Extract attendance from nested path
+                const attendanceRecords = empData.attendance || {}
+
+                // Find last seen (most recent attendance date)
+                const dates = Object.keys(attendanceRecords).sort().reverse()
+                const lastSeen = dates.length > 0 ? dates[0] : 'Never'
+
+                userList.push({
+                    uid,
+                    name: empData.name,
+                    email: empData.email,
+                    phone: empData.phone,
+                    role: empData.role,
+                    employeeId: empData.employeeId,
+                    dateOfBirth: empData.dateOfBirth,
+                    lastSeen
+                })
+
+                // Flatten attendance for grid view
+                Object.entries(attendanceRecords).forEach(([date, record]) => {
+                    allAttendance.push({
+                        ...record,
+                        date,
+                        employeeId: uid,
+                        employeeEmail: empData.email
+                    })
+                })
+            })
+
+            // Get today's attendance
+            const todayAttendance = allAttendance.filter(r => r.date === today)
+
+            // Leave records
             const leaveRecords = []
             Object.values(rawLeaves).forEach(userLeaves => {
                 Object.values(userLeaves).forEach(l => leaveRecords.push(l))
             })
-
-            // Today Info
-            const today = new Date().toISOString().split('T')[0]
-            const todayAttendance = attRecords.filter(r => r.date === today)
 
             // Check Leaves for Today
             const todayLeaves = leaveRecords.filter(l => {
@@ -63,56 +95,31 @@ function MDDashboard() {
                 return t >= start && t <= end
             })
 
-            // Map Last Seen
-            const userMap = new Map()
-            userList.forEach(u => userMap.set(u.uid, u))
-
-            attRecords.forEach(r => {
-                const u = userMap.get(r.employeeId) // Assuming employeeId is uid.
-                if (u) {
-                    if (!u.lastSeen || u.lastSeen === 'Never' || r.date > u.lastSeen) {
-                        u.lastSeen = r.date
-                    }
-                } else {
-                    // Fallback if employeeId was email in old records
-                    const uByEmail = userList.find(user => user.email === r.employeeEmail)
-                    if (uByEmail && (!uByEmail.lastSeen || uByEmail.lastSeen === 'Never' || r.date > uByEmail.lastSeen)) {
-                        uByEmail.lastSeen = r.date
-                    }
-                }
-            })
-
-            setAttendanceData(attRecords)
+            setAttendanceData(allAttendance)
             setEmployees(userList)
 
-            // Stats
-            // Use Set to ensure unique employees are counted (fixes increment bug if duplicates exist)
-            const presentTodayEmails = new Set(
+            // Stats - use Set for unique employees
+            const presentTodaySet = new Set(
                 todayAttendance
                     .filter(r => r.status === 'approved')
-                    .map(r => r.employeeEmail || r.employeeId)
+                    .map(r => r.employeeId)
             )
 
             setStats({
                 totalEmployees: userList.length,
-                presentToday: presentTodayEmails.size,
+                presentToday: presentTodaySet.size,
                 onLeave: todayLeaves.length,
                 onSite: todayAttendance.filter(r => r.status === 'approved' && r.location === 'site').length
             })
 
-            // Handle 2nd MD (using all records)
-            // Debounce or check narrowly to avoid loops
-            handleSecondMDAttendance(attRecords, today)
+            // Handle 2nd MD auto-attendance
+            handleSecondMDAttendance(rawEmployees, today)
 
             setLoading(false)
         }
 
-        const unsubUsers = onValue(usersRef, (snap) => {
-            rawUsers = snap.val() || {}
-            updateState()
-        })
-        const unsubAtt = onValue(attendanceRef, (snap) => {
-            rawAttendance = snap.val() || {}
+        const unsubEmployees = onValue(employeesRef, (snap) => {
+            rawEmployees = snap.val() || {}
             updateState()
         })
         const unsubLeaves = onValue(leavesRef, (snap) => {
@@ -121,8 +128,7 @@ function MDDashboard() {
         })
 
         return () => {
-            unsubUsers()
-            unsubAtt()
+            unsubEmployees()
             unsubLeaves()
         }
     }, [])
@@ -130,7 +136,20 @@ function MDDashboard() {
     // Ref to track auto-marking attempts to avoid infinite loops/race conditions
     const autoMarkedDates = useRef(new Set())
 
-    const handleSecondMDAttendance = async (records, todayStr) => {
+    const handleSecondMDAttendance = async (employeesData, todayStr) => {
+        // Find 2nd MD in employees data
+        let secondMdUid = null
+        Object.entries(employeesData).forEach(([uid, emp]) => {
+            if (emp.email === SECOND_MD_CONFIG.email) {
+                secondMdUid = uid
+            }
+        })
+
+        if (!secondMdUid) return // 2nd MD not found in system
+
+        const secondMdData = employeesData[secondMdUid]
+        const attendanceRecords = secondMdData?.attendance || {}
+
         // Check last 7 days to backfill if missed
         const daysToCheck = 7
         const today = new Date()
@@ -147,11 +166,8 @@ function MDDashboard() {
             // If we already attempted to mark this date this session, skip
             if (autoMarkedDates.current.has(dateStr)) continue
 
-            // Check if 2nd MD has attendance for this date
-            const hasAttendance = records.some(r =>
-                (r.employeeEmail === SECOND_MD_CONFIG.email) &&
-                r.date === dateStr
-            )
+            // Check if 2nd MD has attendance for this date (in nested structure)
+            const hasAttendance = attendanceRecords[dateStr] !== undefined
 
             if (!hasAttendance) {
                 // Optimistically mark as handled so we don't retry immediately
@@ -159,11 +175,11 @@ function MDDashboard() {
 
                 console.log(`Auto-marking attendance for 2nd MD on ${dateStr}...`)
                 try {
-                    const newRef = push(ref(database, 'attendance'))
-                    await set(newRef, {
+                    // NEW PATH: /employees/{uid}/attendance/{date}
+                    const attendanceRef = ref(database, `employees/${secondMdUid}/attendance/${dateStr}`)
+                    await set(attendanceRef, {
                         employeeEmail: SECOND_MD_CONFIG.email,
                         employeeName: SECOND_MD_CONFIG.name,
-                        date: dateStr,
                         timestamp: d.getTime(),
                         location: 'office',
                         status: 'approved',
@@ -172,8 +188,6 @@ function MDDashboard() {
                     })
                 } catch (error) {
                     console.error(`Failed to auto-mark 2nd MD attendance for ${dateStr}:`, error)
-                    // If failed, allow retry later? Maybe safest to leave blocked for this session
-                    // autoMarkedDates.current.delete(dateStr) 
                 }
             } else {
                 // If found, no need to check again this session

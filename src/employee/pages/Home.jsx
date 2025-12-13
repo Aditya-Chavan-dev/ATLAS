@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { format, isSunday } from 'date-fns'
 import { MapPinIcon, BuildingOfficeIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
-import { ref, onValue, push, update } from 'firebase/database'
+import { ref, onValue, set, update } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
 import AttendanceModal from '../components/AttendanceModal'
@@ -28,29 +28,21 @@ export default function EmployeeHome() {
         return () => clearInterval(timer)
     }, [])
 
-    // Real-time listener for today's attendance - updates instantly when MD approves/rejects
+    // Real-time listener for today's attendance - now from /employees/{uid}/attendance/{date}
     useEffect(() => {
         if (!currentUser) return
 
         const todayStr = format(new Date(), 'yyyy-MM-dd')
-        const attendanceRef = ref(database, 'attendance')
+        // New path: /employees/{uid}/attendance/{date}
+        const attendanceRef = ref(database, `employees/${currentUser.uid}/attendance/${todayStr}`)
 
         // Real-time listener - no refresh needed!
         const unsubscribe = onValue(attendanceRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val()
-                // Find today's attendance for current user
-                const todayEntry = Object.entries(data).find(([id, item]) =>
-                    item.date === todayStr && item.employeeId === currentUser.uid
-                )
-                if (todayEntry) {
-                    setTodayAttendance({ id: todayEntry[0], ...todayEntry[1] })
-                    // Track correction count for the day
-                    setCorrectionCount(todayEntry[1].correctionCount || 0)
-                } else {
-                    setTodayAttendance(null)
-                    setCorrectionCount(0)
-                }
+                setTodayAttendance({ date: todayStr, ...data })
+                // Track correction count for the day
+                setCorrectionCount(data.correctionCount || 0)
             } else {
                 setTodayAttendance(null)
                 setCorrectionCount(0)
@@ -73,7 +65,6 @@ export default function EmployeeHome() {
                 status: 'pending', // All new attendance goes for approval
                 location: status.toLowerCase(), // 'office' or 'site'
                 siteName: siteName || null,
-                date: todayStr,
                 timestamp: now.getTime(),
                 submittedAt: now.toISOString(),
                 employeeId: currentUser.uid,
@@ -81,11 +72,11 @@ export default function EmployeeHome() {
                 employeeName: currentUser.displayName || 'Unknown'
             }
 
-            // Push new attendance record
-            const attendanceRef = ref(database, 'attendance')
-            const newRef = await push(attendanceRef, attendanceData)
+            // NEW: Write to employee-specific path: /employees/{uid}/attendance/{date}
+            const attendanceRef = ref(database, `employees/${currentUser.uid}/attendance/${todayStr}`)
+            await set(attendanceRef, attendanceData)
 
-            setTodayAttendance({ id: newRef.key, ...attendanceData })
+            setTodayAttendance({ date: todayStr, ...attendanceData })
             setIsModalOpen(false)
             showMessageModal('Success', 'Attendance marked successfully!', 'success')
         } catch (error) {
@@ -99,8 +90,8 @@ export default function EmployeeHome() {
     const handleCorrectionRequest = async (newStatus, newSiteName = '') => {
         if (!currentUser || !todayAttendance) return
 
-        // Ensure we have a valid attendance ID
-        if (!todayAttendance.id) {
+        // Ensure we have a valid attendance date
+        if (!todayAttendance.date) {
             showMessageModal('Error', 'Unable to submit correction. Please refresh the page and try again.', 'error')
             return
         }
@@ -144,10 +135,10 @@ export default function EmployeeHome() {
                 isCorrection: true
             }
 
-            console.log('Submitting correction:', { id: todayAttendance.id, correctionData })
+            console.log('Submitting correction:', { date: todayAttendance.date, correctionData })
 
-            // Update existing attendance record with correction request
-            await update(ref(database, `attendance/${todayAttendance.id}`), correctionData)
+            // Update existing attendance record with correction request - NEW PATH
+            await update(ref(database, `employees/${currentUser.uid}/attendance/${todayAttendance.date}`), correctionData)
 
             setTodayAttendance({ ...todayAttendance, ...correctionData })
             setCorrectionCount(newCorrectionCount)

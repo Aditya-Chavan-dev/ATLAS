@@ -11,32 +11,32 @@ export default function EmployeeHistory() {
     const [attendanceData, setAttendanceData] = useState({})
     const [loading, setLoading] = useState(true)
 
-    // Real-time listener for attendance data
+    // Real-time listener for attendance data - NEW: from /employees/{uid}/attendance
     useEffect(() => {
         if (!currentUser) return
 
-        const attendanceRef = ref(database, 'attendance')
+        // NEW PATH: /employees/{uid}/attendance (all attendance for this user)
+        const attendanceRef = ref(database, `employees/${currentUser.uid}/attendance`)
 
         // Real-time listener - updates automatically when data changes
         const unsubscribe = onValue(attendanceRef, (snapshot) => {
             setLoading(true)
             if (snapshot.exists()) {
-                const data = snapshot.val()
+                const allData = snapshot.val() // { "2025-12-01": {...}, "2025-12-02": {...}, ... }
                 const monthData = {}
 
                 // Get first and last day of selected month
                 const start = startOfMonth(currentDate)
                 const end = endOfMonth(currentDate)
 
-                // Filter attendance records for current user and selected month
-                Object.entries(data).forEach(([id, record]) => {
-                    if (record.employeeId === currentUser.uid && record.date) {
-                        const recordDate = new Date(record.date)
-                        if (recordDate >= start && recordDate <= end) {
-                            monthData[record.date] = {
-                                ...record,
-                                id
-                            }
+                // Filter attendance records for selected month
+                // In new structure, keys are dates like "2025-12-13"
+                Object.entries(allData).forEach(([dateStr, record]) => {
+                    const recordDate = new Date(dateStr)
+                    if (recordDate >= start && recordDate <= end) {
+                        monthData[dateStr] = {
+                            ...record,
+                            date: dateStr // Ensure date is included
                         }
                     }
                 })

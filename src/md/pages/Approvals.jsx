@@ -23,15 +23,16 @@ function MDApprovals() {
 
     const closeMainModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }))
 
-    const [rawAttendance, setRawAttendance] = useState({})
+    const [rawEmployees, setRawEmployees] = useState({})
     const [rawLeaves, setRawLeaves] = useState({})
 
     useEffect(() => {
-        const attendanceRef = ref(database, 'attendance')
+        // NEW: Query /employees which contains nested attendance
+        const employeesRef = ref(database, 'employees')
         const leavesRef = ref(database, 'leaves')
 
-        const unsubAtt = onValue(attendanceRef, (snapshot) => {
-            setRawAttendance(snapshot.val() || {})
+        const unsubEmployees = onValue(employeesRef, (snapshot) => {
+            setRawEmployees(snapshot.val() || {})
         })
 
         const unsubLeaves = onValue(leavesRef, (snapshot) => {
@@ -39,19 +40,34 @@ function MDApprovals() {
         })
 
         return () => {
-            unsubAtt()
+            unsubEmployees()
             unsubLeaves()
         }
     }, [])
 
     useEffect(() => {
-        const attItems = Object.entries(rawAttendance)
-            .map(([id, item]) => ({ id, ...item, reqType: 'attendance' }))
-            .filter(item =>
-                item.status === 'pending' ||
-                item.status === 'correction_pending' ||
-                item.status === 'edit_pending'
-            )
+        // Build attendance items from nested structure
+        const attItems = []
+        Object.entries(rawEmployees).forEach(([uid, empData]) => {
+            const attendanceRecords = empData.attendance || {}
+            Object.entries(attendanceRecords).forEach(([date, record]) => {
+                if (
+                    record.status === 'pending' ||
+                    record.status === 'correction_pending' ||
+                    record.status === 'edit_pending'
+                ) {
+                    attItems.push({
+                        id: date, // Use date as ID for nested structure
+                        employeeUid: uid, // Store employee UID for updates
+                        date,
+                        ...record,
+                        reqType: 'attendance',
+                        employeeName: record.employeeName || empData.name,
+                        employeeEmail: record.employeeEmail || empData.email
+                    })
+                }
+            })
+        })
 
         const leaveItems = []
         Object.entries(rawLeaves).forEach(([uid, userLeaves]) => {
@@ -75,7 +91,7 @@ function MDApprovals() {
 
         setApprovals(merged)
         setLoading(false)
-    }, [rawAttendance, rawLeaves])
+    }, [rawEmployees, rawLeaves])
 
     const handleAction = async (item, status, reason = '') => {
         setProcessingId(item.id)
@@ -112,7 +128,7 @@ function MDApprovals() {
                 }
 
             } else {
-                // Attendance Logic (Client-Side)
+                // Attendance Logic (Client-Side) - NEW: Use nested path
                 const updates = {
                     status: status,
                     actionTimestamp: Date.now(),
@@ -124,7 +140,8 @@ function MDApprovals() {
                 if ((item.status === 'correction_pending' || item.isCorrection) && status === 'approved') {
                     updates.isCorrection = false
                 }
-                await update(ref(database, `attendance/${item.id}`), updates)
+                // NEW PATH: /employees/{uid}/attendance/{date}
+                await update(ref(database, `employees/${item.employeeUid}/attendance/${item.date}`), updates)
 
                 // Log Audit
                 const auditRef = ref(database, 'audit')
