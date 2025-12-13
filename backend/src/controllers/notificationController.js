@@ -67,11 +67,51 @@ const getEmployeesWithoutAttendance = async (dateStr) => {
 
 exports.triggerReminder = async (req, res) => {
     try {
-        // Universal Delivery Mandate: Broadcast to ALL users
-        console.log('📢 Triggering Manual Broadcast to', TOPIC_ALL_USERS);
+        console.log('📢 Triggering Manual Reminder to ALL employees...');
 
-        const result = await sendTopicNotification(
-            TOPIC_ALL_USERS,
+        // Get all users from database
+        const usersSnapshot = await db.ref('users').once('value');
+        const users = usersSnapshot.val() || {};
+
+        // Collect all employee FCM tokens (excluding MD/admin roles)
+        const employeeTokens = [];
+        const employeeNames = [];
+
+        Object.entries(users).forEach(([uid, user]) => {
+            // Include all users except MD and admin (they should also get reminders if needed)
+            // Actually, user wants ALL profiles to receive notifications
+            if (user.fcmToken && typeof user.fcmToken === 'string' && user.fcmToken.length > 0) {
+                employeeTokens.push(user.fcmToken);
+                employeeNames.push(user.name || user.email || uid);
+            }
+        });
+
+        console.log(`📋 Found ${employeeTokens.length} employees with FCM tokens`);
+
+        if (employeeTokens.length === 0) {
+            // No tokens found - store notification anyway for record
+            const notificationRef = db.ref('notifications').push();
+            await notificationRef.set({
+                title: '📍 Mark Your Attendance',
+                body: 'Please mark your attendance for today.',
+                type: 'MANUAL_REMINDER',
+                date: new Date().toISOString().split('T')[0],
+                timestamp: new Date().toISOString(),
+                target: 'ALL_EMPLOYEES',
+                employeeCount: 0,
+                status: 'NO_TOKENS'
+            });
+
+            return res.json({
+                success: true,
+                employeeCount: 0,
+                message: 'No employees have notification tokens registered'
+            });
+        }
+
+        // Send direct push notifications to all employee tokens
+        const result = await sendPushNotification(
+            employeeTokens,
             '📍 Mark Your Attendance',
             'Please mark your attendance for today.',
             {
@@ -81,7 +121,7 @@ exports.triggerReminder = async (req, res) => {
             }
         );
 
-        // Store notification in Firebase Realtime Database
+        // Store notification record in Firebase
         const notificationRef = db.ref('notifications').push();
         await notificationRef.set({
             title: '📍 Mark Your Attendance',
@@ -89,16 +129,23 @@ exports.triggerReminder = async (req, res) => {
             type: 'MANUAL_REMINDER',
             date: new Date().toISOString().split('T')[0],
             timestamp: new Date().toISOString(),
-            target: 'BROADCAST'
+            target: 'ALL_EMPLOYEES',
+            employeeCount: employeeTokens.length,
+            successCount: result.successCount,
+            failureCount: result.failureCount
         });
+
+        console.log(`✅ Reminder sent: ${result.successCount} success, ${result.failureCount} failed`);
 
         res.json({
             success: true,
-            method: 'BROADCAST',
-            topic: TOPIC_ALL_USERS,
-            ...result
+            employeeCount: employeeTokens.length,
+            successCount: result.successCount,
+            failureCount: result.failureCount,
+            message: `Reminder sent to ${result.successCount} employee(s)`
         });
     } catch (error) {
+        console.error('❌ Error triggering reminder:', error);
         res.status(500).json({ error: error.message });
     }
 };

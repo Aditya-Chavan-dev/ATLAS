@@ -200,8 +200,8 @@ function MDDashboard() {
                 setNotificationResult({
                     success: true,
                     message: data.employeeCount === 0
-                        ? 'No employees found with notification tokens'
-                        : `Reminder sent to ${data.employeeCount} employee(s)`,
+                        ? 'No employees have notification tokens registered. Employees need to enable notifications.'
+                        : `✅ Reminder sent to ${data.successCount || data.employeeCount} of ${data.employeeCount} employee(s)`,
                     count: data.employeeCount
                 })
             } else {
