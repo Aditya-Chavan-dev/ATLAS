@@ -1,0 +1,59 @@
+﻿node.exe : [31m✗[39m Build failed 
+in 3.07s
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" "C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpe 
+   cified: ([31m✗[39m Build faile  
+  d in 3.07s:String) [], RemoteExc   
+ eption
+    + FullyQualifiedErrorId : Native 
+   CommandError
+ 
+[31merror during build:
+[31m[vite]: Rollup failed to 
+resolve import 
+"virtual:pwa-register/react" from "G:
+/ATLAS/src/components/PWAUpdater.jsx"
+.
+This is most likely unintended 
+because it can break your 
+application at runtime.
+If you do want to externalize this 
+module explicitly add it to
+`build.rollupOptions.external`[31m
+    at viteLog (file:///G:/ATLAS/node
+_modules/vite/dist/node/chunks/config
+.js:33634:57)
+    at file:///G:/ATLAS/node_modules/
+vite/dist/node/chunks/config.js:33668
+:73
+    at onwarn (file:///G:/ATLAS/node_
+modules/@vitejs/plugin-react/dist/ind
+ex.js:76:7)
+    at file:///G:/ATLAS/node_modules/
+vite/dist/node/chunks/config.js:33668
+:28
+    at onRollupLog (file:///G:/ATLAS/
+node_modules/vite/dist/node/chunks/co
+nfig.js:33663:63)
+    at onLog (file:///G:/ATLAS/node_m
+odules/vite/dist/node/chunks/config.j
+s:33466:4)
+    at file:///G:/ATLAS/node_modules/
+rollup/dist/es/shared/node-entry.js:2
+0961:32
+    at Object.logger [as onLog] (file
+:///G:/ATLAS/node_modules/rollup/dist
+/es/shared/node-entry.js:22848:9)
+    at 
+ModuleLoader.handleInvalidResolvedId 
+(file:///G:/ATLAS/node_modules/rollup
+/dist/es/shared/node-entry.js:21592:2
+6)
+    at file:///G:/ATLAS/node_modules/
+rollup/dist/es/shared/node-entry.js:2
+1550:26[39m

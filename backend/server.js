@@ -16,9 +16,9 @@ console.log('📋 Configuration:', {
 // Scheduled Jobs
 console.log('⏰ Setting up cron jobs...');
 
-// 10:00 AM IST (04:30 UTC) - Mon-Sat
-cron.schedule('30 4 * * 1-6', () => {
-    console.log('⏰ Running morning reminder (10 AM IST)...');
+// 11:00 AM IST (05:30 UTC) - Mon-Sat
+cron.schedule('30 5 * * 1-6', () => {
+    console.log('⏰ Running morning reminder (11 AM IST)...');
     runMorningReminder();
 }, { timezone: 'UTC' });
 

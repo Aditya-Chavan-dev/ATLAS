@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import { ref, onValue, remove, set, update } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { ROLES } from '../../config/roleConfig'
+import { useAuth } from '../../context/AuthContext'
 import './EmployeeManagement.css'
 
 function MDEmployeeManagement() {
+    const { currentUser } = useAuth();
     const [employees, setEmployees] = useState([])
     const [loading, setLoading] = useState(true)
     const [showAddForm, setShowAddForm] = useState(false)
@@ -52,10 +54,19 @@ function MDEmployeeManagement() {
 
     const handleAddEmployee = async (e) => {
         e.preventDefault()
+        console.log('🚀 Starting add employee process...')
         setError('')
+
+        if (!currentUser) {
+            console.error('❌ No current user logged in')
+            setError('You must be logged in to add a team member.')
+            return
+        }
 
         const email = newEmployee.email.trim().toLowerCase()
         const name = newEmployee.name.trim()
+
+        console.log('📝 Validating input:', { name, email })
 
         if (!email || !name) {
             setError('Both name and email are required')
@@ -72,6 +83,7 @@ function MDEmployeeManagement() {
         // Check if email already exists
         const existingEmployee = employees.find(emp => emp.email?.toLowerCase() === email)
         if (existingEmployee) {
+            console.warn('⚠️ Employee already exists:', existingEmployee)
             setError('A team member with this email already exists')
             return
         }
@@ -80,23 +92,31 @@ function MDEmployeeManagement() {
 
         try {
             // Create a placeholder UID using email (will be migrated when user logs in)
-            const placeholderUid = `placeholder_${email.replace(/[.@]/g, '_')}`
+            const safeEmail = email.replace(/[.@]/g, '_')
+            const placeholderUid = `placeholder_${safeEmail}`
+            console.log('🔑 Generated placeholder UID:', placeholderUid)
+
             const userRef = ref(database, `users/${placeholderUid}`)
 
-            await set(userRef, {
+            const payload = {
                 name,
                 email,
                 role: ROLES.EMPLOYEE,
                 createdAt: new Date().toISOString(),
-                createdBy: 'MD',
+                createdBy: currentUser.email || 'MD', // Use actual user
                 isPlaceholder: true // Flag to indicate this is a pre-registered employee
-            })
+            }
+
+            console.log('💾 Saving to Firebase:', payload)
+            await set(userRef, payload)
+            console.log('✅ Save successful!')
 
             setNewEmployee({ name: '', email: '' })
             setShowAddForm(false)
+            alert(`✅ Team member ${name} added successfully!`) // Success message
         } catch (error) {
-            console.error('Error adding team member:', error)
-            setError('Failed to add team member. Please try again.')
+            console.error('❌ Error adding team member:', error, error?.message, error?.code)
+            setError(`Failed to add team member: ${error?.message || error}`)
         } finally {
             setIsSubmitting(false)
         }
@@ -199,6 +219,47 @@ function MDEmployeeManagement() {
                     </div>
                 )}
 
+                {/* Add Team Member Modal */}
+                {showAddForm && (
+                    <div className="modal-overlay" onClick={() => setShowAddForm(false)}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h2>Add Employee Access</h2>
+                                <button className="close-btn" onClick={() => setShowAddForm(false)}>×</button>
+                            </div>
+                            <form onSubmit={handleAddEmployee} className="add-form">
+                                <div className="form-group">
+                                    <label>Employee Name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter employee name"
+                                        value={newEmployee.name}
+                                        onChange={e => setNewEmployee({ ...newEmployee, name: e.target.value })}
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Employee Email (will get access to ATLAS)</label>
+                                    <input
+                                        type="email"
+                                        placeholder="Enter employee email"
+                                        value={newEmployee.email}
+                                        onChange={e => setNewEmployee({ ...newEmployee, email: e.target.value })}
+                                    />
+                                </div>
+                                {error && <div className="form-error">{error}</div>}
+                                <div className="form-actions">
+                                    <button type="button" className="cancel-btn" onClick={() => setShowAddForm(false)}>
+                                        Cancel
+                                    </button>
+                                    <button type="submit" className="submit-btn" disabled={isSubmitting}>
+                                        {isSubmitting ? 'Adding...' : 'Add Employee'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
 
                 {/* Team Member List */}
                 {loading ? (

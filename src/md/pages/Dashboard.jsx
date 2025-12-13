@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ref, onValue, set, push } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { useNavigate } from 'react-router-dom'
@@ -86,14 +86,22 @@ function MDDashboard() {
             setEmployees(userList)
 
             // Stats
+            // Use Set to ensure unique employees are counted (fixes increment bug if duplicates exist)
+            const presentTodayEmails = new Set(
+                todayAttendance
+                    .filter(r => r.status === 'approved')
+                    .map(r => r.employeeEmail || r.employeeId)
+            )
+
             setStats({
                 totalEmployees: userList.length,
-                presentToday: todayAttendance.filter(r => r.status === 'approved').length,
+                presentToday: presentTodayEmails.size,
                 onLeave: todayLeaves.length,
                 onSite: todayAttendance.filter(r => r.status === 'approved' && r.location === 'site').length
             })
 
             // Handle 2nd MD (using all records)
+            // Debounce or check narrowly to avoid loops
             handleSecondMDAttendance(attRecords, today)
 
             setLoading(false)
@@ -119,6 +127,9 @@ function MDDashboard() {
         }
     }, [])
 
+    // Ref to track auto-marking attempts to avoid infinite loops/race conditions
+    const autoMarkedDates = useRef(new Set())
+
     const handleSecondMDAttendance = async (records, todayStr) => {
         // Check last 7 days to backfill if missed
         const daysToCheck = 7
@@ -133,13 +144,19 @@ function MDDashboard() {
 
             const dateStr = d.toISOString().split('T')[0]
 
+            // If we already attempted to mark this date this session, skip
+            if (autoMarkedDates.current.has(dateStr)) continue
+
             // Check if 2nd MD has attendance for this date
             const hasAttendance = records.some(r =>
-                r.employeeEmail === SECOND_MD_CONFIG.email &&
+                (r.employeeEmail === SECOND_MD_CONFIG.email) &&
                 r.date === dateStr
             )
 
             if (!hasAttendance) {
+                // Optimistically mark as handled so we don't retry immediately
+                autoMarkedDates.current.add(dateStr)
+
                 console.log(`Auto-marking attendance for 2nd MD on ${dateStr}...`)
                 try {
                     const newRef = push(ref(database, 'attendance'))
@@ -147,7 +164,7 @@ function MDDashboard() {
                         employeeEmail: SECOND_MD_CONFIG.email,
                         employeeName: SECOND_MD_CONFIG.name,
                         date: dateStr,
-                        timestamp: d.getTime(), // Use noon for timestamp to be safe? Or just current time if today
+                        timestamp: d.getTime(),
                         location: 'office',
                         status: 'approved',
                         siteName: '',
@@ -155,7 +172,12 @@ function MDDashboard() {
                     })
                 } catch (error) {
                     console.error(`Failed to auto-mark 2nd MD attendance for ${dateStr}:`, error)
+                    // If failed, allow retry later? Maybe safest to leave blocked for this session
+                    // autoMarkedDates.current.delete(dateStr) 
                 }
+            } else {
+                // If found, no need to check again this session
+                autoMarkedDates.current.add(dateStr)
             }
         }
     }

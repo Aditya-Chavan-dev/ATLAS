@@ -42,10 +42,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg}'],
-        // Skip waiting and claim clients immediately for instant updates
         skipWaiting: true,
         clientsClaim: true,
-        // Clean up old caches
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
@@ -55,7 +53,7 @@ export default defineConfig({
               cacheName: 'google-fonts-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                maxAgeSeconds: 60 * 60 * 24 * 365
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -63,19 +61,17 @@ export default defineConfig({
             }
           },
           {
-            // Don't cache Firebase API calls
             urlPattern: /^https:\/\/.*\.firebaseio\.com\/.*/i,
             handler: 'NetworkOnly'
           },
           {
-            // Don't cache Firebase Auth
             urlPattern: /^https:\/\/.*\.googleapis\.com\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 5 // 5 minutes
+                maxAgeSeconds: 60 * 5
               }
             }
           }

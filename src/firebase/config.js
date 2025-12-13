@@ -12,6 +12,8 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
+import { getMessaging, onMessage } from 'firebase/messaging';
+import { useNavigate } from 'react-router-dom';
 
 // Firebase configuration - using environment variables
 // These are injected at build time by Vite
@@ -55,6 +57,17 @@ export const database = getDatabase(app);
 
 // Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();
+
+// Initialize Firebase Messaging
+export const messaging = getMessaging(app);
+
+// Listen for foreground messages
+// Note: Background messages are handled by the service worker (firebase-messaging-sw.js)
+onMessage(messaging, (payload) => {
+    console.log('📩 Notification received:', payload);
+    // Display notification in the UI
+    alert(`${payload.notification.title}: ${payload.notification.body}`);
+});
 
 // Export the app instance (optional, for advanced use cases)
 export default app;

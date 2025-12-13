@@ -5,6 +5,7 @@ import { database } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import './MDLayout.css'
+import { unsubscribeTokenFromBroadcast, setupForegroundListener } from '../services/fcm'
 
 function MDLayout() {
     const { logout, userProfile } = useAuth()
@@ -13,6 +14,7 @@ function MDLayout() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true) // Sidebar visible by default on desktop
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
     const [pendingCount, setPendingCount] = useState(0)
+    const [foregroundNotification, setForegroundNotification] = useState(null)
 
     // Handle resize
     useEffect(() => {
@@ -54,8 +56,30 @@ function MDLayout() {
         return () => unsubscribe()
     }, [])
 
+    // Foreground Notification Listener
+    useEffect(() => {
+        // Set up foreground message listener
+        const unsubscribe = setupForegroundListener((payload) => {
+            // Show in-app notification for foreground messages
+            setForegroundNotification({
+                title: payload.notification?.title || 'Notification',
+                body: payload.notification?.body || '',
+                timestamp: Date.now()
+            })
+            // Auto-hide after 5 seconds
+            setTimeout(() => setForegroundNotification(null), 5000)
+        })
+
+        return () => {
+            if (unsubscribe) unsubscribe()
+        }
+    }, [])
+
     const handleLogout = async () => {
         try {
+            if (userProfile?.fcmToken) {
+                await unsubscribeTokenFromBroadcast(userProfile.fcmToken)
+            }
             await logout()
             navigate('/')
         } catch (error) {
@@ -67,6 +91,7 @@ function MDLayout() {
         setIsSidebarOpen(!isSidebarOpen)
     }
 
+    // ... menuItems ...
     const menuItems = [
         {
             path: '/md/dashboard',
@@ -118,6 +143,33 @@ function MDLayout() {
 
     return (
         <div className="md-layout-container">
+            {/* Foreground Notification Toast */}
+            {foregroundNotification && (
+                <div className="fixed top-4 right-4 z-[2000] animate-slide-in-right">
+                    <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-4 max-w-sm">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-slate-800">{foregroundNotification.title}</p>
+                                <p className="text-sm text-slate-600 mt-0.5">{foregroundNotification.body}</p>
+                            </div>
+                            <button
+                                onClick={() => setForegroundNotification(null)}
+                                className="text-slate-400 hover:text-slate-600"
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Navbar (Fixed) */}
             <Navbar toggleSidebar={toggleSidebar} isDesktop={!isMobile} />
 
@@ -131,6 +183,7 @@ function MDLayout() {
 
             {/* Sidebar */}
             <aside className={`md-sidebar ${isSidebarOpen ? 'open' : 'closed'} ${isMobile ? 'mobile' : ''}`}>
+
                 {/* Mobile Header inside Sidebar (Hidden on desktop) */}
                 <div className="sidebar-header">
                     <span className="logo-text" style={{ fontSize: '20px', fontWeight: 'bold' }}>ATLAS</span>

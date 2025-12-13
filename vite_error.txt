@@ -1,0 +1,56 @@
+﻿[36mvite v6.3.5 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 7 modules transformed.
+node.exe : [31m✗[39m Build failed 
+in 376ms
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" "C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpe 
+   cified: ([31m✗[39m Build faile  
+  d in 376ms:String) [], RemoteExc   
+ eption
+    + FullyQualifiedErrorId : Native 
+   CommandError
+ 
+[31merror during build:
+[31m[vite-plugin-pwa:build] [plugin 
+vite-plugin-pwa:build] 
+src/index.css: There was an error 
+during the build:
+  Cannot apply unknown utility class 
+`hover:shadow-[0_4px_12px_rgba(0,`
+Additionally, handling the error in 
+the 'buildEnd' hook caused the 
+following error:
+  Cannot apply unknown utility class 
+`hover:shadow-[0_4px_12px_rgba(0,`[3
+1m
+file: 
+[36mG:/ATLAS/src/index.css[31m
+    at getRollupError (file:///G:/ATL
+AS/node_modules/rollup/dist/es/shared
+/parseAst.js:401:41)
+    at file:///G:/ATLAS/node_modules/
+rollup/dist/es/shared/node-entry.js:2
+3347:39
+    at async 
+catchUnfinishedHookActions (file:///G
+:/ATLAS/node_modules/rollup/dist/es/s
+hared/node-entry.js:22805:16)
+    at async rollupInternal (file:///
+G:/ATLAS/node_modules/rollup/dist/es/
+shared/node-entry.js:23330:5)
+    at async buildEnvironment (file:/
+//G:/ATLAS/node_modules/vite/dist/nod
+e/chunks/dep-DBxKXgDP.js:46206:14)
+    at async Object.defaultBuildApp 
+[as buildApp] (file:///G:/ATLAS/node_
+modules/vite/dist/node/chunks/dep-DBx
+KXgDP.js:46684:5)
+    at async CAC.<anonymous> (file://
+/G:/ATLAS/node_modules/vite/dist/node
+/cli.js:863:7)[39m

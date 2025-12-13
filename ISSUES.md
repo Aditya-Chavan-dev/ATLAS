@@ -350,6 +350,77 @@ Row 4+: Data with formatting
 
 ---
 
+## Issue #8: Build Failure - Invalid Firebase Messaging Import
+**Date**: 2025-12-13  
+**Severity**: Critical  
+**Status**: ✅ Resolved
+
+### Problem
+`npm run build` was failing during the Vite transformation phase with a cryptic Rollup error:
+```
+G:/ATLAS/src/firebase/config.js:4:34
+at file:///G:/ATLAS/node_modules/rollup/dist/es/shared/node-entry.js:21550:26
+```
+
+### Root Cause
+`src/firebase/config.js` was importing `onBackgroundMessage` from `firebase/messaging`:
+
+```javascript
+// ❌ INVALID - onBackgroundMessage doesn't exist in firebase/messaging
+import { getMessaging, onMessage, onBackgroundMessage } from 'firebase/messaging';
+```
+
+`onBackgroundMessage` is **only available in the service worker context** via `firebase/messaging/sw`, not in the main application bundle.
+
+### Solution
+Removed the invalid import and associated handler code:
+
+**Before**:
+```javascript
+import { getMessaging, onMessage, onBackgroundMessage } from 'firebase/messaging';
+
+// ... later in file ...
+onBackgroundMessage(messaging, (payload) => {
+    console.log('🔗 Notification click action:', payload);
+    if (payload.data && payload.data.click_action) {
+        window.location.href = payload.data.click_action;
+    }
+});
+```
+
+**After**:
+```javascript
+import { getMessaging, onMessage } from 'firebase/messaging';
+
+// Background messages are handled by service worker (firebase-messaging-sw.js)
+```
+
+### Additional Fixes Made During Investigation
+- Downgraded Vite from v7.2.7 → v6.3.5 (more stable)
+- Reverted Tailwind CSS from v4 → v3.4.17 (with PostCSS configuration)
+- Re-enabled VitePWA plugin in vite.config.js
+- Fixed CSS syntax: removed spaces in arbitrary Tailwind value `rgba(0, 0, 0, 0.1)` → `rgba(0,0,0,0.1)`
+
+### Files Modified
+- `src/firebase/config.js` - Removed invalid import and handler
+- `vite.config.js` - Re-enabled VitePWA, removed @tailwindcss/vite
+- `postcss.config.js` - Recreated for Tailwind v3
+- `src/index.css` - Reverted to @tailwind directives, fixed rgba syntax
+
+### Verification
+```
+✓ npm run build completed successfully (3011 modules)
+✓ firebase deploy --only hosting succeeded
+✓ App live at https://atlas-011.web.app
+```
+
+### Prevention
+- `onBackgroundMessage` should ONLY be used in service worker files
+- For background messaging, use `public/firebase-messaging-sw.js`
+- IDE may not catch this error - always run build before committing
+
+---
+
 ## Issue #7: Firebase Deploy Failed
 **Date**: 2025-12-12  
 **Severity**: Low  
@@ -378,18 +449,19 @@ Not fully investigated - user may have resolved independently or used alternativ
 ## Summary Statistics
 
 ### Issues by Severity
-- **Critical**: 1 (Firebase Auth)
+- **Critical**: 2 (Firebase Auth, Build Failure)
 - **High**: 3 (Render Backend, MD Redirect, Excel Export)
 - **Medium**: 1 (Profile Loading)
 - **Low**: 2 (Excel Format, Firebase Deploy)
 
 ### Issues by Status
-- **Resolved**: 6
+- **Resolved**: 7
 - **Noted**: 1
 
 ### Issues by Category
 - **Authentication**: 2 issues
 - **Backend/API**: 2 issues
+- **Build/Tooling**: 1 issue
 - **User Experience**: 2 issues
 - **Deployment**: 1 issue
 

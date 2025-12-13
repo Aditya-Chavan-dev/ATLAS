@@ -27,6 +27,8 @@ router.post('/trigger-reminder', notificationController.triggerReminder);
 router.post('/send-test', notificationController.sendTestNotification);
 router.get('/pending-employees', notificationController.getPendingEmployees);
 router.post('/log-error', notificationController.logError);
+router.post('/notifications/subscribe', notificationController.subscribeToBroadcast);
+router.post('/notifications/unsubscribe', notificationController.unsubscribeFromBroadcast);
 
 // Export Routes
 router.get('/export-attendance-report', exportController.exportAttendanceReport);

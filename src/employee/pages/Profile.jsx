@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { UserCircleIcon, ArrowRightOnRectangleIcon, PhoneIcon, EnvelopeIcon, BriefcaseIcon, PencilSquareIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { ref, update } from 'firebase/database'
 import { database } from '../../firebase/config'
+import { unsubscribeTokenFromBroadcast } from '../../services/fcm'
 
 export default function EmployeeProfile() {
     const { currentUser, userProfile, logout } = useAuth()
@@ -35,8 +36,12 @@ export default function EmployeeProfile() {
         )
     }
 
+
     const handleLogout = async () => {
         try {
+            if (userProfile?.fcmToken) {
+                await unsubscribeTokenFromBroadcast(userProfile.fcmToken)
+            }
             await logout()
             navigate('/')
         } catch (error) {

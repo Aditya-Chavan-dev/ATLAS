@@ -4,6 +4,8 @@
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { ref, update } from "firebase/database";
 import app, { database } from "../firebase/config";
+import ApiService from "./api"; // Added ApiService import
+
 
 // Initialize Firebase Messaging
 const messaging = getMessaging(app);
@@ -40,6 +42,9 @@ export const requestNotificationPermission = async (uid) => {
 
                 // Save token to database
                 await saveTokenToDatabase(uid, token);
+
+                // Universal Delivery: Auto-subscribe to broadcast
+                await subscribeTokenToBroadcast(token);
 
                 return token;
             } else {
@@ -114,7 +119,15 @@ export const removeNotificationToken = async (uid) => {
     if (!uid) return;
 
     try {
+        // Get current token to unsubscribe
         const userRef = ref(database, `users/${uid}`);
+        // Note: We might need to fetch the token first to unsubscribe, or rely on client holding it.
+        // For now, we update DB. Backend can handle token invalidation if needed, but we should try to unsubscribe if we have the token stored locally or in context.
+        // Actually, without the token, we can't unsubscribe specific token from topic.
+        // But since we are logging out, we might not have the token handy unless we read it from DB or state.
+        // However, the mandate says "Logout = unsubscribe". 
+        // Ideally we should pass the token to this function.
+
         await update(userRef, {
             fcmToken: null,
             notificationsEnabled: false
@@ -122,5 +135,24 @@ export const removeNotificationToken = async (uid) => {
         console.log("FCM token removed from database");
     } catch (error) {
         console.error("Error removing FCM token:", error);
+    }
+};
+
+export const subscribeTokenToBroadcast = async (token) => {
+    try {
+        await ApiService.post('/notifications/subscribe', { token });
+        console.log('✅ Subscribed to broadcast system');
+    } catch (error) {
+        console.error('❌ Failed to subscribe to broadcast:', error);
+    }
+};
+
+export const unsubscribeTokenFromBroadcast = async (token) => {
+    if (!token) return;
+    try {
+        await ApiService.post('/notifications/unsubscribe', { token });
+        console.log('✅ Unsubscribed from broadcast system');
+    } catch (error) {
+        console.error('❌ Failed to unsubscribe from broadcast:', error);
     }
 };
