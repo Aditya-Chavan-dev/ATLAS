@@ -22,7 +22,7 @@ function MDDashboard() {
     const [sendingNotification, setSendingNotification] = useState(false)
     const [notificationResult, setNotificationResult] = useState(null)
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+    const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend-gncd.onrender.com'
 
 
     useEffect(() => {

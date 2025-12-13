@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend.onrender.com'; // Default to Render if not set
+const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend-gncd.onrender.com'; // Default to Render if not set
 
 class ApiService {
     static async request(endpoint, method = 'GET', body = null) {
