@@ -421,6 +421,73 @@ import { getMessaging, onMessage } from 'firebase/messaging';
 
 ---
 
+## Issue #9: Manual Trigger Notifications Not Working
+**Date**: 2025-12-13  
+**Severity**: High  
+**Status**: ✅ Resolved
+
+### Problem
+The "Send Reminder" button on the MD Dashboard was not working. Clicking it showed a network error, and push notifications were not being sent to employees.
+
+### Symptoms
+- Button would spin briefly then show error
+- Console showed network error / failed fetch
+- No notifications received by any users
+
+### Root Cause
+Frontend code was using **incorrect backend URLs**:
+
+| File | Incorrect URL | Correct URL |
+|------|---------------|-------------|
+| `api.js` | `atlas-backend.onrender.com` | `atlas-backend-gncd.onrender.com` |
+| `Dashboard.jsx` | `localhost:5000` | `atlas-backend-gncd.onrender.com` |
+
+The `atlas-backend.onrender.com` URL doesn't exist - the actual deployed backend has a different subdomain (`-gncd`).
+
+### Solution
+Updated both files to use the correct Render backend URL:
+
+**api.js**:
+```javascript
+// Before
+const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend.onrender.com';
+
+// After
+const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend-gncd.onrender.com';
+```
+
+**Dashboard.jsx**:
+```javascript
+// Before
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+// After
+const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend-gncd.onrender.com';
+```
+
+### Verification
+1. Tested backend endpoint directly:
+   ```powershell
+   Invoke-RestMethod -Uri "https://atlas-backend-gncd.onrender.com/api/trigger-reminder" -Method POST
+   # Response: success=True, method=BROADCAST, topic=atlas_all_users
+   ```
+
+2. Rebuilt and deployed frontend to Firebase Hosting
+
+3. Committed to GitHub: `2b82e33`
+
+### Files Modified
+- `src/services/api.js` - Fixed default API URL
+- `src/md/pages/Dashboard.jsx` - Fixed fallback API URL
+
+### Prevention
+- Always verify backend URLs match actual deployment
+- Use environment variables for production URLs
+- Document the actual Render subdomain in RENDER_FIX.md
+- Test API endpoints before deploying frontend changes
+
+---
+
 ## Issue #7: Firebase Deploy Failed
 **Date**: 2025-12-12  
 **Severity**: Low  
@@ -450,17 +517,17 @@ Not fully investigated - user may have resolved independently or used alternativ
 
 ### Issues by Severity
 - **Critical**: 2 (Firebase Auth, Build Failure)
-- **High**: 3 (Render Backend, MD Redirect, Excel Export)
+- **High**: 4 (Render Backend, MD Redirect, Excel Export, Notifications)
 - **Medium**: 1 (Profile Loading)
 - **Low**: 2 (Excel Format, Firebase Deploy)
 
 ### Issues by Status
-- **Resolved**: 7
+- **Resolved**: 8
 - **Noted**: 1
 
 ### Issues by Category
 - **Authentication**: 2 issues
-- **Backend/API**: 2 issues
+- **Backend/API**: 3 issues
 - **Build/Tooling**: 1 issue
 - **User Experience**: 2 issues
 - **Deployment**: 1 issue
