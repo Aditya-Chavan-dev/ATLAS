@@ -135,7 +135,7 @@ exports.triggerReminder = async (req, res) => {
 
         res.json({
             success: true,
-            message: `Reminder processing complete.`,
+            message: 'Reminder processing complete.',
             stats: {
                 push: { count: pushTokens.length, success: pushResult.successCount },
                 email: { count: emailTargets.length }
@@ -237,7 +237,7 @@ exports.runMorningReminder = async () => {
             const html = generateEmailTemplate('📍 Mark Your Attendance', 'Good morning! Please mark your attendance for today.');
             await sendEmail(emailTargets, 'Reminder: Mark Attendance', html);
         }
-        console.log(`✅ Morning reminder: ${ pushTokens.length } Push, ${ emailTargets.length } Email`);
+        console.log('Morning reminder:', pushTokens.length, 'Push,', emailTargets.length, 'Email');
     } catch (e) {
         console.error("Error in morning reminder:", e);
     }
@@ -271,7 +271,7 @@ exports.runAfternoonReminder = async () => {
             const html = generateEmailTemplate(title, body);
             await sendEmail(emailTargets, 'Urgent: Attendance Pending', html);
         }
-        console.log(`✅ Afternoon Pending Reminder: ${ pushTokens.length } Push, ${ emailTargets.length } Email`);
+        console.log('Afternoon Pending Reminder:', pushTokens.length, 'Push,', emailTargets.length, 'Email');
     } catch (e) {
         console.error("Error in afternoon reminder:", e);
     }
