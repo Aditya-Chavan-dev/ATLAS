@@ -85,7 +85,7 @@ exports.triggerReminder = async (req, res) => {
             }
         });
 
-        console.log(`📋 Targets found: ${ pushTokens.length } Push, ${ emailTargets.length } Email`);
+        console.log('Targets found:', pushTokens.length, 'Push,', emailTargets.length, 'Email');
 
         // 1. Send Push
         let pushResult = { successCount: 0, failureCount: 0 };
