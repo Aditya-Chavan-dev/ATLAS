@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react'
 import { ref, onValue } from 'firebase/database'
 import { database } from '../../firebase/config'
+import { useAuth } from '../../context/AuthContext'
 import './Export.css'
-
 function MDExport() {
+    const { currentUser } = useAuth()
     const [loading, setLoading] = useState(false)
     const [employees, setEmployees] = useState([])
 
     // Form State
     const [reportType, setReportType] = useState('master') // 'master' or 'single'
-    const [duration, setDuration] = useState('month') // 'month' or 'year'
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString())
     const [selectedEmpId, setSelectedEmpId] = useState('')
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
@@ -117,42 +116,44 @@ function MDExport() {
                         </div>
                     )}
 
-                    {/* Employee Selector (Conditional) */}
-                    {reportType === 'single' && (
-                        <div className="control-group fade-in">
-                            <label className="control-label">Select Employee</label>
-                            <select
-                                className="custom-select"
-                                value={selectedEmpId}
-                                onChange={(e) => setSelectedEmpId(e.target.value)}
-                            >
-                                <option value="" disabled>Select an employee</option>
-                                {employees.map(emp => (
-                                    <option key={emp.uid} value={emp.uid}>
-                                        {emp.name || emp.email}
-                                    </option>
-                                ))}
-                            </select>
+                    {currentUser && currentUser.email === 'santy9shinde@gmail.com' ? (
+                        <button
+                            className="download-btn"
+                            onClick={handleExport}
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <>
+                                    <span className="spinner"></span>
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                        <polyline points="7 10 12 15 17 10" />
+                                        <line x1="12" y1="15" x2="12" y2="3" />
+                                    </svg>
+                                    Download Excel
+                                </>
+                            )}
+                        </button>
+                    ) : (
+                        <div className="restricted-access-msg text-amber-600 bg-amber-50 p-3 rounded-lg text-sm font-medium border border-amber-100 flex items-center gap-2">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                            Access Restricted: Only authorized administrators can download this report.
                         </div>
                     )}
-
-                    <button
-                        className="download-btn"
-                        onClick={handleExport}
-                        disabled={loading || (reportType === 'single' && !selectedEmpId)}
-                    >
-                        {loading ? (
-                            <span>Generating Report...</span>
-                        ) : (
-                            <>
-                                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                <span>Download Excel Sheet</span>
-                            </>
-                        )}
-                    </button>
                 </div>
+
+                {message && (
+                    <div className={`notification-result ${message.type}`}>
+                        {message.text}
+                    </div>
+                )}
             </div>
         </div>
     )

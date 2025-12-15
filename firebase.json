@@ -13,6 +13,10 @@
       }
     ]
   },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs18"
+  },
   "emulators": {
     "firestore": {
       "port": 8080
@@ -22,6 +26,9 @@
     },
     "hosting": {
       "port": 5000
+    },
+    "functions": {
+      "port": 5001
     },
     "ui": {
       "enabled": false

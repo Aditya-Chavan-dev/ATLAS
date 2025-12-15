@@ -3,10 +3,9 @@ export const ATTENDANCE_WINDOW = {
     end: 18   // 6 PM
 }
 
-// TODO: Replace with actual Email or UID of the 2nd MD
-export const SECOND_MD_CONFIG = {
-    email: 'md2@autoteknic.com', // Placeholder
-    name: 'MD 2'
+// Config for MD 1 (RVS) - Logic will search for user with name containing 'RVS'
+export const MD1_CONFIG = {
+    name: 'RVS'
 }
 
 export const COMPANY_NAME = 'Autoteknic'

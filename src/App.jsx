@@ -20,7 +20,12 @@ import MDProfiles from './md/pages/Profiles'
 import MDProfileDetail from './md/pages/ProfileDetail'
 import MDExport from './md/pages/Export'
 import MDEmployeeManagement from './md/pages/EmployeeManagement'
+import DownloadPage from './pages/DownloadPage'
 import { useAuth } from './context/AuthContext'
+// Demo mode - completely isolated from production
+import DemoApp from '../demo/DemoApp'
+// Metrics dashboard - owner-only analytics
+import MetricsDashboard from './pages/MetricsDashboard'
 
 // Smart redirect component for MD landing page
 function MDLandingRedirect() {
@@ -61,6 +66,7 @@ function MDLandingRedirect() {
 function AppContent() {
     const { currentUser, userRole, loading } = useAuth()
     const isMD = userRole === ROLES.MD
+    const isOwnerRole = userRole === ROLES.OWNER
 
     // Show loading while checking auth
     if (loading) {
@@ -71,12 +77,23 @@ function AppContent() {
         )
     }
 
-    // Not logged in - show Login
+    // Not logged in - show Login (and Download page)
     if (!currentUser) {
         return (
             <Routes>
                 <Route path="/" element={<Login />} />
+                <Route path="/download" element={<DownloadPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        )
+    }
+
+    // Owner - show Metrics Dashboard
+    if (isOwnerRole) {
+        return (
+            <Routes>
+                <Route path="/metrics" element={<MetricsDashboard />} />
+                <Route path="*" element={<Navigate to="/metrics" replace />} />
             </Routes>
         )
     }
@@ -91,7 +108,6 @@ function AppContent() {
                     <Route path="approvals" element={<MDApprovals />} />
                     <Route path="employees" element={<MDEmployeeManagement />} />
                     <Route path="profiles" element={<MDProfiles />} />
-                    <Route path="profiles/:id" element={<MDProfileDetail />} />
                     <Route path="export" element={<MDExport />} />
                     <Route path="*" element={<Navigate to="/md/dashboard" replace />} />
                 </Route>
@@ -116,20 +132,29 @@ function AppContent() {
     )
 }
 
-import PWAUpdater from './components/PWAUpdater'
+// import PWAUpdater from './components/PWAUpdater'
 
 // ...
 
 function App() {
     return (
-        <AuthProvider>
-            <ThemeProvider>
-                <PWAUpdater />
-                <AppContent />
-            </ThemeProvider>
-        </AuthProvider>
+        <Routes>
+            {/* Demo route - completely isolated, no auth required */}
+            <Route path="/demo" element={<DemoApp />} />
+
+            {/* Main application with auth - includes metrics for owner */}
+            <Route path="/*" element={
+                <AuthProvider>
+                    <ThemeProvider>
+                        {/* <PWAUpdater /> */}
+                        <AppContent />
+                    </ThemeProvider>
+                </AuthProvider>
+            } />
+        </Routes>
     )
 }
 
 export default App
+
 

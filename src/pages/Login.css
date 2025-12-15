@@ -1,36 +1,300 @@
-/* Modern Google Login Button for Hero Layout */
+/* Corporate Blue Login Page Styles */
 
-.google-login-btn-modern {
+/* Main Container */
+.login-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #e8eef5 0%, #d1dce8 100%);
+    padding: 1rem;
+    position: relative;
+}
+
+/* Logo Section */
+.login-logo-section {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.login-logo {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    border-radius: 1.25rem;
     display: flex;
     align-items: center;
-    gap: 12px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 16px 32px;
-    border-radius: 100px;
-    color: white;
-    font-size: 1.125rem;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    box-shadow: 0 10px 30px rgba(30, 58, 138, 0.3);
+}
+
+.login-logo span {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+}
+
+.login-tagline {
+    color: #475569;
+    font-size: 0.875rem;
     font-weight: 500;
+}
+
+/* Login Card */
+.login-card {
+    background: #ffffff;
+    border-radius: 1.5rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-card-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.login-card-subtitle {
+    font-size: 0.875rem;
+    color: #64748b;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+/* Phone Input Section */
+.phone-input-section {
+    margin-bottom: 1.5rem;
+}
+
+.phone-input-wrapper {
+    display: flex;
+    border: 2px solid #e2e8f0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.phone-input-wrapper:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.country-code {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1rem;
+    background: #f8fafc;
+    border-right: 2px solid #e2e8f0;
+    font-weight: 600;
+    color: #1e293b;
+    min-width: 90px;
+}
+
+.country-flag {
+    font-size: 1.25rem;
+}
+
+.phone-input {
+    flex: 1;
+    padding: 0.875rem 1rem;
+    border: none;
+    outline: none;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #1e293b;
+}
+
+.phone-input::placeholder {
+    color: #94a3b8;
+}
+
+/* OTP Input Section */
+.otp-section {
+    margin-bottom: 1.5rem;
+}
+
+.otp-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 0.5rem;
+}
+
+.otp-input-group {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.otp-input {
+    width: 45px;
+    height: 50px;
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    border: 2px solid #e2e8f0;
+    border-radius: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.otp-input:focus {
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.resend-otp {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.resend-otp-btn {
+    background: none;
+    border: none;
+    color: #3b82f6;
+    font-weight: 600;
+    font-size: 0.875rem;
     cursor: pointer;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
-.google-login-btn-modern:hover {
-    background: rgba(255, 255, 255, 0.2);
+.resend-otp-btn:disabled {
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+/* Primary Button */
+.login-btn-primary {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    border: none;
+    border-radius: 0.75rem;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3);
+}
+
+.login-btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 8px 25px rgba(30, 58, 138, 0.4);
 }
 
-.google-login-btn-modern:active {
+.login-btn-primary:active {
     transform: translateY(0);
 }
 
-.google-icon {
-    width: 24px;
-    height: 24px;
+.login-btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Divider */
+.login-divider {
+    display: flex;
+    align-items: center;
+    margin: 1.5rem 0;
+}
+
+.login-divider-line {
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+
+.login-divider-text {
+    padding: 0 1rem;
+    color: #94a3b8;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Google Button */
+.login-btn-google {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    background: #ffffff;
+    border: 2px solid #e2e8f0;
+    border-radius: 0.75rem;
+    color: #1e293b;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.login-btn-google:hover {
+    border-color: #3b82f6;
+    background: #f8fafc;
+}
+
+.login-btn-google img {
+    width: 22px;
+    height: 22px;
+}
+
+/* Footer */
+.login-footer {
+    text-align: center;
+    margin-top: 2rem;
+}
+
+.login-help-text {
+    color: #64748b;
+    font-size: 0.75rem;
+}
+
+.login-help-link {
+    color: #3b82f6;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+/* Action Buttons */
+.login-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.login-btn-secondary {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 0.75rem;
+    color: #475569;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-decoration: none;
+}
+
+.login-btn-secondary:hover {
+    background: #e2e8f0;
 }
 
 /* Loading Screen */
@@ -40,15 +304,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #030303;
+    background: linear-gradient(135deg, #e8eef5 0%, #d1dce8 100%);
 }
 
 .loading-spinner {
     width: 40px;
     height: 40px;
-    border: 3px solid rgba(255, 255, 255, 0.1);
+    border: 3px solid #e2e8f0;
     border-radius: 50%;
-    border-top-color: #38bdf8;
+    border-top-color: #3b82f6;
     animation: spin 1s linear infinite;
 }
 
@@ -58,128 +322,30 @@
     }
 }
 
-/* Login Buttons Container */
-.login-buttons-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-}
-
-/* Install App Button */
-.install-app-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    border: none;
-    padding: 14px 28px;
-    border-radius: 100px;
-    color: white;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
-}
-
-.install-app-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
-}
-
-.install-app-btn:active {
-    transform: translateY(0);
-}
-
-.install-icon {
-    width: 20px;
-    height: 20px;
-}
-
-/* Installed Card */
-.installed-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    padding: 20px 28px;
-    border-radius: 16px;
-    backdrop-filter: blur(10px);
-    max-width: 320px;
+/* Error Message */
+.login-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
     text-align: center;
 }
 
-.installed-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: #10b981;
-    font-size: 1rem;
-    font-weight: 600;
-}
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    .login-card {
+        padding: 2rem 1.5rem;
+    }
 
-.installed-note {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.875rem;
-    line-height: 1.5;
-    margin: 0;
-}
+    .login-logo {
+        width: 70px;
+        height: 70px;
+    }
 
-.open-app-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-    border: none;
-    padding: 12px 24px;
-    border-radius: 100px;
-    color: white;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
-    margin-top: 4px;
-}
-
-.open-app-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(79, 70, 229, 0.4);
-}
-
-
-.open-app-btn:active {
-    transform: translateY(0);
-}
-
-/* Download APK Button */
-.download-apk-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 14px 28px;
-    border-radius: 100px;
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 0.95rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    /* For anchor tag */
-}
-
-.download-apk-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    transform: translateY(-2px);
-    color: white;
-    border-color: rgba(255, 255, 255, 0.2);
-}
-
-.download-apk-btn:active {
-    transform: translateY(0);
+    .login-logo span {
+        font-size: 2rem;
+    }
 }

@@ -1,0 +1,738 @@
+/* Employee App Theme - Clean Professional Edition */
+/* Dark: Deep Navy Modern | Light: Pure White Minimal */
+
+/* ========================================
+   DARK MODE - Deep Navy Modern
+   Clean, professional, eye-friendly
+   ======================================== */
+.dark {
+    --emp-bg-primary: #0c1222;
+    --emp-bg-secondary: #111827;
+    --emp-bg-card: rgba(255, 255, 255, 0.03);
+    --emp-bg-card-hover: rgba(255, 255, 255, 0.06);
+
+    --emp-text-primary: #f1f5f9;
+    --emp-text-secondary: #cbd5e1;
+    --emp-text-muted: #64748b;
+
+    --emp-accent: #3b82f6;
+    --emp-accent-hover: #60a5fa;
+    --emp-accent-glow: rgba(59, 130, 246, 0.15);
+
+    --emp-border: rgba(255, 255, 255, 0.08);
+    --emp-border-light: rgba(255, 255, 255, 0.04);
+
+    --emp-success: #22c55e;
+    --emp-warning: #f59e0b;
+    --emp-danger: #ef4444;
+
+    --emp-header-bg: linear-gradient(135deg, #0c1222 0%, #1e293b 100%);
+    --emp-button-gradient: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    --emp-card-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+
+    --emp-nav-bg: rgba(12, 18, 34, 0.95);
+    --emp-nav-border: rgba(255, 255, 255, 0.06);
+    --emp-nav-active: #3b82f6;
+    --emp-nav-inactive: #64748b;
+}
+
+/* ========================================
+   LIGHT MODE - Pure White Minimal
+   Ultra clean, professional, modern
+   ======================================== */
+.light {
+    --emp-bg-primary: #ffffff;
+    --emp-bg-secondary: #f8fafc;
+    --emp-bg-card: #ffffff;
+    --emp-bg-card-hover: #f1f5f9;
+
+    --emp-text-primary: #0f172a;
+    --emp-text-secondary: #475569;
+    --emp-text-muted: #94a3b8;
+
+    --emp-accent: #2563eb;
+    --emp-accent-hover: #3b82f6;
+    --emp-accent-glow: rgba(37, 99, 235, 0.1);
+
+    --emp-border: #e2e8f0;
+    --emp-border-light: #f1f5f9;
+
+    --emp-success: #16a34a;
+    --emp-warning: #d97706;
+    --emp-danger: #dc2626;
+
+    --emp-header-bg: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    --emp-button-gradient: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    --emp-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+    --emp-nav-bg: #ffffff;
+    --emp-nav-border: #e2e8f0;
+    --emp-nav-active: #2563eb;
+    --emp-nav-inactive: #94a3b8;
+}
+
+/* ========================================
+   BASE LAYOUT STYLES
+   ======================================== */
+.emp-layout {
+    min-height: 100vh;
+    background: var(--emp-bg-primary);
+    color: var(--emp-text-primary);
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.emp-container {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 1rem;
+    padding-bottom: 6rem;
+}
+
+/* ========================================
+   HEADER STYLES
+   ======================================== */
+.emp-header {
+    background: var(--emp-header-bg);
+    padding: 1rem 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.emp-header-text {
+    color: #ffffff;
+}
+
+.emp-header-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.025em;
+}
+
+.emp-header-subtitle {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 0.125rem;
+}
+
+/* ========================================
+   CARD STYLES - Clean & Minimal
+   ======================================== */
+.emp-card {
+    background: var(--emp-bg-card);
+    border: 1px solid var(--emp-border);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    box-shadow: var(--emp-card-shadow);
+    transition: all 0.2s ease;
+}
+
+.dark .emp-card {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+.emp-card:hover {
+    border-color: var(--emp-border);
+}
+
+.emp-card-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--emp-text-primary);
+    margin-bottom: 0.75rem;
+}
+
+/* ========================================
+   BUTTON STYLES - Clean Professional
+   ======================================== */
+.emp-btn {
+    background: var(--emp-button-gradient);
+    color: #ffffff;
+    border: none;
+    border-radius: 0.75rem;
+    padding: 0.875rem 1.5rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.emp-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+}
+
+.emp-btn:active {
+    transform: translateY(0);
+}
+
+.emp-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.emp-btn-secondary {
+    background: var(--emp-bg-card);
+    color: var(--emp-text-primary);
+    border: 1px solid var(--emp-border);
+    box-shadow: none;
+}
+
+.emp-btn-secondary:hover {
+    background: var(--emp-bg-card-hover);
+    box-shadow: none;
+}
+
+/* ========================================
+   ATTENDANCE CHECK-IN BUTTON
+   ======================================== */
+.emp-checkin-btn {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: var(--emp-button-gradient);
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    position: relative;
+    box-shadow: 0 8px 32px rgba(37, 99, 235, 0.3);
+    transition: all 0.3s ease;
+}
+
+.emp-checkin-btn::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 2px solid var(--emp-accent);
+    opacity: 0.3;
+    animation: emp-pulse 2s ease-in-out infinite;
+}
+
+.emp-checkin-btn:hover {
+    transform: scale(1.03);
+    box-shadow: 0 12px 40px rgba(37, 99, 235, 0.4);
+}
+
+.emp-checkin-btn:active {
+    transform: scale(0.98);
+}
+
+@keyframes emp-pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.3;
+    }
+
+    50% {
+        transform: scale(1.08);
+        opacity: 0.1;
+    }
+}
+
+/* ========================================
+   INPUT STYLES - Clean
+   ======================================== */
+.emp-input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    background: var(--emp-bg-secondary);
+    border: 1px solid var(--emp-border);
+    border-radius: 0.75rem;
+    color: var(--emp-text-primary);
+    font-size: 0.9375rem;
+    transition: all 0.2s ease;
+}
+
+.emp-input:focus {
+    outline: none;
+    border-color: var(--emp-accent);
+    box-shadow: 0 0 0 3px var(--emp-accent-glow);
+}
+
+.emp-input::placeholder {
+    color: var(--emp-text-muted);
+}
+
+/* ========================================
+   TABLE-STYLE LIST - Clean Records
+   ======================================== */
+.emp-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.emp-table-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--emp-text-muted);
+    border-bottom: 1px solid var(--emp-border);
+}
+
+.emp-table-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 1rem;
+    align-items: center;
+    border-bottom: 1px solid var(--emp-border);
+    transition: background 0.15s ease;
+}
+
+.emp-table-row:last-child {
+    border-bottom: none;
+}
+
+.emp-table-row:hover {
+    background: var(--emp-bg-card-hover);
+}
+
+.emp-table-cell {
+    font-size: 0.875rem;
+    color: var(--emp-text-primary);
+}
+
+.emp-table-cell.muted {
+    color: var(--emp-text-muted);
+}
+
+/* ========================================
+   LIST ITEM STYLES
+   ======================================== */
+.emp-list-item {
+    background: var(--emp-bg-card);
+    border: 1px solid var(--emp-border);
+    border-radius: 0.875rem;
+    padding: 1rem;
+    transition: all 0.2s ease;
+}
+
+.dark .emp-list-item {
+    backdrop-filter: blur(10px);
+}
+
+.emp-list-item:hover {
+    background: var(--emp-bg-card-hover);
+}
+
+/* ========================================
+   BADGE STYLES - Clean Minimal
+   ======================================== */
+.emp-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.emp-badge.success {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--emp-success);
+}
+
+.emp-badge.warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--emp-warning);
+}
+
+.emp-badge.danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--emp-danger);
+}
+
+.emp-badge.neutral {
+    background: var(--emp-bg-secondary);
+    color: var(--emp-text-muted);
+}
+
+/* Status dot indicator */
+.emp-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.emp-status-dot.success {
+    background: var(--emp-success);
+}
+
+.emp-status-dot.warning {
+    background: var(--emp-warning);
+}
+
+.emp-status-dot.danger {
+    background: var(--emp-danger);
+}
+
+/* ========================================
+   STATS CARD - Minimal
+   ======================================== */
+.emp-stat-card {
+    background: var(--emp-bg-card);
+    border: 1px solid var(--emp-border);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    text-align: center;
+}
+
+.dark .emp-stat-card {
+    backdrop-filter: blur(10px);
+}
+
+.emp-stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--emp-text-primary);
+    line-height: 1;
+}
+
+.emp-stat-label {
+    font-size: 0.75rem;
+    color: var(--emp-text-muted);
+    margin-top: 0.5rem;
+    font-weight: 500;
+}
+
+/* ========================================
+   CALENDAR STYLES - Clean
+   ======================================== */
+.emp-calendar {
+    background: var(--emp-bg-card);
+    border: 1px solid var(--emp-border);
+    border-radius: 1rem;
+    padding: 1rem;
+}
+
+.dark .emp-calendar {
+    backdrop-filter: blur(10px);
+}
+
+.emp-calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.emp-calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    color: var(--emp-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.emp-calendar-day:hover {
+    background: var(--emp-bg-card-hover);
+}
+
+/* ========================================
+   SETTINGS LIST STYLE
+   ======================================== */
+.emp-settings-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid var(--emp-border);
+    transition: background 0.15s ease;
+}
+
+.emp-settings-item:last-child {
+    border-bottom: none;
+}
+
+.emp-settings-item:hover {
+    background: var(--emp-bg-card-hover);
+}
+
+.emp-settings-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Toggle Switch */
+.emp-toggle {
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+    background: var(--emp-border);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.emp-toggle.active {
+    background: var(--emp-accent);
+}
+
+.emp-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease;
+}
+
+.emp-toggle.active::after {
+    transform: translateX(20px);
+}
+
+/* ========================================
+   BOTTOM NAVIGATION - Clean
+   ======================================== */
+.emp-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--emp-nav-bg);
+    border-top: 1px solid var(--emp-nav-border);
+    z-index: 100;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+.emp-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    color: var(--emp-nav-inactive);
+    text-decoration: none;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    position: relative;
+    min-width: 4rem;
+}
+
+.emp-nav-item svg {
+    width: 1.375rem;
+    height: 1.375rem;
+    margin-bottom: 0.25rem;
+    stroke-width: 1.5;
+}
+
+.emp-nav-item.active {
+    color: var(--emp-nav-active);
+}
+
+.emp-nav-item.active svg {
+    stroke-width: 2;
+}
+
+/* Active indicator line */
+.emp-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 3px;
+    background: var(--emp-nav-active);
+    border-radius: 0 0 3px 3px;
+}
+
+/* ========================================
+   THEME TOGGLE - Clean
+   ======================================== */
+.emp-theme-toggle {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.emp-theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.emp-theme-toggle svg {
+    width: 1.125rem;
+    height: 1.125rem;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+.emp-fade-in {
+    animation: emp-fadeIn 0.25s ease-out;
+}
+
+@keyframes emp-fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========================================
+   SCROLLBAR STYLING
+   ======================================== */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--emp-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--emp-border);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--emp-text-muted);
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+.emp-text-primary {
+    color: var(--emp-text-primary);
+}
+
+.emp-text-secondary {
+    color: var(--emp-text-secondary);
+}
+
+.emp-text-muted {
+    color: var(--emp-text-muted);
+}
+
+.emp-text-accent {
+    color: var(--emp-accent);
+}
+
+.emp-text-success {
+    color: var(--emp-success);
+}
+
+.emp-text-warning {
+    color: var(--emp-warning);
+}
+
+.emp-text-danger {
+    color: var(--emp-danger);
+}
+
+.emp-bg-primary {
+    background: var(--emp-bg-primary);
+}
+
+.emp-bg-secondary {
+    background: var(--emp-bg-secondary);
+}
+
+.emp-bg-card {
+    background: var(--emp-bg-card);
+}
+
+/* ========================================
+   SECTION STYLES
+   ======================================== */
+.emp-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--emp-text-muted);
+    margin-bottom: 0.75rem;
+    padding-left: 0.25rem;
+}
+
+/* ========================================
+   PROFILE AVATAR
+   ======================================== */
+.emp-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--emp-button-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: 700;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.emp-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* ========================================
+   TIME WINDOW NOTICE
+   ======================================== */
+.emp-time-notice {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    background: var(--emp-accent-glow);
+    color: var(--emp-accent);
+}
+
+.emp-time-notice svg {
+    width: 1rem;
+    height: 1rem;
+}

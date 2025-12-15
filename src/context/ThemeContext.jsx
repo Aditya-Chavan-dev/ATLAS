@@ -4,21 +4,34 @@ const ThemeContext = createContext()
 
 export const ThemeProvider = ({ children }) => {
     const [theme, setTheme] = useState(() => {
-        const savedTheme = localStorage.getItem('app-theme')
-        return savedTheme || 'dark'
+        const savedTheme = localStorage.getItem('atlas-theme')
+        if (savedTheme) return savedTheme
+        // Default to system preference
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     })
 
     useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme)
-        localStorage.setItem('app-theme', theme)
+        const root = document.documentElement
+        root.setAttribute('data-theme', theme)
+        // Also add class for Tailwind dark mode support
+        if (theme === 'dark') {
+            root.classList.add('dark')
+            root.classList.remove('light')
+        } else {
+            root.classList.add('light')
+            root.classList.remove('dark')
+        }
+        localStorage.setItem('atlas-theme', theme)
     }, [theme])
 
     const toggleTheme = () => {
         setTheme(prev => prev === 'dark' ? 'light' : 'dark')
     }
 
+    const isDarkMode = theme === 'dark'
+
     return (
-        <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+        <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, isDarkMode }}>
             {children}
         </ThemeContext.Provider>
     )

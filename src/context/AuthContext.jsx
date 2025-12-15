@@ -27,7 +27,7 @@ import {
 } from 'firebase/database'
 import { auth, database } from '../firebase/config'
 import { isMD } from '../md/config/mdAllowList'
-import { ROLES } from '../config/roleConfig'
+import { ROLES, isOwner } from '../config/roleConfig'
 
 
 // Create Auth Context
@@ -224,8 +224,32 @@ export const AuthProvider = ({ children }) => {
             let role = null
             let profileData = null
 
-            // 1. Check MD allowlist first - this takes ABSOLUTE PRIORITY
-            if (isMD(email)) {
+            // 0. Check OWNER first - has access to metrics dashboard
+            if (isOwner(email)) {
+                role = ROLES.OWNER
+                console.log('👤 Owner user logged in:', email)
+
+                // Create/update owner profile
+                const dbRef = ref(database)
+                let userSnapshot = await get(child(dbRef, `employees/${user.uid}`))
+
+                if (userSnapshot.exists()) {
+                    profileData = userSnapshot.val()
+                    profileData.role = ROLES.OWNER
+                } else {
+                    profileData = {
+                        uid: user.uid,
+                        email: user.email,
+                        name: user.displayName || 'Owner',
+                        photoURL: user.photoURL || '',
+                        role: ROLES.OWNER,
+                        phone: ''
+                    }
+                }
+                await set(ref(database, `employees/${user.uid}`), profileData)
+            }
+            // 1. Check MD allowlist next - this takes PRIORITY over employee
+            else if (isMD(email)) {
                 role = ROLES.MD
                 console.log('👑 MD user logged in:', email)
 

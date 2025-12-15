@@ -1,5 +1,28 @@
 {
     "rules": {
+        ".read": false,
+        ".write": false,
+        "demo": {
+            "sources": {
+                ".read": "auth != null && auth.token.email == 'adityagchavan3@gmail.com'",
+                ".write": "auth != null && auth.token.email == 'adityagchavan3@gmail.com'",
+                "$sourceId": {
+                    ".read": "auth != null"
+                }
+            },
+            "sessions": {
+                ".read": "auth != null && auth.token.email == 'adityagchavan3@gmail.com'",
+                ".write": "auth != null",
+                "$sessionId": {
+                    ".read": "auth != null",
+                    ".write": "auth != null"
+                }
+            }
+        },
+        "ownerFcmTokens": {
+            ".read": false,
+            ".write": false
+        },
         "users": {
             ".read": "auth != null",
             ".write": "auth != null",

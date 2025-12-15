@@ -18,13 +18,40 @@ const exportAttendanceReport = async (req, res) => {
 
         const employees = Object.entries(usersData)
             .map(([uid, user]) => ({ uid, ...user }))
-            .filter(u => u.role !== 'md' && u.role !== 'admin')
+            // Removed filter to include MDs
+            // .filter(u => u.role !== 'md' && u.role !== 'admin') 
             .sort((a, b) => {
+                const emailA = (a.email || '').toLowerCase();
+                const emailB = (b.email || '').toLowerCase();
                 const nameA = (a.name || a.email || '').toUpperCase();
                 const nameB = (b.name || b.email || '').toUpperCase();
-                // RVS first
-                if (nameA.includes('RVS')) return -1;
-                if (nameB.includes('RVS')) return 1;
+
+                // 1. RVS (Auto-marked)
+                const isRvsA = nameA.includes('RVS');
+                const isRvsB = nameB.includes('RVS');
+
+                if (isRvsA && !isRvsB) return -1;
+                if (!isRvsA && isRvsB) return 1;
+                if (isRvsA && isRvsB) return 0;
+
+                // Identify Santy (HR)
+                const isSantyA = emailA === 'santy9shinde@gmail.com';
+                const isSantyB = emailB === 'santy9shinde@gmail.com';
+
+                // 2. MD 2 (Active MD - ANY MD role that isn't Santy or RVS)
+                const isRealMDA = a.role === 'md' && !isSantyA && !isRvsA;
+                const isRealMDB = b.role === 'md' && !isSantyB && !isRvsB;
+
+                if (isRealMDA && !isRealMDB) return -1;
+                if (!isRealMDA && isRealMDB) return 1;
+                if (isRealMDA && isRealMDB) return 0; // Maintain relative order
+
+                // 3. HR (Santy)
+                if (isSantyA && !isSantyB) return -1;
+                if (!isSantyA && isSantyB) return 1;
+                if (isSantyA && isSantyB) return 0;
+
+                // 4. Other employees (alphabetical)
                 return nameA.localeCompare(nameB);
             });
 

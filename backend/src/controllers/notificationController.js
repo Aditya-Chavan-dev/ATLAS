@@ -1,5 +1,7 @@
+```javascript
 const { db } = require('../config/firebase');
 const { sendPushNotification, sendTopicNotification, subscribeToTopic, unsubscribeFromTopic } = require('../services/notificationService');
+const { sendEmail, generateEmailTemplate } = require('../services/emailService');
 const { getTodayDateIST } = require('../utils/dateUtils');
 
 const TOPIC_ALL_USERS = 'atlas_all_users';
@@ -28,7 +30,7 @@ exports.unsubscribeFromBroadcast = async (req, res) => {
     }
 };
 
-// UPDATED: Use new /employees structure with nested attendance
+// Helper: Get Pending Employees (Expanded for detailed use)
 const getEmployeesWithoutAttendance = async (dateStr) => {
     try {
         // NEW: Query /employees which contains both profile and nested attendance
@@ -44,13 +46,12 @@ const getEmployeesWithoutAttendance = async (dateStr) => {
             // Check if employee has attendance for today (in nested structure)
             const hasAttendance = emp.attendance && emp.attendance[dateStr];
             if (hasAttendance) return;
-            // if (!user.fcmToken) return; // Allow listing even if no token, for UI
 
             pendingEmployees.push({
                 uid,
-                fcmToken: user.fcmToken,
-                name: user.name || user.displayName || 'Employee',
-                email: user.email
+                fcmToken: emp.fcmToken,
+                email: emp.email,
+                name: emp.name || emp.displayName || 'Employee'
             });
         });
 
@@ -63,81 +64,82 @@ const getEmployeesWithoutAttendance = async (dateStr) => {
 
 exports.triggerReminder = async (req, res) => {
     try {
-        console.log('📢 Triggering Manual Reminder to ALL employees...');
+        console.log('📢 Triggering Manual Hybrid Reminder...');
 
         // NEW: Query /employees instead of /users
         const usersSnapshot = await db.ref('employees').once('value');
         const users = usersSnapshot.val() || {};
 
-        // Collect all employee FCM tokens
-        const employeeTokens = [];
-        const employeeNames = [];
+        // Segmentation
+        const pushTokens = [];
+        const emailTargets = [];
 
         Object.entries(users).forEach(([uid, user]) => {
-            // Include all profiles with FCM tokens
+            // Check Push Eligibility
             if (user.fcmToken && typeof user.fcmToken === 'string' && user.fcmToken.length > 0) {
-                employeeTokens.push(user.fcmToken);
-                employeeNames.push(user.name || user.email || uid);
+                pushTokens.push(user.fcmToken);
+            } 
+            // Check Email Eligibility (Only if NO Push or as fallback? User said: "Whoever has not [app] we can send via email")
+            else if (user.email) {
+                emailTargets.push(user.email);
             }
         });
 
-        console.log(`📋 Found ${employeeTokens.length} employees with FCM tokens`);
+        console.log(`📋 Targets found: ${ pushTokens.length } Push, ${ emailTargets.length } Email`);
 
-        if (employeeTokens.length === 0) {
-            // No tokens found - store notification anyway for record
-            const notificationRef = db.ref('notifications').push();
-            await notificationRef.set({
-                title: '📍 Mark Your Attendance',
-                body: 'Please mark your attendance for today.',
-                type: 'MANUAL_REMINDER',
-                date: new Date().toISOString().split('T')[0],
-                timestamp: new Date().toISOString(),
-                target: 'ALL_EMPLOYEES',
-                employeeCount: 0,
-                status: 'NO_TOKENS'
-            });
-
-            return res.json({
-                success: true,
-                employeeCount: 0,
-                message: 'No employees have notification tokens registered'
-            });
+        // 1. Send Push
+        let pushResult = { successCount: 0, failureCount: 0 };
+        if (pushTokens.length > 0) {
+            pushResult = await sendPushNotification(
+                pushTokens,
+                '📍 Mark Your Attendance',
+                'Please mark your attendance for today.',
+                {
+                    type: 'MANUAL_REMINDER',
+                    date: new Date().toISOString().split('T')[0],
+                    requireInteraction: 'true'
+                }
+            );
         }
 
-        // Send direct push notifications to all employee tokens
-        const result = await sendPushNotification(
-            employeeTokens,
-            '📍 Mark Your Attendance',
-            'Please mark your attendance for today.',
-            {
-                type: 'MANUAL_REMINDER',
-                date: new Date().toISOString().split('T')[0],
-                requireInteraction: 'true'
-            }
-        );
+        // 2. Send Emails
+        let emailCount = 0;
+        if (emailTargets.length > 0) {
+            const emailHtml = generateEmailTemplate(
+                '📍 Mark Your Attendance',
+                'Please mark your attendance for today. Since you do not have the app installed, please ensure you update your status.'
+            );
+            // Send individually or bcc? Individually is safer for "Your Attendance" context but slower.
+            // Bcc is faster. Let's use individual for now or small batches. 
+            // For simplicity in this demo, sending one Bcc batch or separate.
+            // Nodemailer 'to' accepts array (comma separated).
+            await sendEmail(emailTargets, 'Action Required: Mark Attendance', emailHtml);
+            emailCount = emailTargets.length;
+        }
 
-        // Store notification record in Firebase
+        // Store notification record
         const notificationRef = db.ref('notifications').push();
         await notificationRef.set({
             title: '📍 Mark Your Attendance',
-            body: 'Please mark your attendance for today.',
+            body: 'Hybrid Reminder Sent',
             type: 'MANUAL_REMINDER',
             date: new Date().toISOString().split('T')[0],
             timestamp: new Date().toISOString(),
             target: 'ALL_EMPLOYEES',
-            employeeCount: employeeTokens.length,
-            successCount: result.successCount,
-            failureCount: result.failureCount
+            stats: {
+                pushSent: pushTokens.length,
+                emailSent: emailTargets.length,
+                pushSuccess: pushResult.successCount
+            }
         });
-
-        console.log(`✅ Reminder sent: ${result.successCount} success, ${result.failureCount} failed`);
 
         res.json({
             success: true,
-            employeeCount: employeeTokens.length,
-            successCount: result.successCount,
-            failureCount: result.failureCount,
-            message: `Reminder sent to ${result.successCount} employee(s)`
+            message: `Reminder processing complete.`,
+            stats: {
+                push: { count: pushTokens.length, success: pushResult.successCount },
+                email: { count: emailTargets.length }
+            }
         });
     } catch (error) {
         console.error('❌ Error triggering reminder:', error);
@@ -147,20 +149,25 @@ exports.triggerReminder = async (req, res) => {
 
 
 exports.sendTestNotification = async (req, res) => {
-    const { token, title, body } = req.body;
+    const { token, email, title, body } = req.body;
 
-    if (!token) {
-        return res.status(400).json({ error: 'Token is required' });
+    const results = {};
+
+    if (token) {
+        results.push = await sendPushNotification(
+            [token],
+            title || 'Test Notification',
+            body || 'This is a test notification from ATLAS',
+            { type: 'TEST' }
+        );
     }
 
-    const result = await sendPushNotification(
-        [token],
-        title || 'Test Notification',
-        body || 'This is a test notification from ATLAS',
-        { type: 'TEST' }
-    );
+    if (email) {
+        const html = generateEmailTemplate(title || 'Test Notification', body || 'This is a test email.');
+        results.email = await sendEmail(email, title || 'Test Email', html);
+    }
 
-    res.json(result);
+    res.json(results);
 };
 
 exports.getPendingEmployees = async (req, res) => {
@@ -181,13 +188,13 @@ exports.getPendingEmployees = async (req, res) => {
 exports.logError = (req, res) => {
     const { message, stack, componentStack, url, userAgent, timestamp } = req.body;
     const logEntry = `
-[${timestamp}] ERROR: ${message}
-URL: ${url}
-User-Agent: ${userAgent}
-Stack: ${stack}
-Component Stack: ${componentStack || 'N/A'}
+[${ timestamp }]ERROR: ${ message }
+URL: ${ url }
+User - Agent: ${ userAgent }
+Stack: ${ stack }
+Component Stack: ${ componentStack || 'N/A' }
 --------------------------------------------------
-`;
+    `;
 
     const fs = require('fs');
     const path = require('path');
@@ -204,43 +211,69 @@ Component Stack: ${componentStack || 'N/A'}
 
 // Scheduled Tasks Logic
 exports.runMorningReminder = async () => {
-    console.log('⏰ 11:00 AM IST - Running Universal Attendance Reminder...');
+    console.log('⏰ 11:00 AM IST - Running Universal Hybrid Reminder...');
     const today = getTodayDateIST();
+    // Use triggerReminder logic but adapted for cron (no res object)
+    // For universal reminder, we fetch all users similar to triggerReminder
+    try {
+        const usersSnapshot = await db.ref('employees').once('value');
+        const users = usersSnapshot.val() || {};
+        
+        const pushTokens = [];
+        const emailTargets = [];
 
-    // Universal Delivery Mandate: Send to ALL users, regardless of status
-    await sendTopicNotification(
-        TOPIC_ALL_USERS,
-        '📍 Mark Your Attendance',
-        'Good morning! Please mark your attendance for today.',
-        { type: 'ATTENDANCE_REMINDER', date: today }
-    );
-    console.log('✅ Universal morning reminder sent to topic:', TOPIC_ALL_USERS);
+        Object.entries(users).forEach(([uid, user]) => {
+            if (user.role === 'md' || user.role === 'admin') return;
+            if (user.fcmToken) pushTokens.push(user.fcmToken);
+            else if (user.email) emailTargets.push(user.email);
+        });
+
+        // Push
+        if (pushTokens.length > 0) {
+            await sendPushNotification(pushTokens, '📍 Mark Your Attendance', 'Good morning! Please mark your attendance.', { type: 'ATTENDANCE_REMINDER', date: today });
+        }
+        // Email
+        if (emailTargets.length > 0) {
+            const html = generateEmailTemplate('📍 Mark Your Attendance', 'Good morning! Please mark your attendance for today.');
+            await sendEmail(emailTargets, 'Reminder: Mark Attendance', html);
+        }
+        console.log(`✅ Morning reminder: ${ pushTokens.length } Push, ${ emailTargets.length } Email`);
+    } catch (e) {
+        console.error("Error in morning reminder:", e);
+    }
 };
 
 exports.runAfternoonReminder = async () => {
-    console.log('⏰ 5:00 PM IST - Running afternoon reminder check...');
+    console.log('⏰ 5:00 PM IST - Running Afternoon Pending Check...');
     const today = getTodayDateIST();
-    const pendingEmployees = await getEmployeesWithoutAttendance(today);
+    try {
+        const pendingEmployees = await getEmployeesWithoutAttendance(today);
+        if (pendingEmployees.length === 0) {
+            console.log('✅ All present.');
+            return;
+        }
 
-    if (pendingEmployees.length === 0) {
-        console.log('✅ All employees have marked attendance!');
-        return;
+        const pushTokens = [];
+        const emailTargets = [];
+
+        pendingEmployees.forEach(emp => {
+            if (emp.fcmToken) pushTokens.push(emp.fcmToken);
+            else if (emp.email) emailTargets.push(emp.email);
+        });
+
+        const title = '⚠️ Attendance Pending';
+        const body = 'You haven\'t marked attendance today. Please do it immediately.';
+
+        if (pushTokens.length > 0) {
+            await sendPushNotification(pushTokens, title, body, { type: 'ATTENDANCE_REMINDER_URGENT', date: today });
+        }
+        if (emailTargets.length > 0) {
+            const html = generateEmailTemplate(title, body);
+            await sendEmail(emailTargets, 'Urgent: Attendance Pending', html);
+        }
+        console.log(`✅ Afternoon Pending Reminder: ${ pushTokens.length } Push, ${ emailTargets.length } Email`);
+    } catch (e) {
+        console.error("Error in afternoon reminder:", e);
     }
-
-    // For afternoon, we still might want to target specific pending users only?
-    // User said "Daily Attendance Reminder (11:00 AM)" -> ALL.
-    // User generally said "ALL notification types MUST be delivered to ALL active users without exception."
-    // However, specifically for "Reminder", sending it to people who ALREADY marked it at 5 PM is spam.
-    // The "Universal Delivery" list item 1 specified "Daily Attendance Reminder (11:00 AM)".
-    // It did not specify the afternoon one.
-    // I will keep the afternoon one targeted to pending only, as it's a "You HAVEN'T marked" message.
-    // Sending "You haven't marked" to everyone (even those who have) would be incorrect/confusing.
-
-    const tokens = pendingEmployees.map(emp => emp.fcmToken);
-    await sendPushNotification(
-        tokens,
-        '⚠️ Attendance Pending',
-        'You haven\'t marked attendance today. Please do it before end of day.',
-        { type: 'ATTENDANCE_REMINDER_URGENT', date: today }
-    );
 };
+```

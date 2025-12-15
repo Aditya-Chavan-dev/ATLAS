@@ -1,41 +1,70 @@
+// Profile Page - Clean Settings-Style UI
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
-import { UserCircleIcon, ArrowRightOnRectangleIcon, PhoneIcon, EnvelopeIcon, BriefcaseIcon, PencilSquareIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import {
+    UserCircleIcon,
+    ArrowRightOnRectangleIcon,
+    EnvelopeIcon,
+    PencilSquareIcon,
+    PhoneIcon,
+    IdentificationIcon,
+    SunIcon,
+    MoonIcon,
+    BellIcon,
+    ShieldCheckIcon,
+    ChevronRightIcon
+} from '@heroicons/react/24/outline'
 import { ref, update } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { unsubscribeTokenFromBroadcast } from '../../services/fcm'
 
 export default function EmployeeProfile() {
-    const { currentUser, userProfile, logout } = useAuth()
+    const { currentUser, userProfile, logout, loading: authLoading } = useAuth()
+    const { isDarkMode, toggleTheme } = useTheme()
     const navigate = useNavigate()
     const [isEditing, setIsEditing] = useState(false)
-    const [editForm, setEditForm] = useState({
-        name: '',
-        phone: ''
-    })
+    const [editForm, setEditForm] = useState({ name: '', phone: '' })
     const [isSaving, setIsSaving] = useState(false)
 
-    // Sync form with profile when loaded
     useEffect(() => {
-        if (userProfile && !isEditing) {
+        if (!isEditing) {
             setEditForm({
-                name: userProfile.name || currentUser?.displayName || '',
-                phone: userProfile.phone || ''
+                name: userProfile?.name || currentUser?.displayName || '',
+                phone: userProfile?.phone || ''
             })
         }
     }, [userProfile, currentUser, isEditing])
 
-    // Show loading while userProfile loads
-    if (!userProfile) {
+    if (authLoading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
-                <p className="text-slate-500 text-sm">Loading profile...</p>
+            <div className="flex flex-col items-center justify-center min-h-[60vh]">
+                <div
+                    className="animate-spin rounded-full h-8 w-8 border-2"
+                    style={{ borderColor: 'var(--emp-accent)', borderTopColor: 'transparent' }}
+                />
+                <p className="text-sm mt-3" style={{ color: 'var(--emp-text-muted)' }}>
+                    Loading profile...
+                </p>
             </div>
         )
     }
 
+    if (!currentUser) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh]">
+                <p style={{ color: 'var(--emp-text-muted)' }}>Please log in to view profile</p>
+                <button
+                    onClick={() => navigate('/')}
+                    className="mt-4 px-4 py-2 rounded-lg"
+                    style={{ background: 'var(--emp-accent)', color: '#fff' }}
+                >
+                    Go to Login
+                </button>
+            </div>
+        )
+    }
 
     const handleLogout = async () => {
         try {
@@ -53,8 +82,7 @@ export default function EmployeeProfile() {
         if (!editForm.name.trim() || !currentUser) return
         setIsSaving(true)
         try {
-            // Update in Firebase Realtime Database
-            const userRef = ref(database, `users/${currentUser.uid}`)
+            const userRef = ref(database, `employees/${currentUser.uid}`)
             await update(userRef, {
                 name: editForm.name,
                 phone: editForm.phone
@@ -68,41 +96,62 @@ export default function EmployeeProfile() {
         }
     }
 
+    const displayName = userProfile?.name || currentUser?.displayName || 'Employee'
+    const displayEmail = currentUser?.email || 'No email'
+    const displayPhone = userProfile?.phone || 'Not set'
+    const displayId = userProfile?.employeeId || 'N/A'
+    const avatarLetter = displayName.charAt(0).toUpperCase()
+
     return (
-        <div className="space-y-6 animate-fade-in max-w-md mx-auto">
-            <h2 className="text-2xl font-bold text-slate-800">My Profile</h2>
-
-            {/* Profile Card */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 flex flex-col items-center text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-10" />
-
-                <div className="w-28 h-28 bg-white rounded-full flex items-center justify-center text-indigo-600 mb-4 ring-4 ring-white shadow-xl relative z-10 mt-4">
-                    <UserCircleIcon className="w-20 h-20" />
+        <div className="space-y-6 emp-fade-in pb-6">
+            {/* Profile Header */}
+            <div className="emp-card text-center py-6">
+                {/* Avatar */}
+                <div className="relative inline-block mb-4">
+                    {currentUser?.photoURL ? (
+                        <img
+                            src={currentUser.photoURL}
+                            alt="Profile"
+                            className="w-20 h-20 rounded-full object-cover"
+                            style={{ border: '3px solid var(--emp-accent)' }}
+                        />
+                    ) : (
+                        <div
+                            className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold"
+                            style={{
+                                background: 'var(--emp-button-gradient)',
+                                color: '#ffffff',
+                                boxShadow: '0 4px 16px rgba(37, 99, 235, 0.3)'
+                            }}
+                        >
+                            {avatarLetter}
+                        </div>
+                    )}
                     {!isEditing && (
                         <button
                             onClick={() => {
                                 setIsEditing(true)
-                                // create a local copy to edit so we don't rely on the effect immediately
                                 setEditForm({
-                                    name: userProfile?.name || currentUser?.displayName || '',
+                                    name: displayName,
                                     phone: userProfile?.phone || ''
                                 })
                             }}
-                            className="absolute bottom-0 right-0 bg-indigo-600 text-white p-2 rounded-full shadow-lg hover:bg-indigo-700 transition-colors"
-                            title="Edit Profile"
+                            className="absolute -bottom-1 -right-1 p-1.5 rounded-full shadow-lg"
+                            style={{ background: 'var(--emp-accent)', color: '#ffffff' }}
                         >
-                            <PencilSquareIcon className="w-4 h-4" />
+                            <PencilSquareIcon className="w-3.5 h-3.5" />
                         </button>
                     )}
                 </div>
 
+                {/* Name & Edit Form */}
                 {isEditing ? (
-                    <div className="w-full space-y-3 z-10 relative">
+                    <div className="space-y-3 max-w-xs mx-auto">
                         <input
                             type="text"
                             value={editForm.name}
                             onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                            className="w-full text-center font-bold text-lg text-slate-800 border-b border-indigo-200 focus:border-indigo-500 focus:outline-none pb-1 bg-transparent"
+                            className="emp-input text-center"
                             placeholder="Enter Name"
                             autoFocus
                         />
@@ -110,46 +159,139 @@ export default function EmployeeProfile() {
                             type="tel"
                             value={editForm.phone}
                             onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                            className="w-full text-center text-sm text-slate-600 border-b border-indigo-200 focus:border-indigo-500 focus:outline-none pb-1 bg-transparent"
+                            className="emp-input text-center"
                             placeholder="Enter Phone Number"
                         />
-                        <div className="flex justify-center gap-2 pt-2">
+                        <div className="flex justify-center gap-2 pt-1">
                             <button
                                 onClick={handleSaveProfile}
                                 disabled={isSaving}
-                                className="flex items-center gap-1 bg-indigo-600 text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+                                className="px-5 py-2 rounded-lg text-sm font-medium transition-all"
+                                style={{ background: 'var(--emp-success)', color: '#ffffff' }}
                             >
                                 {isSaving ? 'Saving...' : 'Save'}
                             </button>
                             <button
                                 onClick={() => setIsEditing(false)}
-                                className="flex items-center gap-1 bg-slate-100 text-slate-600 px-4 py-1.5 rounded-full text-sm font-medium hover:bg-slate-200"
+                                className="px-5 py-2 rounded-lg text-sm font-medium"
+                                style={{ background: 'var(--emp-bg-secondary)', color: 'var(--emp-text-secondary)' }}
                             >
                                 Cancel
                             </button>
                         </div>
                     </div>
                 ) : (
-                    <div className="relative z-10 mb-2">
-                        <h3 className="text-2xl font-bold text-slate-800">
-                            {userProfile?.name || currentUser?.displayName || 'Employee Name'}
-                        </h3>
-                        <p className="text-slate-500 font-medium">
-                            {userProfile?.phone || 'No phone number added'}
-                        </p>
-                    </div>
+                    <>
+                        <h2 className="text-lg font-bold" style={{ color: 'var(--emp-text-primary)' }}>{displayName}</h2>
+                        <p className="text-sm" style={{ color: 'var(--emp-text-muted)' }}>Software Engineer</p>
+                    </>
                 )}
             </div>
 
-            {/* Details List */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 divide-y divide-slate-50 overflow-hidden">
-                <div className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
-                    <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500">
-                        <EnvelopeIcon className="w-5 h-5" />
+            {/* Account Section */}
+            <div>
+                <p className="emp-section-title">Account</p>
+                <div className="emp-card p-0 overflow-hidden">
+                    {/* Email */}
+                    <div className="emp-settings-item">
+                        <div className="flex items-center gap-3">
+                            <div className="emp-settings-icon" style={{ background: 'var(--emp-accent-glow)', color: 'var(--emp-accent)' }}>
+                                <EnvelopeIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Email</p>
+                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>{displayEmail}</p>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-xs text-slate-400 uppercase tracking-wider font-bold">Email</p>
-                        <p className="text-sm font-semibold text-slate-700">{currentUser?.email}</p>
+
+                    {/* Phone */}
+                    <div className="emp-settings-item">
+                        <div className="flex items-center gap-3">
+                            <div className="emp-settings-icon" style={{ background: 'rgba(34, 197, 94, 0.1)', color: 'var(--emp-success)' }}>
+                                <PhoneIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Phone</p>
+                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>{displayPhone}</p>
+                            </div>
+                        </div>
+                        <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--emp-text-muted)' }} />
+                    </div>
+
+                    {/* Employee ID */}
+                    <div className="emp-settings-item">
+                        <div className="flex items-center gap-3">
+                            <div className="emp-settings-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--emp-warning)' }}>
+                                <IdentificationIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Employee ID</p>
+                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>{displayId}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Preferences Section */}
+            <div>
+                <p className="emp-section-title">Preferences</p>
+                <div className="emp-card p-0 overflow-hidden">
+                    {/* Dark Mode Toggle */}
+                    <button
+                        onClick={toggleTheme}
+                        className="emp-settings-item w-full"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="emp-settings-icon" style={{
+                                background: isDarkMode ? 'rgba(59, 130, 246, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                color: isDarkMode ? 'var(--emp-accent)' : 'var(--emp-warning)'
+                            }}>
+                                {isDarkMode ? <MoonIcon className="w-5 h-5" /> : <SunIcon className="w-5 h-5" />}
+                            </div>
+                            <div className="text-left">
+                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Dark Mode</p>
+                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>
+                                    {isDarkMode ? 'On' : 'Off'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className={`emp-toggle ${isDarkMode ? 'active' : ''}`}></div>
+                    </button>
+
+                    {/* Notifications */}
+                    <div className="emp-settings-item">
+                        <div className="flex items-center gap-3">
+                            <div className="emp-settings-icon" style={{ background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' }}>
+                                <BellIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Receive Notifications</p>
+                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>Attendance reminders</p>
+                            </div>
+                        </div>
+                        <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--emp-text-muted)' }} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Security Section */}
+            <div>
+                <p className="emp-section-title">Security</p>
+                <div className="emp-card p-0 overflow-hidden">
+                    {/* Change Password */}
+                    <div className="emp-settings-item">
+                        <div className="flex items-center gap-3">
+                            <div className="emp-settings-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--emp-accent)' }}>
+                                <ShieldCheckIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Change Password</p>
+                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>Update your password</p>
+                            </div>
+                        </div>
+                        <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--emp-text-muted)' }} />
                     </div>
                 </div>
             </div>
@@ -157,15 +299,21 @@ export default function EmployeeProfile() {
             {/* Logout Button */}
             <button
                 onClick={handleLogout}
-                className="w-full bg-white border-2 border-red-100 hover:bg-red-50 text-red-600 font-bold py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95"
+                className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    color: 'var(--emp-danger)',
+                    border: '1px solid rgba(239, 68, 68, 0.2)'
+                }}
             >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                Log Out
+                Sign Out
             </button>
 
-            <div className="text-center pb-4">
-                <p className="text-xs text-slate-400 font-medium">App Version 2.2.0 (Production)</p>
-            </div>
+            {/* Version */}
+            <p className="text-center text-xs pt-2" style={{ color: 'var(--emp-text-muted)' }}>
+                ATLAS v2.5.0
+            </p>
         </div>
     )
 }

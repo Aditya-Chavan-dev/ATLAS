@@ -1,12 +1,13 @@
+// Leave Page - Clean Professional UI
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import {
     CheckCircleIcon,
     XCircleIcon,
     ClockIcon,
-    ExclamationTriangleIcon,
-    CalendarDaysIcon,
-    BoltIcon
+    PlusIcon,
+    CalendarIcon,
+    DocumentTextIcon
 } from '@heroicons/react/24/outline'
 import { formatDate, getTodayString } from '../../utils/dateUtils'
 import RefinedModal from '../../components/ui/RefinedModal'
@@ -16,7 +17,7 @@ import ApiService from '../../services/api'
 
 export default function EmployeeLeave() {
     const { currentUser, userProfile } = useAuth()
-    const [activeTab, setActiveTab] = useState('apply') // 'apply' or 'status'
+    const [activeTab, setActiveTab] = useState('apply')
     const [leaveType, setLeaveType] = useState('Casual Leave')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
@@ -25,262 +26,283 @@ export default function EmployeeLeave() {
     const [leaveRequests, setLeaveRequests] = useState([])
     const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info' })
 
-    // Quick Action Helper
-    // ... existing quick action logic ...
-    const applyQuickLeave = (type, dateOffset = 0) => {
-        const d = new Date();
-        d.setDate(d.getDate() + dateOffset);
-        const dateStr = d.toISOString().split('T')[0];
-
-        setLeaveType(type);
-        setStartDate(dateStr);
-        setEndDate(dateStr);
-        setReason('Quick Apply');
-
-        // Open confirmation modal
-        setModalConfig({
-            isOpen: true,
-            title: 'Quick Apply Confirmation',
-            message: `Apply for ${type} on ${dateStr}?`,
-            type: 'info',
-            primaryAction: {
-                label: 'Confirm Apply',
-                onClick: () => {
-                    closeModal();
-                    submitLeave({ type, startDate: dateStr, endDate: dateStr, reason: 'Quick Apply' });
-                }
-            },
-            secondaryAction: {
-                label: 'Cancel',
-                onClick: closeModal
-            }
-        });
-    };
-
-    const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+    const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }))
 
     const showMessage = (title, message, type = 'info') => {
-        setModalConfig({ isOpen: true, title, message, type, primaryAction: null, secondaryAction: null });
-    };
+        setModalConfig({ isOpen: true, title, message, type, primaryAction: null, secondaryAction: null })
+    }
 
-    // Fetch History (Realtime)
     useEffect(() => {
-        if (!currentUser) return;
-        const leavesRef = ref(database, `leaves/${currentUser.uid}`);
+        if (!currentUser) return
+        const leavesRef = ref(database, `leaves/${currentUser.uid}`)
         const unsubscribe = onValue(leavesRef, (snapshot) => {
-            const data = snapshot.val();
+            const data = snapshot.val()
             if (data) {
-                const loadedLeaves = Object.values(data).sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt));
-                setLeaveRequests(loadedLeaves);
+                const loadedLeaves = Object.entries(data)
+                    .map(([key, val]) => ({ ...val, leaveId: key }))
+                    .sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt))
+                setLeaveRequests(loadedLeaves)
             } else {
-                setLeaveRequests([]);
+                setLeaveRequests([])
             }
-        });
-        return () => unsubscribe();
-    }, [currentUser]);
+        })
+        return () => unsubscribe()
+    }, [currentUser])
 
     const calculateLeaveDays = (start, end) => {
-        if (!start || !end) return 0;
-        const startD = new Date(start);
-        const endD = new Date(end);
-        const diffTime = endD - startD;
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    };
+        if (!start || !end) return 0
+        const startD = new Date(start)
+        const endD = new Date(end)
+        const diffTime = endD - startD
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+    }
 
-    const submitLeave = async (payload = null) => {
-        const type = payload?.type || leaveType;
-        const from = payload?.startDate || startDate;
-        const to = payload?.endDate || endDate;
-        const rsn = payload?.reason || reason;
-
-        if (!from || !to) {
-            showMessage('Error', 'Please select start and end dates', 'error');
-            return;
+    const submitLeave = async () => {
+        if (!startDate || !endDate) {
+            showMessage('Error', 'Please select start and end dates', 'error')
+            return
         }
 
-        setIsSubmitting(true);
+        setIsSubmitting(true)
         try {
-            // Attempt to use Backend API first
             try {
                 await ApiService.post('/api/leave/apply', {
                     employeeId: currentUser.uid,
                     employeeName: userProfile?.name || currentUser.email,
-                    type: type === 'Casual Leave' ? 'CL' : 'SL',
-                    from,
-                    to,
-                    reason: rsn
-                });
-                showMessage('Success', 'Leave request submitted via server!', 'success');
+                    type: leaveType === 'Casual Leave' ? 'CL' : 'SL',
+                    from: startDate,
+                    to: endDate,
+                    reason
+                })
+                showMessage('Success', 'Leave request submitted!', 'success')
             } catch (apiError) {
-                console.warn('API submission failed, falling back to direct Firebase write:', apiError);
-
-                // Fallback: Direct Firebase Write (Client-side)
-                // This ensures functionality even if the backend is down/missing
-                const leavesRef = ref(database, `leaves/${currentUser.uid}`);
-                const newLeaveRef = push(leavesRef);
-                const leaveId = newLeaveRef.key;
+                console.warn('API submission failed, falling back to Firebase:', apiError)
+                const leavesRef = ref(database, `leaves/${currentUser.uid}`)
+                const newLeaveRef = push(leavesRef)
+                const leaveId = newLeaveRef.key
 
                 const leaveData = {
                     leaveId,
                     employeeId: currentUser.uid,
                     employeeName: userProfile?.name || currentUser.email,
                     employeeEmail: currentUser.email,
-                    type: type === 'Casual Leave' ? 'CL' : 'SL',
-                    from,
-                    to,
-                    reason: rsn,
+                    type: leaveType === 'Casual Leave' ? 'CL' : 'SL',
+                    from: startDate,
+                    to: endDate,
+                    reason,
                     status: 'pending',
                     appliedAt: new Date().toISOString(),
-                    totalDays: calculateLeaveDays(from, to)
-                };
+                    totalDays: calculateLeaveDays(startDate, endDate)
+                }
 
-                await set(newLeaveRef, leaveData);
-                showMessage('Success', 'Leave request submitted successfully!', 'success');
+                await set(newLeaveRef, leaveData)
+                showMessage('Success', 'Leave request submitted!', 'success')
             }
 
-            // Reset form
-            setStartDate('');
-            setEndDate('');
-            setReason('');
-            setActiveTab('status');
+            setStartDate('')
+            setEndDate('')
+            setReason('')
+            setActiveTab('status')
         } catch (error) {
-            showMessage('Submission Failed', error.message, 'error');
+            showMessage('Submission Failed', error.message, 'error')
         } finally {
-            setIsSubmitting(false);
+            setIsSubmitting(false)
         }
-    };
+    }
 
     const handleFormSubmit = (e) => {
-        e.preventDefault();
-        submitLeave();
-    };
+        e.preventDefault()
+        submitLeave()
+    }
 
     const handleCancel = async (leaveId) => {
-        if (!confirm('Are you sure you want to cancel this leave request?')) return;
-
+        if (!confirm('Cancel this leave request?')) return
         try {
-            const leavesRef = ref(database, `leaves/${currentUser.uid}/${leaveId}`);
-            await remove(leavesRef);
-            showMessage('Cancelled', 'Leave request cancelled.', 'success');
+            const leavesRef = ref(database, `leaves/${currentUser.uid}/${leaveId}`)
+            await remove(leavesRef)
+            showMessage('Cancelled', 'Leave request cancelled.', 'success')
         } catch (error) {
-            showMessage('Error', error.message, 'error');
+            showMessage('Error', error.message, 'error')
         }
-    };
+    }
+
+    const getStatusBadge = (status) => {
+        if (status === 'approved') {
+            return (
+                <span className="emp-badge success">
+                    <span className="emp-status-dot success"></span>
+                    Approved
+                </span>
+            )
+        }
+        if (status === 'rejected') {
+            return (
+                <span className="emp-badge danger">
+                    <span className="emp-status-dot danger"></span>
+                    Rejected
+                </span>
+            )
+        }
+        return (
+            <span className="emp-badge warning">
+                <span className="emp-status-dot warning"></span>
+                Pending
+            </span>
+        )
+    }
+
+    // Count stats
+    const pendingCount = leaveRequests.filter(r => r.status === 'pending').length
+    const approvedCount = leaveRequests.filter(r => r.status === 'approved').length
 
     return (
-        <div className="space-y-8 animate-fade-in max-w-4xl mx-auto pb-10">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-6 emp-fade-in">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Leave Management</h2>
-                    <p className="text-slate-500 mt-1">Manage your leaves and approvals</p>
+                    <h1 className="text-xl font-bold" style={{ color: 'var(--emp-text-primary)' }}>
+                        Leave Application
+                    </h1>
+                    <p className="text-sm mt-1" style={{ color: 'var(--emp-text-muted)' }}>
+                        Apply and track your leave requests
+                    </p>
                 </div>
-                <div className="flex p-1 bg-slate-100 rounded-xl">
+
+                {/* Tab Switcher */}
+                <div className="flex p-1 rounded-lg" style={{ background: 'var(--emp-bg-secondary)' }}>
                     <button
                         onClick={() => setActiveTab('apply')}
-                        className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'apply' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className="px-4 py-2 rounded-md text-sm font-medium transition-all"
+                        style={{
+                            background: activeTab === 'apply' ? 'var(--emp-accent)' : 'transparent',
+                            color: activeTab === 'apply' ? '#ffffff' : 'var(--emp-text-muted)'
+                        }}
                     >
                         Apply
                     </button>
                     <button
                         onClick={() => setActiveTab('status')}
-                        className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'status' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className="px-4 py-2 rounded-md text-sm font-medium transition-all"
+                        style={{
+                            background: activeTab === 'status' ? 'var(--emp-accent)' : 'transparent',
+                            color: activeTab === 'status' ? '#ffffff' : 'var(--emp-text-muted)'
+                        }}
                     >
                         History
                     </button>
                 </div>
             </div>
 
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="emp-stat-card">
+                    <p className="emp-stat-value" style={{ color: 'var(--emp-warning)' }}>{pendingCount}</p>
+                    <p className="emp-stat-label">Pending</p>
+                </div>
+                <div className="emp-stat-card">
+                    <p className="emp-stat-value" style={{ color: 'var(--emp-success)' }}>{approvedCount}</p>
+                    <p className="emp-stat-label">Approved</p>
+                </div>
+            </div>
+
             {activeTab === 'apply' && (
-                <div className="space-y-6">
-                    {/* Quick Actions */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <button onClick={() => applyQuickLeave('Casual Leave', 0)} className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl hover:bg-indigo-100 transition-colors text-left group">
-                            <div className="flex items-center gap-3 mb-2">
-                                <span className="p-2 bg-indigo-100 text-indigo-600 rounded-lg group-hover:bg-white transition-colors">
-                                    <BoltIcon className="w-5 h-5" />
-                                </span>
-                                <span className="font-semibold text-indigo-900">CL Today</span>
-                            </div>
-                            <p className="text-xs text-indigo-600/80">Apply Casual Leave for today</p>
-                        </button>
-                        <button onClick={() => applyQuickLeave('Sick Leave', 0)} className="p-4 bg-rose-50 border border-rose-100 rounded-xl hover:bg-rose-100 transition-colors text-left group">
-                            <div className="flex items-center gap-3 mb-2">
-                                <span className="p-2 bg-rose-100 text-rose-600 rounded-lg group-hover:bg-white transition-colors">
-                                    <BoltIcon className="w-5 h-5" />
-                                </span>
-                                <span className="font-semibold text-rose-900">SL Today</span>
-                            </div>
-                            <p className="text-xs text-rose-600/80">Apply Sick Leave for today</p>
-                        </button>
-                        <button onClick={() => applyQuickLeave('Casual Leave', 1)} className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl hover:bg-emerald-100 transition-colors text-left group">
-                            <div className="flex items-center gap-3 mb-2">
-                                <span className="p-2 bg-emerald-100 text-emerald-600 rounded-lg group-hover:bg-white transition-colors">
-                                    <CalendarDaysIcon className="w-5 h-5" />
-                                </span>
-                                <span className="font-semibold text-emerald-900">CL Tomorrow</span>
-                            </div>
-                            <p className="text-xs text-emerald-600/80">Apply Casual Leave for tomorrow</p>
-                        </button>
-                    </div>
-
-                    {/* Custom Form */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-                        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <CalendarDaysIcon className="w-5 h-5 text-slate-400" />
-                            Custom Request
+                <div className="space-y-4">
+                    {/* Leave Form */}
+                    <div className="emp-card">
+                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--emp-text-primary)' }}>
+                            <PlusIcon className="w-4 h-4" style={{ color: 'var(--emp-accent)' }} />
+                            New Request
                         </h3>
-                        <form onSubmit={handleFormSubmit} className="space-y-6">
+                        <form onSubmit={handleFormSubmit} className="space-y-4">
+                            {/* Leave Type */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Leave Type</label>
-                                <select
-                                    value={leaveType}
-                                    onChange={(e) => setLeaveType(e.target.value)}
-                                    className="w-full rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 py-3"
-                                >
-                                    <option>Casual Leave</option>
-                                    <option>Sick Leave</option>
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">From Date</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        min={getTodayString()}
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 py-3"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">To Date</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        min={startDate || getTodayString()}
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="w-full rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 py-3"
-                                    />
+                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--emp-text-secondary)' }}>
+                                    Leave Type
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setLeaveType('Casual Leave')}
+                                        className="p-3 rounded-lg text-sm font-medium transition-all"
+                                        style={{
+                                            background: leaveType === 'Casual Leave' ? 'var(--emp-accent-glow)' : 'var(--emp-bg-secondary)',
+                                            color: leaveType === 'Casual Leave' ? 'var(--emp-accent)' : 'var(--emp-text-secondary)',
+                                            border: `1px solid ${leaveType === 'Casual Leave' ? 'var(--emp-accent)' : 'var(--emp-border)'}`
+                                        }}
+                                    >
+                                        Casual Leave
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setLeaveType('Sick Leave')}
+                                        className="p-3 rounded-lg text-sm font-medium transition-all"
+                                        style={{
+                                            background: leaveType === 'Sick Leave' ? 'rgba(239, 68, 68, 0.1)' : 'var(--emp-bg-secondary)',
+                                            color: leaveType === 'Sick Leave' ? 'var(--emp-danger)' : 'var(--emp-text-secondary)',
+                                            border: `1px solid ${leaveType === 'Sick Leave' ? 'var(--emp-danger)' : 'var(--emp-border)'}`
+                                        }}
+                                    >
+                                        Sick Leave
+                                    </button>
                                 </div>
                             </div>
 
+                            {/* Date Range */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--emp-text-secondary)' }}>
+                                        From
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="date"
+                                            required
+                                            min={getTodayString()}
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="emp-input pl-10"
+                                        />
+                                        <CalendarIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--emp-text-muted)' }} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--emp-text-secondary)' }}>
+                                        To
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="date"
+                                            required
+                                            min={startDate || getTodayString()}
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="emp-input pl-10"
+                                        />
+                                        <CalendarIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--emp-text-muted)' }} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Duration */}
                             {startDate && endDate && (
-                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-sm text-slate-600 flex items-center justify-between">
-                                    <span>Total Duration</span>
-                                    <span className="font-bold text-indigo-600">{calculateLeaveDays(startDate, endDate)} Days</span>
+                                <div className="p-3 rounded-lg flex justify-between items-center" style={{ background: 'var(--emp-accent-glow)' }}>
+                                    <span className="text-sm" style={{ color: 'var(--emp-text-secondary)' }}>Duration</span>
+                                    <span className="text-sm font-bold" style={{ color: 'var(--emp-accent)' }}>
+                                        {calculateLeaveDays(startDate, endDate)} Days
+                                    </span>
                                 </div>
                             )}
 
+                            {/* Reason */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Reason (Optional)</label>
+                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--emp-text-secondary)' }}>
+                                    Reason (Optional)
+                                </label>
                                 <textarea
                                     value={reason}
                                     onChange={(e) => setReason(e.target.value)}
                                     rows={3}
-                                    className="w-full rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="emp-input resize-none"
                                     placeholder="Brief reason for leave..."
                                 />
                             </div>
@@ -288,9 +310,9 @@ export default function EmployeeLeave() {
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-[0.99] disabled:opacity-70"
+                                className="emp-btn w-full py-3"
                             >
-                                {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                                {isSubmitting ? 'Submitting...' : 'Submit Application'}
                             </button>
                         </form>
                     </div>
@@ -298,56 +320,50 @@ export default function EmployeeLeave() {
             )}
 
             {activeTab === 'status' && (
-                <div className="space-y-4">
+                <div className="emp-card p-0 overflow-hidden">
                     {leaveRequests.length === 0 ? (
-                        <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 border-dashed">
-                            <ClockIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                            <p className="text-slate-500">No leave history found</p>
+                        <div className="p-8 text-center">
+                            <DocumentTextIcon className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--emp-text-muted)' }} />
+                            <p style={{ color: 'var(--emp-text-muted)' }}>No leave requests yet</p>
                         </div>
                     ) : (
-                        leaveRequests.map((req) => (
-                            <div key={req.leaveId} className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="flex items-start gap-4">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0
-                                        ${req.status === 'approved' ? 'bg-green-100 text-green-600' :
-                                            req.status === 'rejected' ? 'bg-red-100 text-red-600' :
-                                                req.status === 'cancelled' ? 'bg-slate-100 text-slate-600' :
-                                                    req.status === 'auto-blocked' ? 'bg-orange-100 text-orange-600' :
-                                                        'bg-yellow-100 text-yellow-600'}`}>
-                                        {req.status === 'approved' ? <CheckCircleIcon className="w-5 h-5" /> :
-                                            req.status === 'rejected' ? <XCircleIcon className="w-5 h-5" /> :
-                                                req.status === 'auto-blocked' ? <ExclamationTriangleIcon className="w-5 h-5" /> :
-                                                    <ClockIcon className="w-5 h-5" />}
-                                    </div>
+                        <>
+                            {/* Table Header */}
+                            <div className="emp-table-header">
+                                <span>Date Range</span>
+                                <span>Type</span>
+                                <span>Status</span>
+                            </div>
+
+                            {/* Leave Requests */}
+                            {leaveRequests.map((req) => (
+                                <div key={req.leaveId} className="emp-table-row">
                                     <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="font-bold text-slate-800">{req.type}</span>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase
-                                                ${req.status === 'approved' ? 'bg-green-50 text-green-700' :
-                                                    req.status === 'rejected' ? 'bg-red-50 text-red-700' :
-                                                        req.status === 'cancelled' ? 'bg-slate-100 text-slate-600' :
-                                                            req.status === 'auto-blocked' ? 'bg-orange-100 text-orange-700' :
-                                                                'bg-yellow-50 text-yellow-700'}`}>
-                                                {req.status}
-                                            </span>
-                                        </div>
-                                        <div className="text-sm text-slate-500">
-                                            {formatDate(req.from)} — {formatDate(req.to)} ({req.totalDays} days)
-                                        </div>
-                                        {req.reason && <p className="text-sm text-slate-400 mt-1">"{req.reason}"</p>}
-                                        {req.conflictNotes && <p className="text-xs text-orange-600 mt-1 font-medium">{req.conflictNotes}</p>}
+                                        <p className="font-medium text-sm" style={{ color: 'var(--emp-text-primary)' }}>
+                                            {formatDate(req.from)}
+                                        </p>
+                                        <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>
+                                            to {formatDate(req.to)}
+                                        </p>
+                                    </div>
+                                    <span className="text-sm" style={{ color: 'var(--emp-text-secondary)' }}>
+                                        {req.type}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        {getStatusBadge(req.status)}
+                                        {req.status === 'pending' && (
+                                            <button
+                                                onClick={() => handleCancel(req.leaveId)}
+                                                className="p-1.5 rounded-md transition-all"
+                                                style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--emp-danger)' }}
+                                            >
+                                                <XCircleIcon className="w-4 h-4" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
-                                {req.status === 'pending' && (
-                                    <button
-                                        onClick={() => handleCancel(req.leaveId)}
-                                        className="px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-lg font-medium transition-colors"
-                                    >
-                                        Cancel Request
-                                    </button>
-                                )}
-                            </div>
-                        ))
+                            ))}
+                        </>
                     )}
                 </div>
             )}

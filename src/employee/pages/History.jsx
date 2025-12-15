@@ -1,6 +1,7 @@
+// History Page - Clean Professional UI
 import { useState, useEffect } from 'react'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns'
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSunday, getDay } from 'date-fns'
+import { ChevronLeftIcon, ChevronRightIcon, BuildingOfficeIcon, MapPinIcon, CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { ref, onValue } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
@@ -10,34 +11,27 @@ export default function EmployeeHistory() {
     const [currentDate, setCurrentDate] = useState(new Date())
     const [attendanceData, setAttendanceData] = useState({})
     const [loading, setLoading] = useState(true)
+    const [selectedDate, setSelectedDate] = useState(null)
+    const [viewMode, setViewMode] = useState('list') // 'list' or 'calendar'
 
-    // Real-time listener for attendance data - NEW: from /employees/{uid}/attendance
+    // Real-time listener for attendance data
     useEffect(() => {
         if (!currentUser) return
 
-        // NEW PATH: /employees/{uid}/attendance (all attendance for this user)
         const attendanceRef = ref(database, `employees/${currentUser.uid}/attendance`)
 
-        // Real-time listener - updates automatically when data changes
         const unsubscribe = onValue(attendanceRef, (snapshot) => {
             setLoading(true)
             if (snapshot.exists()) {
-                const allData = snapshot.val() // { "2025-12-01": {...}, "2025-12-02": {...}, ... }
+                const allData = snapshot.val()
                 const monthData = {}
-
-                // Get first and last day of selected month
                 const start = startOfMonth(currentDate)
                 const end = endOfMonth(currentDate)
 
-                // Filter attendance records for selected month
-                // In new structure, keys are dates like "2025-12-13"
                 Object.entries(allData).forEach(([dateStr, record]) => {
                     const recordDate = new Date(dateStr)
                     if (recordDate >= start && recordDate <= end) {
-                        monthData[dateStr] = {
-                            ...record,
-                            date: dateStr // Ensure date is included
-                        }
+                        monthData[dateStr] = { ...record, date: dateStr }
                     }
                 })
 
@@ -48,7 +42,6 @@ export default function EmployeeHistory() {
             setLoading(false)
         })
 
-        // Cleanup subscription on unmount
         return () => unsubscribe()
     }, [currentUser, currentDate])
 
@@ -59,140 +52,293 @@ export default function EmployeeHistory() {
 
     const previousMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
+        setSelectedDate(null)
     }
 
     const nextMonth = () => {
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
+        setSelectedDate(null)
     }
 
-    // Calculate stats based on status (approved attendance only)
-    const officeCount = Object.values(attendanceData).filter(d =>
-        d.status === 'approved' && d.location === 'office'
-    ).length
-    const siteCount = Object.values(attendanceData).filter(d =>
-        d.status === 'approved' && d.location === 'site'
-    ).length
-    const pendingCount = Object.values(attendanceData).filter(d =>
-        d.status === 'pending'
-    ).length
+    // Stats
+    const totalDays = Object.values(attendanceData).filter(d => d.status === 'approved').length
+    const leaveCount = Object.values(attendanceData).filter(d => d.location === 'leave').length
+    const pendingCount = Object.values(attendanceData).filter(d => d.status === 'pending').length
 
-    const getStatusInfo = (record) => {
+    const getDayStatus = (date) => {
+        const dateStr = format(date, 'yyyy-MM-dd')
+        const record = attendanceData[dateStr]
         if (!record) return null
-
-        if (record.status === 'approved') {
-            return {
-                type: record.location === 'office' ? 'Office' : 'Site',
-                color: record.location === 'office' ? 'indigo' : 'orange'
-            }
-        } else if (record.status === 'pending') {
-            return {
-                type: 'Pending',
-                color: 'amber'
-            }
-        } else if (record.status === 'rejected') {
-            return {
-                type: 'Rejected',
-                color: 'red'
-            }
-        }
-        return null
+        return record
     }
 
-    // Simplified History View
+    const getDayColor = (date) => {
+        const record = getDayStatus(date)
+        if (!record) return ''
+        if (record.status === 'approved') {
+            return record.location === 'office' ? 'var(--emp-accent)' : 'var(--emp-success)'
+        }
+        if (record.status === 'pending') return 'var(--emp-warning)'
+        if (record.status === 'rejected') return 'var(--emp-danger)'
+        return ''
+    }
+
+    const getStatusBadge = (record) => {
+        if (record.status === 'approved') {
+            return (
+                <span className="emp-badge success">
+                    <span className="emp-status-dot success"></span>
+                    Present
+                </span>
+            )
+        }
+        if (record.status === 'pending') {
+            return (
+                <span className="emp-badge warning">
+                    <span className="emp-status-dot warning"></span>
+                    Pending
+                </span>
+            )
+        }
+        return (
+            <span className="emp-badge danger">
+                <span className="emp-status-dot danger"></span>
+                Rejected
+            </span>
+        )
+    }
+
+    // Get first day offset for calendar grid
+    const firstDayOfMonth = getDay(startOfMonth(currentDate))
+    const emptyDays = Array(firstDayOfMonth).fill(null)
+
     return (
-        <div className="space-y-6 animate-fade-in max-w-3xl mx-auto">
+        <div className="space-y-6 emp-fade-in">
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-slate-800">My Attendance History</h2>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-xl font-bold" style={{ color: 'var(--emp-text-primary)' }}>
+                        History
+                    </h1>
+                    <p className="text-sm mt-1" style={{ color: 'var(--emp-text-muted)' }}>
+                        Your attendance records
+                    </p>
+                </div>
+
+                {/* View Toggle */}
+                <div className="flex p-1 rounded-lg" style={{ background: 'var(--emp-bg-secondary)' }}>
+                    <button
+                        onClick={() => setViewMode('list')}
+                        className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                        style={{
+                            background: viewMode === 'list' ? 'var(--emp-accent)' : 'transparent',
+                            color: viewMode === 'list' ? '#ffffff' : 'var(--emp-text-muted)'
+                        }}
+                    >
+                        List
+                    </button>
+                    <button
+                        onClick={() => setViewMode('calendar')}
+                        className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                        style={{
+                            background: viewMode === 'calendar' ? 'var(--emp-accent)' : 'transparent',
+                            color: viewMode === 'calendar' ? '#ffffff' : 'var(--emp-text-muted)'
+                        }}
+                    >
+                        Calendar
+                    </button>
+                </div>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-3 gap-3">
+                <div className="emp-stat-card">
+                    <p className="emp-stat-value" style={{ color: 'var(--emp-accent)' }}>{totalDays}</p>
+                    <p className="emp-stat-label">Total Days</p>
+                </div>
+                <div className="emp-stat-card">
+                    <p className="emp-stat-value" style={{ color: 'var(--emp-warning)' }}>{leaveCount}</p>
+                    <p className="emp-stat-label">Leaves</p>
+                </div>
+                <div className="emp-stat-card">
+                    <p className="emp-stat-value" style={{ color: 'var(--emp-text-muted)' }}>{pendingCount}</p>
+                    <p className="emp-stat-label">Pending</p>
+                </div>
+            </div>
+
+            {/* Month Navigation */}
+            <div className="flex items-center justify-between">
+                <button
+                    onClick={previousMonth}
+                    className="p-2 rounded-lg transition-all"
+                    style={{ background: 'var(--emp-bg-card)', color: 'var(--emp-text-primary)' }}
+                >
+                    <ChevronLeftIcon className="w-5 h-5" />
+                </button>
+                <h3 className="text-base font-semibold" style={{ color: 'var(--emp-text-primary)' }}>
+                    {format(currentDate, 'MMMM yyyy')}
+                </h3>
+                <button
+                    onClick={nextMonth}
+                    className="p-2 rounded-lg transition-all"
+                    style={{ background: 'var(--emp-bg-card)', color: 'var(--emp-text-primary)' }}
+                >
+                    <ChevronRightIcon className="w-5 h-5" />
+                </button>
             </div>
 
             {loading ? (
                 <div className="flex justify-center items-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                    <div
+                        className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
+                        style={{ borderColor: 'var(--emp-accent)', borderTopColor: 'transparent' }}
+                    />
                 </div>
-            ) : Object.keys(attendanceData).length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="text-slate-500">No attendance history found for this month.</p>
-                </div>
-            ) : (
-                <div className="space-y-3">
-                    {/* Sort dates descending */}
-                    {Object.keys(attendanceData)
-                        .sort((a, b) => new Date(b) - new Date(a))
-                        .map(dateStr => {
-                            const record = attendanceData[dateStr]
-                            const statusInfo = getStatusInfo(record)
-                            if (!statusInfo) return null
+            ) : viewMode === 'calendar' ? (
+                /* Calendar View */
+                <div className="emp-calendar">
+                    {/* Day Labels */}
+                    <div className="grid grid-cols-7 gap-1 mb-2">
+                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+                            <div
+                                key={i}
+                                className="text-center text-xs font-medium py-2"
+                                style={{ color: 'var(--emp-text-muted)' }}
+                            >
+                                {day}
+                            </div>
+                        ))}
+                    </div>
 
-                            const dateObj = new Date(dateStr)
+                    {/* Calendar Grid */}
+                    <div className="grid grid-cols-7 gap-1">
+                        {/* Empty cells for alignment */}
+                        {emptyDays.map((_, i) => (
+                            <div key={`empty-${i}`} className="emp-calendar-day opacity-0">-</div>
+                        ))}
 
-                            // Format: "20th Dec 2025"
-                            const formattedDate = format(dateObj, 'do MMM yyyy')
-
-                            // Format Time: "7.00 AM" (using timestamp if available)
-                            const timeStr = record.timestamp
-                                ? format(new Date(record.timestamp), 'h.mm a')
-                                : 'N/A'
+                        {/* Actual days */}
+                        {daysInMonth.map((date) => {
+                            const dayColor = getDayColor(date)
+                            const record = getDayStatus(date)
+                            const isSelected = selectedDate && isSameDay(date, selectedDate)
 
                             return (
-                                <div
-                                    key={dateStr}
-                                    className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm flex items-center justify-between"
+                                <button
+                                    key={date.toISOString()}
+                                    onClick={() => setSelectedDate(date)}
+                                    className={`emp-calendar-day ${isSelected ? 'ring-2' : ''}`}
+                                    style={{
+                                        background: dayColor || 'transparent',
+                                        color: dayColor ? '#ffffff' : 'var(--emp-text-primary)',
+                                        ringColor: 'var(--emp-accent)',
+                                        opacity: isSunday(date) && !record ? 0.4 : 1
+                                    }}
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className={`
-                                            w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg
-                                            ${statusInfo?.color === 'indigo' ? 'bg-indigo-100 text-indigo-600' :
-                                                statusInfo?.color === 'orange' ? 'bg-orange-100 text-orange-600' :
-                                                    statusInfo?.color === 'amber' ? 'bg-amber-100 text-amber-600' :
-                                                        statusInfo?.color === 'red' ? 'bg-red-100 text-red-600' :
-                                                            'bg-slate-100 text-slate-400'}
-                                        `}>
-                                            {format(dateObj, 'd')}
-                                        </div>
-                                        <div>
-                                            <p className="text-base font-bold text-slate-800">{formattedDate}</p>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className={`
-                                                    text-xs px-2 py-0.5 rounded-full font-medium
-                                                    ${statusInfo.color === 'indigo' ? 'bg-indigo-50 text-indigo-700' :
-                                                        statusInfo.color === 'orange' ? 'bg-orange-50 text-orange-700' :
-                                                            statusInfo.color === 'amber' ? 'bg-amber-50 text-amber-700' :
-                                                                'bg-red-50 text-red-700'}
-                                                `}>
-                                                    {statusInfo.type}
-                                                </span>
-                                                <span className="text-xs text-slate-400 font-medium">
-                                                    • {timeStr}
-                                                </span>
-                                            </div>
-                                            {record?.siteName && (
-                                                <p className="text-xs text-slate-500 mt-1">Site: {record.siteName}</p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Status Indicator Icon */}
-                                    <div className="hidden sm:block">
-                                        {record.status === 'approved' && (
-                                            <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        )}
-                                        {record.status === 'pending' && (
-                                            <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        )}
-                                        {record.status === 'rejected' && (
-                                            <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        )}
-                                    </div>
-                                </div>
+                                    {format(date, 'd')}
+                                </button>
                             )
                         })}
+                    </div>
+
+                    {/* Legend */}
+                    <div className="flex justify-center gap-4 pt-4 mt-4" style={{ borderTop: '1px solid var(--emp-border)' }}>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--emp-accent)' }} />
+                            <span className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>Office</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--emp-success)' }} />
+                            <span className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>Site</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--emp-warning)' }} />
+                            <span className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>Pending</span>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                /* List View */
+                <div className="emp-card p-0 overflow-hidden">
+                    {/* Table Header */}
+                    <div className="emp-table-header">
+                        <span>Date</span>
+                        <span>Out</span>
+                        <span>Status</span>
+                    </div>
+
+                    {Object.keys(attendanceData).length === 0 ? (
+                        <div className="p-8 text-center">
+                            <p style={{ color: 'var(--emp-text-muted)' }}>No records this month</p>
+                        </div>
+                    ) : (
+                        Object.keys(attendanceData)
+                            .sort((a, b) => new Date(b) - new Date(a))
+                            .map(dateStr => {
+                                const record = attendanceData[dateStr]
+                                const dateObj = new Date(dateStr)
+                                const timeStr = record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '--'
+
+                                return (
+                                    <div key={dateStr} className="emp-table-row">
+                                        <div>
+                                            <p className="font-medium text-sm" style={{ color: 'var(--emp-text-primary)' }}>
+                                                {format(dateObj, 'MMM d')}
+                                            </p>
+                                            <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>
+                                                {format(dateObj, 'EEE')}
+                                            </p>
+                                        </div>
+                                        <span style={{ color: 'var(--emp-text-muted)' }}>
+                                            {timeStr}
+                                        </span>
+                                        <div>
+                                            {getStatusBadge(record)}
+                                        </div>
+                                    </div>
+                                )
+                            })
+                    )}
+                </div>
+            )}
+
+            {/* Selected Date Details (Calendar Mode) */}
+            {viewMode === 'calendar' && selectedDate && attendanceData[format(selectedDate, 'yyyy-MM-dd')] && (
+                <div className="emp-card">
+                    <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--emp-text-primary)' }}>
+                        {format(selectedDate, 'EEEE, do MMMM')}
+                    </h3>
+                    {(() => {
+                        const record = attendanceData[format(selectedDate, 'yyyy-MM-dd')]
+                        return (
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div
+                                        className="w-10 h-10 rounded-full flex items-center justify-center"
+                                        style={{
+                                            background: record.location === 'office' ? 'var(--emp-accent-glow)' : 'rgba(34, 197, 94, 0.15)',
+                                            color: record.location === 'office' ? 'var(--emp-accent)' : 'var(--emp-success)'
+                                        }}
+                                    >
+                                        {record.location === 'office' ? (
+                                            <BuildingOfficeIcon className="w-5 h-5" />
+                                        ) : (
+                                            <MapPinIcon className="w-5 h-5" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-sm" style={{ color: 'var(--emp-text-primary)' }}>
+                                            {record.location === 'office' ? 'Office' : record.siteName || 'Site'}
+                                        </p>
+                                        <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>
+                                            {record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : 'N/A'}
+                                        </p>
+                                    </div>
+                                </div>
+                                {getStatusBadge(record)}
+                            </div>
+                        )
+                    })()}
                 </div>
             )}
         </div>

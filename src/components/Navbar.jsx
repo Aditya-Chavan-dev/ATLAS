@@ -1,61 +1,54 @@
-import { useNavigate } from 'react-router-dom'
+import { Menu, Bell } from 'lucide-react'
+import { clsx } from 'clsx'
 import { useAuth } from '../context/AuthContext'
-import './Navbar.css'
+import { useNavigate } from 'react-router-dom'
 
-function Navbar({ toggleSidebar, isDesktop }) {
-    const { logout } = useAuth()
+export default function Navbar({ toggleSidebar, isMobile }) {
+    const { logout } = useAuth() // Or user profile if needed to show avatar
     const navigate = useNavigate()
 
-    // Note: ThemeToggle is removed as per strict new design (not mentioned in specs)
-    // If needed, it can be re-added, but specs focus on specific colors.
-
-    const handleLogout = async () => {
-        try {
-            await logout()
-            navigate('/')
-        } catch (error) {
-            console.error('Logout error:', error)
-        }
-    }
-
     return (
-        <nav className="navbar-simple">
-            <div className="navbar-simple-container">
-                {/* Leftmost Section */}
-                <div className="navbar-left" onClick={toggleSidebar}>
-                    <svg className="hamburger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="3" y1="12" x2="21" y2="12"></line>
-                        <line x1="3" y1="6" x2="21" y2="6"></line>
-                        <line x1="3" y1="18" x2="21" y2="18"></line>
-                    </svg>
-                </div>
+        <header className={clsx(
+            "h-20 px-6 flex items-center justify-between sticky top-0 z-20 transition-all duration-300",
+            "bg-white/80 backdrop-blur-md border-b border-slate-200/50 supports-[backdrop-filter]:bg-white/60"
+        )}>
+            {/* Left: Hamburger (Mobile) or Welcome (Desktop) */}
+            <div className="flex items-center gap-4">
+                <button
+                    onClick={toggleSidebar}
+                    className="p-2 rounded-xl hover:bg-slate-100 text-slate-600 focus:ring-2 focus:ring-brand-primary/20 transition-all active:scale-95"
+                >
+                    <Menu className="w-6 h-6" />
+                </button>
 
-                {/* Center Section */}
-                <div className="navbar-center">
-                    <div className="navbar-logo-bg">
-                        A
-                    </div>
-                    <span className="navbar-brand-text">ATLAS</span>
-                </div>
-
-                {/* Rightmost Section */}
-                <div className="navbar-right">
-                    <svg className="bell-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                    </svg>
-
-                    <button
-                        className="navbar-logout-btn"
-                        onClick={handleLogout}
-                        title="Logout"
-                    >
-                        <span>Logout</span>
-                    </button>
+                <div className="hidden md:block">
+                    {/* Breadcrumbs or Page Title could go here */}
+                    <div className="text-sm text-slate-500">Welcome back,</div>
+                    <div className="font-display font-semibold text-slate-800">Administrator</div>
                 </div>
             </div>
-        </nav>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2">
+                <button className="p-2.5 rounded-full hover:bg-slate-100 text-slate-500 relative transition-colors">
+                    <Bell className="w-5 h-5" />
+                    <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                </button>
+
+                <div className="w-px h-8 bg-slate-200 mx-2"></div>
+
+                <div className="flex items-center gap-3 pl-2">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-brand-primary to-brand-secondary p-[2px]">
+                        <div className="w-full h-full rounded-full bg-white p-[2px]">
+                            <img
+                                src="https://ui-avatars.com/api/?name=Admin+User&background=random"
+                                alt="User"
+                                className="w-full h-full rounded-full object-cover"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
     )
 }
-
-export default Navbar
