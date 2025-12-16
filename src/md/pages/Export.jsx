@@ -15,7 +15,6 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 
 export default function MDExport() {
-    const [reportType, setReportType] = useState('attendance') // 'attendance' | 'leaves' | 'employees'
     const [month, setMonth] = useState(format(new Date(), 'yyyy-MM'))
     const [fileFormat, setFileFormat] = useState('xlsx') // 'xlsx' | 'csv'
     const [isGenerating, setIsGenerating] = useState(false)
@@ -32,66 +31,36 @@ export default function MDExport() {
             const users = usersSnap.val() || {}
 
             let data = []
-            let filename = `atlas_report_${format(new Date(), 'yyyyMMdd_HHmm')}`
+            let filename = `atlas_attendance_${month}`
 
-            if (reportType === 'employees') {
-                // Employee List
-                filename = `atlas_employees_${format(new Date(), 'yyyyMMdd')}`
-                data = Object.values(users).map(u => ({
-                    Name: u.name,
-                    Email: u.email,
-                    Role: u.role,
-                    Joined: u.createdAt ? format(new Date(u.createdAt), 'yyyy-MM-dd') : '-',
-                    Status: u.isPlaceholder ? 'Pending' : 'Active'
+            // Fetch attendance for all users for selected month
+            const promises = Object.keys(users).map(async uid => {
+                // Skip admins/MD from attendance report if needed, or keep them. 
+                // Usually admins don't mark attendance.
+                if (users[uid].role === 'admin' || users[uid].role === 'md') return []
+
+                const snap = await get(ref(database, `users/${uid}/attendance`))
+                const att = snap.val() || {}
+                // Filter for month
+                const records = Object.values(att).filter(r => r.date && r.date.startsWith(month))
+
+                // If no records, maybe return empty list? 
+                // Or maybe we want a row per day? For now, just rows for existing records.
+                return records.map(r => ({
+                    Employee: users[uid].name,
+                    Date: r.date,
+                    Status: r.status,
+                    Location: r.location,
+                    CheckInTime: r.timestamp ? format(new Date(r.timestamp), 'h:mm a') : '-',
+                    Site: r.siteName || '-'
                 }))
+            })
 
-            } else if (reportType === 'attendance') {
-                // Monthly Attendance
-                filename = `atlas_attendance_${month}`
-                // Fetch attendance for all users for selected month
-                // Note: In a real large app, this data fetch would be optimized or server-side
-
-                const promises = Object.keys(users).map(async uid => {
-                    const snap = await get(ref(database, `employees/${uid}/attendance`))
-                    const att = snap.val() || {}
-                    // Filter for month
-                    const records = Object.values(att).filter(r => r.date && r.date.startsWith(month))
-                    return records.map(r => ({
-                        Employee: users[uid].name,
-                        Date: r.date,
-                        Time: '9:00 AM', // Mock if not stored
-                        Status: r.status,
-                        Location: r.location,
-                        Site: r.siteName || '-'
-                    }))
-                })
-
-                const results = await Promise.all(promises)
-                data = results.flat().sort((a, b) => a.Date.localeCompare(b.Date))
-
-            } else if (reportType === 'leaves') {
-                // Leaves Report
-                filename = `atlas_leaves_${month}`
-                const promises = Object.keys(users).map(async uid => {
-                    const snap = await get(ref(database, `leaves/${uid}`))
-                    const leaves = snap.val() || {}
-                    return Object.values(leaves).map(l => ({
-                        Employee: users[uid].name,
-                        AppliedOn: l.appliedAt ? format(new Date(l.appliedAt), 'yyyy-MM-dd') : '-',
-                        From: l.from,
-                        To: l.to,
-                        Days: l.totalDays,
-                        Type: l.type,
-                        Status: l.status,
-                        Reason: l.reason
-                    }))
-                })
-                const results = await Promise.all(promises)
-                data = results.flat()
-            }
+            const results = await Promise.all(promises)
+            data = results.flat().sort((a, b) => a.Date.localeCompare(b.Date))
 
             if (data.length === 0) {
-                setStatus({ type: 'error', message: 'No data found for the selected criteria.' })
+                setStatus({ type: 'error', message: 'No attendance records found for this month.' })
                 setIsGenerating(false)
                 return
             }
@@ -99,7 +68,7 @@ export default function MDExport() {
             // 2. Generate File
             const worksheet = XLSX.utils.json_to_sheet(data)
             const workbook = XLSX.utils.book_new()
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Report")
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance")
 
             if (fileFormat === 'csv') {
                 XLSX.writeFile(workbook, `${filename}.csv`)
@@ -107,7 +76,7 @@ export default function MDExport() {
                 XLSX.writeFile(workbook, `${filename}.xlsx`)
             }
 
-            setStatus({ type: 'success', message: 'Report generated and downloaded successfully.' })
+            setStatus({ type: 'success', message: 'Attendance report generated successfully.' })
 
         } catch (error) {
             console.error(error)
@@ -120,50 +89,34 @@ export default function MDExport() {
     return (
         <div className="page-container p-6 max-w-2xl mx-auto animate-fade-in">
             <div className="mb-8 text-center">
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Export Data</h1>
-                <p className="text-slate-500 dark:text-slate-400">Generate reports for attendance, leaves, and employee records.</p>
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Export Attendance</h1>
+                <p className="text-slate-500 dark:text-slate-400">Download monthly attendance reports for all employees.</p>
             </div>
 
             <Card className="p-8 border border-slate-200 dark:border-slate-800 shadow-lg">
                 <form onSubmit={handleExport} className="space-y-8">
 
-                    {/* Report Type */}
-                    <div className="space-y-3">
-                        <label className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">Report Type</label>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {[
-                                { id: 'attendance', label: 'Attendance', icon: Calendar },
-                                { id: 'employees', label: 'Employees', icon: FileText },
-                                { id: 'leaves', label: 'Leaves', icon: FileSpreadsheet }
-                            ].map(type => (
-                                <button
-                                    key={type.id}
-                                    type="button"
-                                    onClick={() => setReportType(type.id)}
-                                    className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${reportType === type.id
-                                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-400 ring-1 ring-blue-500'
-                                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-blue-300'
-                                        }`}
-                                >
-                                    <type.icon size={24} className="opacity-80" />
-                                    <span className="font-medium text-sm">{type.label}</span>
-                                </button>
-                            ))}
+                    {/* Report Type Visual (Static) */}
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                            <Calendar size={24} />
+                        </div>
+                        <div>
+                            <div className="font-semibold text-slate-900 dark:text-white">Monthly Attendance Report</div>
+                            <div className="text-sm text-slate-500 dark:text-slate-400">Aggregated attendance data for all staff</div>
                         </div>
                     </div>
 
-                    {/* Date Range (Conditional) */}
-                    {reportType !== 'employees' && (
-                        <div className="space-y-3">
-                            <label className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">Select Month</label>
-                            <input
-                                type="month"
-                                value={month}
-                                onChange={(e) => setMonth(e.target.value)}
-                                className="w-full text-lg p-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
-                            />
-                        </div>
-                    )}
+                    {/* Date Range */}
+                    <div className="space-y-3">
+                        <label className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">Select Month</label>
+                        <input
+                            type="month"
+                            value={month}
+                            onChange={(e) => setMonth(e.target.value)}
+                            className="w-full text-lg p-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
+                        />
+                    </div>
 
                     {/* Format */}
                     <div className="space-y-3">
@@ -199,8 +152,8 @@ export default function MDExport() {
                     {/* Status Message */}
                     {status && (
                         <div className={`p-4 rounded-lg flex items-center gap-3 text-sm animate-fade-in ${status.type === 'success'
-                                ? 'bg-green-50 text-green-700 border border-green-200'
-                                : 'bg-red-50 text-red-700 border border-red-200'
+                            ? 'bg-green-50 text-green-700 border border-green-200'
+                            : 'bg-red-50 text-red-700 border border-red-200'
                             }`}>
                             {status.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
                             {status.message}
