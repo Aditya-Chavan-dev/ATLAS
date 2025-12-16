@@ -105,76 +105,78 @@ export default function Home() {
                 <p className="text-sm text-slate-500 mt-1">{todayDate}</p>
             </header>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                 {/* Hero Section: Conditional State */}
-                {!todayStatus ? (
-                    // State 1: Not Marked
-                    <div className="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-100 rounded-lg p-8 shadow-sm text-center">
-                        <div className="inline-flex p-3 bg-blue-100 rounded-full text-blue-600 mb-4">
-                            <ClockIcon className="w-8 h-8" />
-                        </div>
-                        <h2 className="text-xl font-semibold text-slate-900 mb-2">Ready to Mark Attendance?</h2>
-                        <p className="text-sm text-slate-600 mb-6">Tap below to record your presence for today.</p>
-
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold shadow-md hover:bg-blue-700 active:scale-95 transition-all animate-pulse-subtle"
-                        >
-                            Mark Attendance
-                        </button>
-                    </div>
-                ) : (
-                    // State 2: Already Marked
-                    <div className={`bg-gradient-to-br border-2 rounded-lg p-6 flex flex-col items-center text-center animate-scale-in ${todayStatus.status === 'pending'
-                        ? 'from-amber-50 to-white border-amber-200'
-                        : 'from-green-50 to-white border-green-500'
-                        }`}>
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${todayStatus.status === 'pending' ? 'bg-amber-100' : 'bg-green-100'
-                            }`}>
-                            {todayStatus.status === 'pending' ? (
-                                <ClockIcon className="w-8 h-8 text-amber-600" />
-                            ) : (
-                                <CheckCircleIcon className="w-8 h-8 text-green-600" />
-                            )}
-                        </div>
-                        <h2 className={`text-xl font-semibold mb-1 ${todayStatus.status === 'pending' ? 'text-amber-800' : 'text-green-800'
-                            }`}>
-                            {todayStatus.status === 'pending' ? 'Request Pending' : 'Attendance Marked'}
-                        </h2>
-
-                        <div className="flex items-center gap-2 mt-2 bg-white px-3 py-1 rounded-full border border-green-200 shadow-sm">
-                            {todayStatus.locationType === 'Office' ? (
-                                <BuildingOfficeIcon className="w-4 h-4 text-green-600" />
-                            ) : (
-                                <MapPinIcon className="w-4 h-4 text-amber-600" />
-                            )}
-                            <span className="text-sm font-medium text-slate-700">
-                                {todayStatus.locationType === 'Office' ? 'Office' : `Site: ${todayStatus.siteName || 'Unknown'}`}
-                            </span>
-                        </div>
-
-                        <p className="text-xs text-slate-500 mt-4">
-                            Marked at {new Date(todayStatus.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-
-                        {/* Unlimited Marking for Tester */}
-                        {currentUser?.email === 'adityagchavan.skn.comp@gmail.com' && (
-                            <div className="mt-5 pt-4 border-t border-slate-100 w-full animate-fade-in">
-                                <button
-                                    onClick={() => setIsModalOpen(true)}
-                                    className="w-full py-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-colors shadow-sm flex items-center justify-center gap-2"
-                                >
-                                    <span>🧪</span> Mark Again (Test Mode)
-                                </button>
+                <div className="w-full">
+                    {!todayStatus ? (
+                        // State 1: Not Marked
+                        <div className="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-100 rounded-lg p-8 shadow-sm text-center h-full flex flex-col justify-center">
+                            <div className="inline-flex p-3 bg-blue-100 rounded-full text-blue-600 mb-4 mx-auto">
+                                <ClockIcon className="w-8 h-8" />
                             </div>
-                        )}
-                    </div>
-                )}
+                            <h2 className="text-xl font-semibold text-slate-900 mb-2">Ready to Mark Attendance?</h2>
+                            <p className="text-sm text-slate-600 mb-6">Tap below to record your presence for today.</p>
+
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold shadow-md hover:bg-blue-700 active:scale-95 transition-all animate-pulse-subtle"
+                            >
+                                Mark Attendance
+                            </button>
+                        </div>
+                    ) : (
+                        // State 2: Already Marked
+                        <div className={`bg-gradient-to-br border-2 rounded-lg p-6 flex flex-col items-center text-center animate-scale-in h-full justify-center ${todayStatus.status === 'pending'
+                            ? 'from-amber-50 to-white border-amber-200'
+                            : 'from-green-50 to-white border-green-500'
+                            }`}>
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${todayStatus.status === 'pending' ? 'bg-amber-100' : 'bg-green-100'
+                                }`}>
+                                {todayStatus.status === 'pending' ? (
+                                    <ClockIcon className="w-8 h-8 text-amber-600" />
+                                ) : (
+                                    <CheckCircleIcon className="w-8 h-8 text-green-600" />
+                                )}
+                            </div>
+                            <h2 className={`text-xl font-semibold mb-1 ${todayStatus.status === 'pending' ? 'text-amber-800' : 'text-green-800'
+                                }`}>
+                                {todayStatus.status === 'pending' ? 'Request Pending' : 'Attendance Marked'}
+                            </h2>
+
+                            <div className="flex items-center gap-2 mt-2 bg-white px-3 py-1 rounded-full border border-green-200 shadow-sm">
+                                {todayStatus.locationType === 'Office' ? (
+                                    <BuildingOfficeIcon className="w-4 h-4 text-green-600" />
+                                ) : (
+                                    <MapPinIcon className="w-4 h-4 text-amber-600" />
+                                )}
+                                <span className="text-sm font-medium text-slate-700">
+                                    {todayStatus.locationType === 'Office' ? 'Office' : `Site: ${todayStatus.siteName || 'Unknown'}`}
+                                </span>
+                            </div>
+
+                            <p className="text-xs text-slate-500 mt-4">
+                                Marked at {new Date(todayStatus.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+
+                            {/* Unlimited Marking for Tester */}
+                            {currentUser?.email === 'adityagchavan.skn.comp@gmail.com' && (
+                                <div className="mt-5 pt-4 border-t border-slate-100 w-full animate-fade-in">
+                                    <button
+                                        onClick={() => setIsModalOpen(true)}
+                                        className="w-full py-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-colors shadow-sm flex items-center justify-center gap-2"
+                                    >
+                                        <span>🧪</span> Mark Again (Test Mode)
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 {/* Monthly Stats */}
-                <div>
+                <div className="w-full">
                     <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3 px-1">This Month</h3>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3 gap-3">
                         <StatCard label="Present" value={attendanceStats.present} type="present" delay={0} />
                         <StatCard label="Late" value={attendanceStats.late} type="late" delay={50} />
                         <StatCard label="Absent" value={attendanceStats.absent} type="absent" delay={100} />
