@@ -75,15 +75,33 @@ export default function MDDashboard() {
         }
     }, [])
 
-    // Derived Stats (Mock calculation for now as logic is same)
+    // Derived Stats (Realtime Calculation)
     useEffect(() => {
-        setStats(prev => ({
-            ...prev,
+        if (employees.length === 0) {
+            setStats({ total: 0, present: 0, onLeave: 0, onSite: 0 })
+            return
+        }
+
+        const todayStr = new Date().toISOString().split('T')[0]
+        let present = 0
+        let onLeave = 0
+        let onSite = 0
+
+        employees.forEach(emp => {
+            const todayRecord = emp.attendance?.[todayStr]
+            if (todayRecord) {
+                if (todayRecord.status === 'Present') present++
+                if (todayRecord.status === 'Absent' || todayRecord.status === 'Leave') onLeave++
+                if (todayRecord.locationType === 'Site') onSite++
+            }
+        })
+
+        setStats({
             total: employees.length,
-            present: Math.floor(employees.length * 0.8),
-            onLeave: Math.floor(employees.length * 0.1),
-            onSite: Math.floor(employees.length * 0.1)
-        }))
+            present,
+            onLeave,
+            onSite
+        })
     }, [employees])
 
 
@@ -150,14 +168,14 @@ export default function MDDashboard() {
                     value={stats.total}
                     icon={Users}
                     color="blue"
-                    trend="+2 new"
+                // trend="+2 new" // Removed hardcoded trend
                 />
                 <StatsCard
                     title="Present Today"
                     value={stats.present}
                     icon={UserCheck}
                     color="emerald"
-                    trend="80%"
+                    trend={`${stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}%`}
                 />
                 <StatsCard
                     title="On Leave"
@@ -201,14 +219,9 @@ export default function MDDashboard() {
                         "grid gap-3 transition-all",
                         viewMode === 'grid' ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4" : "grid-cols-1"
                     )}>
-                        {employees.slice(0, 8).map((emp, i) => (
+                        {employees.map((emp, i) => (
                             <EmployeeStatusCard key={emp.id || i} employee={emp} viewMode={viewMode} />
                         ))}
-                    </div>
-                    <div className="text-center pt-2">
-                        <Link to="/md/employees" className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors">
-                            View All Staff <ArrowRight size={14} />
-                        </Link>
                     </div>
                 </div>
 
@@ -313,10 +326,14 @@ const StatsCard = ({ title, value, icon: Icon, color, trend }) => {
 }
 
 const EmployeeStatusCard = ({ employee, viewMode }) => {
-    // Mock status logic
-    const isOnline = Math.random() > 0.5
-    const status = isOnline ? 'Present' : 'Offline'
-    const statusColor = isOnline ? 'success' : 'default'
+    // Realtime Status Logic
+    const todayStr = new Date().toISOString().split('T')[0]
+    const todayRecord = employee.attendance?.[todayStr]
+
+    const status = todayRecord ? todayRecord.status : 'Offline'
+    const statusColor = todayRecord ?
+        (todayRecord.status === 'Present' ? 'success' : 'warning') : 'default'
+    const time = todayRecord ? new Date(todayRecord.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'
 
     if (viewMode === 'grid') {
         return (
@@ -345,7 +362,9 @@ const EmployeeStatusCard = ({ employee, viewMode }) => {
             </div>
             <div className="flex items-end flex-col gap-1">
                 <Badge variant={statusColor}>{status}</Badge>
-                <span className="text-[10px] text-slate-400 font-medium bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded">9:02 AM</span>
+                {todayRecord && (
+                    <span className="text-[10px] text-slate-400 font-medium bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded">{time}</span>
+                )}
             </div>
         </Card>
     )
