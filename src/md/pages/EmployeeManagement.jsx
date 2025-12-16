@@ -34,7 +34,7 @@ export default function MDEmployeeManagement() {
 
     // Fetch Data
     useEffect(() => {
-        const usersRef = ref(database, 'users')
+        const usersRef = ref(database, 'employees') // Updated to 'employees'
         const unsubscribe = onValue(usersRef, (snapshot) => {
             const data = snapshot.val()
             if (data) {
@@ -56,8 +56,8 @@ export default function MDEmployeeManagement() {
         e.preventDefault()
         setProcessing(true)
         try {
-            const placeholderUid = `user_${Date.now()}`
-            await set(ref(database, `users/${placeholderUid}`), {
+            const placeholderUid = `emp_${Date.now()}` // Changed prefix to emp_
+            await set(ref(database, `employees/${placeholderUid}`), { // Updated to employees
                 name: formData.name,
                 email: formData.email,
                 role: formData.role,
@@ -81,7 +81,7 @@ export default function MDEmployeeManagement() {
         if (!selectedEmployee) return
         setProcessing(true)
         try {
-            await update(ref(database, `users/${selectedEmployee.uid}`), {
+            await update(ref(database, `employees/${selectedEmployee.uid}`), { // Updated to employees
                 name: formData.name,
                 role: formData.role
             })
@@ -100,7 +100,7 @@ export default function MDEmployeeManagement() {
         if (!selectedEmployee) return
         setProcessing(true)
         try {
-            await remove(ref(database, `users/${selectedEmployee.uid}`))
+            await remove(ref(database, `employees/${selectedEmployee.uid}`)) // Updated to employees
             setIsDeleteModalOpen(false)
             setSelectedEmployee(null)
             setToast({ type: 'success', message: "Member deleted successfully" })

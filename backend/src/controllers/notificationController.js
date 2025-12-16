@@ -66,21 +66,38 @@ exports.triggerReminder = async (req, res) => {
     try {
         console.log('📢 Triggering Manual Hybrid Reminder...');
 
-        // NEW: Query /employees instead of /users
-        const usersSnapshot = await db.ref('employees').once('value');
-        const users = usersSnapshot.val() || {};
+        // Query both paths to ensure coverage
+        const [empSnap, usersSnap] = await Promise.all([
+            db.ref('employees').once('value'),
+            db.ref('users').once('value')
+        ]);
+
+        const employees = empSnap.val() || {};
+        const users = usersSnap.val() || {};
+
+        // Merge users (prefer employees if duplicate)
+        const allUsers = { ...users, ...employees };
+
+        console.log(`Found ${Object.keys(employees).length} in /employees, ${Object.keys(users).length} in /users. Merged: ${Object.keys(allUsers).length}`);
 
         // Segmentation
         const pushTokens = [];
         const emailTargets = [];
+        const processedEmails = new Set(); // To avoid duplicates
 
-        Object.entries(users).forEach(([uid, user]) => {
+        Object.entries(allUsers).forEach(([uid, user]) => {
+            if (!user.email) return;
+
+            // Skip if already processed (fallback duplicate check)
+            if (processedEmails.has(user.email)) return;
+            processedEmails.add(user.email);
+
             // Check Push Eligibility
             if (user.fcmToken && typeof user.fcmToken === 'string' && user.fcmToken.length > 0) {
                 pushTokens.push(user.fcmToken);
             }
-            // Check Email Eligibility (Only if NO Push or as fallback? User said: "Whoever has not [app] we can send via email")
-            else if (user.email) {
+            // Fallback to Email
+            else {
                 emailTargets.push(user.email);
             }
         });

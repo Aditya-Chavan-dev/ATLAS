@@ -101,10 +101,14 @@ export default function MDDashboard() {
 
             const data = await response.json()
 
-            if (response.ok) {
-                setToast({ type: 'success', message: `Reminders sent! (${data.successCount} delivered)` })
+            if (data.success) {
+                const stats = data.stats || {}
+                const pushCount = stats.push?.count || 0
+                const emailCount = stats.email?.count || 0
+                const msg = `Sent: ${pushCount} Push, ${emailCount} Emails.`
+                setToast({ type: 'success', message: msg })
             } else {
-                throw new Error(data.message || 'Failed to send reminders')
+                throw new Error(data.error || 'Failed to trigger reminder')
             }
         } catch (error) {
             console.error(error)
