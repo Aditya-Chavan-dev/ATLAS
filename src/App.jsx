@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { ref, onValue } from 'firebase/database'
 import { database } from './firebase/config'
 import './styles/MDTheme.css' // Import MD Theme
+import './styles/MDComponents.css' // Import MD Component Styles
 import MDLayout from './layouts/MDLayout'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -17,7 +18,7 @@ import Login from './pages/Login'
 import MDDashboard from './md/pages/Dashboard'
 import MDApprovals from './md/pages/Approvals'
 import MDProfiles from './md/pages/Profiles'
-import MDProfileDetail from './md/pages/ProfileDetail'
+
 import MDExport from './md/pages/Export'
 import MDEmployeeManagement from './md/pages/EmployeeManagement'
 import DownloadPage from './pages/DownloadPage'
@@ -132,7 +133,7 @@ function AppContent() {
     )
 }
 
-// import PWAUpdater from './components/PWAUpdater'
+import PWAUpdater from './components/PWAUpdater'
 
 // ...
 
@@ -146,7 +147,7 @@ function App() {
             <Route path="/*" element={
                 <AuthProvider>
                     <ThemeProvider>
-                        {/* <PWAUpdater /> */}
+                        <PWAUpdater />
                         <AppContent />
                     </ThemeProvider>
                 </AuthProvider>

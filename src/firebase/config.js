@@ -51,9 +51,12 @@ if (!firebaseConfig.apiKey || !firebaseConfig.authDomain) {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
+import { getStorage } from 'firebase/storage';
+
 // Initialize Firebase services
 export const auth = getAuth(app);
 export const database = getDatabase(app);
+export const storage = getStorage(app);
 
 // Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();

@@ -1,277 +1,192 @@
-// Home Page - Exact UI Replica (Brown Theme)
+// Enterprise Dashboard
 import { useState, useEffect } from 'react'
-import { format, isSunday } from 'date-fns'
 import {
-    MapPinIcon,
-    BellIcon,
     ClockIcon,
-    ChevronDownIcon
+    MapPinIcon,
+    BuildingOfficeIcon,
+    CheckCircleIcon
 } from '@heroicons/react/24/outline'
-import { ref, onValue, set, update } from 'firebase/database'
-import { database } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
+import { database } from '../../firebase/config'
+import { ref, onValue } from 'firebase/database'
 import AttendanceModal from '../components/AttendanceModal'
-import RefinedModal from '../../components/ui/RefinedModal'
-import './Home.css'
+import StatCard from '../components/StatCard'
+import Toast from '../components/Toast'
 
-export default function EmployeeHome() {
-    const { currentUser } = useAuth()
-    const [todayAttendance, setTodayAttendance] = useState(null)
-    const [currentTime, setCurrentTime] = useState(new Date())
-    const [stats, setStats] = useState({ present: 0, late: 0, absent: 0 })
-
-    // UI State
+export default function Home() {
+    const { currentUser, userProfile } = useAuth()
+    const [attendanceStats, setAttendanceStats] = useState({
+        present: 0,
+        late: 0,
+        absent: 0
+    })
+    const [todayStatus, setTodayStatus] = useState(null) // null | { status: 'Present'|'Late', location: 'Office'|'Site', timestamp: '...' }
     const [isModalOpen, setIsModalOpen] = useState(false)
-    const [isSubmitting, setIsSubmitting] = useState(false)
-    const [loading, setLoading] = useState(true)
+    const [toast, setToast] = useState(null) // { message, type }
 
-    // Correction Logic
-    const [isCorrectionMode, setIsCorrectionMode] = useState(false)
-    const [correctionCount, setCorrectionCount] = useState(0)
-    const MAX_CORRECTIONS_PER_DAY = 3
-    const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '', type: 'info' })
-
-    const showMessageModal = (title, message, type = 'info') => {
-        setModalConfig({ isOpen: true, title, message, type })
-    }
-
-    // Live Clock
-    useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-        return () => clearInterval(timer)
-    }, [])
-
-    // Fetch Data
+    // Fetch Attendance Data
     useEffect(() => {
         if (!currentUser) return
 
-        const todayStr = format(new Date(), 'yyyy-MM-dd')
-        const currentMonth = format(new Date(), 'yyyy-MM')
-
-        const attendanceRef = ref(database, `employees/${currentUser.uid}/attendance`)
-        const leavesRef = ref(database, `leaves/${currentUser.uid}`)
+        const todayStr = new Date().toISOString().split('T')[0]
+        const currentMonth = new Date().toISOString().slice(0, 7) // 2024-12
+        const attendanceRef = ref(database, `users/${currentUser.uid}/attendance`)
 
         const unsubscribe = onValue(attendanceRef, (snapshot) => {
-            let presentCount = 0
-
-            if (snapshot.exists()) {
-                const allData = snapshot.val()
-
-                if (allData[todayStr]) {
-                    setTodayAttendance({ date: todayStr, ...allData[todayStr] })
-                    setCorrectionCount(allData[todayStr].correctionCount || 0)
-                } else {
-                    setTodayAttendance(null)
-                    setCorrectionCount(0)
+            const data = snapshot.val()
+            if (data) {
+                // Check for today's record
+                const todayRecord = data[todayStr]
+                if (todayRecord) {
+                    setTodayStatus(todayRecord)
                 }
 
-                Object.values(allData).forEach(record => {
-                    const recordMonth = record.submittedAt ? record.submittedAt.slice(0, 7) : ''
-                    if (recordMonth === currentMonth && record.status === 'approved') {
-                        presentCount++
+                // Calculate Monthly Stats
+                let stats = { present: 0, late: 0, absent: 0 }
+                Object.entries(data).forEach(([date, record]) => {
+                    if (date.startsWith(currentMonth)) {
+                        // Strict check: Only count valid statuses
+                        if (record.status === 'Present') stats.present++
+                        else if (record.status === 'Late') stats.late++
+                        else if (record.status === 'Absent' || record.status === 'half-day') stats.absent++
                     }
                 })
-            } else {
-                setTodayAttendance(null)
+                setAttendanceStats(stats)
             }
-
-            setStats(prev => ({ ...prev, present: presentCount }))
-            setLoading(false)
         })
 
-        const unsubLeaves = onValue(leavesRef, (snapshot) => {
-            let leaveCount = 0
-            if (snapshot.exists()) {
-                const leaves = snapshot.val()
-                Object.values(leaves).forEach(leave => {
-                    if (leave.status === 'approved') {
-                        leaveCount++
-                    }
-                })
-            }
-            setStats(prev => ({ ...prev, absent: leaveCount }))
-        })
-
-        return () => {
-            unsubscribe()
-            unsubLeaves()
-        }
+        return () => unsubscribe()
     }, [currentUser])
 
-    const handleMarkAttendance = async (status, siteName = '') => {
-        if (!currentUser) return
-        setIsSubmitting(true)
-        try {
-            const now = new Date()
-            const todayStr = format(now, 'yyyy-MM-dd')
-            const attendanceData = {
-                status: 'pending',
-                location: status.toLowerCase(),
-                siteName: siteName || null,
-                timestamp: now.getTime(),
-                submittedAt: now.toISOString(),
-                employeeId: currentUser.uid,
-                employeeEmail: currentUser.email,
-                employeeName: currentUser.displayName || 'Unknown'
+    // Confetti Effect
+    useEffect(() => {
+        if (todayStatus?.status === 'Present') {
+            const todayStr = new Date().toISOString().split('T')[0]
+            const storageKey = `confetti_seen_${todayStr}`
+            const hasSeen = localStorage.getItem(storageKey)
+
+            if (!hasSeen) {
+                import('canvas-confetti').then((confetti) => {
+                    confetti.default({
+                        particleCount: 150,
+                        spread: 70,
+                        origin: { y: 0.6 },
+                        colors: ['#2563eb', '#3b82f6', '#60a5fa', '#fbbf24'] // Blue & Gold
+                    })
+                    localStorage.setItem(storageKey, 'true')
+                })
             }
-            await set(ref(database, `employees/${currentUser.uid}/attendance/${todayStr}`), attendanceData)
-            setTodayAttendance({ date: todayStr, ...attendanceData })
-            setIsModalOpen(false)
-            showMessageModal('Success', 'Attendance marked!', 'success')
-        } catch (error) {
-            showMessageModal('Error', 'Failed to mark.', 'error')
-        } finally {
-            setIsSubmitting(false)
         }
+    }, [todayStatus])
+
+    const handleAttendanceSuccess = () => {
+        setToast({ message: 'Attendance submitted for approval', type: 'success' })
+        setIsModalOpen(false)
     }
 
-    const handleCorrectionRequest = async (newStatus, newSiteName) => {
-        if (!currentUser || !todayAttendance) return
-        if (correctionCount >= MAX_CORRECTIONS_PER_DAY) {
-            showMessageModal('Limit', 'Max corrections reached.', 'warning')
-            return
-        }
-        setIsSubmitting(true)
-        try {
-            const now = new Date()
-            const correctionData = {
-                status: 'pending',
-                location: newStatus.toLowerCase(),
-                siteName: newSiteName || '',
-                correctionRequestedAt: now.toISOString(),
-                correctionCount: correctionCount + 1,
-                isCorrection: true
-            }
-            await update(ref(database, `employees/${currentUser.uid}/attendance/${todayAttendance.date}`), correctionData)
-            setTodayAttendance({ ...todayAttendance, ...correctionData })
-            setCorrectionCount(prev => prev + 1)
-            setIsModalOpen(false)
-            setIsCorrectionMode(false)
-            showMessageModal('Sent', 'Correction requested.', 'success')
-        } catch (e) {
-            showMessageModal('Error', 'Failed.', 'error')
-        } finally {
-            setIsSubmitting(false)
-        }
+    // Date Formatting
+    const todayDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })
+    const getGreeting = () => {
+        const hour = new Date().getHours()
+        if (hour < 12) return 'Good Morning'
+        if (hour < 18) return 'Good Afternoon'
+        return 'Good Evening'
     }
-
-    if (loading) return <div className="flex justify-center items-center h-screen bg-[#FDFBF7]">Loading...</div>
 
     return (
-        <div className="home-container">
-            {/* Header */}
-            <div className="home-header">
-                <div className="header-top">
-                    <div className="user-profile">
-                        {currentUser?.photoURL ? (
-                            <img src={currentUser.photoURL} alt="User" className="user-avatar" />
-                        ) : (
-                            <div className="user-avatar flex items-center justify-center text-white font-bold text-lg">
-                                {currentUser?.displayName?.charAt(0) || 'U'}
+        <div className="min-h-full bg-slate-50 font-sans">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+            {/* Greeting Header */}
+            <header className="bg-white px-6 py-6 border-b border-slate-200">
+                <h1 className="text-2xl font-bold text-slate-900">
+                    {getGreeting()}, {userProfile?.name?.split(' ')[0] || 'Team'}
+                </h1>
+                <p className="text-sm text-slate-500 mt-1">{todayDate}</p>
+            </header>
+
+            <div className="p-6 space-y-6">
+                {/* Hero Section: Conditional State */}
+                {!todayStatus ? (
+                    // State 1: Not Marked
+                    <div className="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-100 rounded-lg p-8 shadow-sm text-center">
+                        <div className="inline-flex p-3 bg-blue-100 rounded-full text-blue-600 mb-4">
+                            <ClockIcon className="w-8 h-8" />
+                        </div>
+                        <h2 className="text-xl font-semibold text-slate-900 mb-2">Ready to Mark Attendance?</h2>
+                        <p className="text-sm text-slate-600 mb-6">Tap below to record your presence for today.</p>
+
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold shadow-md hover:bg-blue-700 active:scale-95 transition-all animate-pulse-subtle"
+                        >
+                            Mark Attendance
+                        </button>
+                    </div>
+                ) : (
+                    // State 2: Already Marked
+                    <div className={`bg-gradient-to-br border-2 rounded-lg p-6 flex flex-col items-center text-center animate-scale-in ${todayStatus.status === 'pending'
+                        ? 'from-amber-50 to-white border-amber-200'
+                        : 'from-green-50 to-white border-green-500'
+                        }`}>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${todayStatus.status === 'pending' ? 'bg-amber-100' : 'bg-green-100'
+                            }`}>
+                            {todayStatus.status === 'pending' ? (
+                                <ClockIcon className="w-8 h-8 text-amber-600" />
+                            ) : (
+                                <CheckCircleIcon className="w-8 h-8 text-green-600" />
+                            )}
+                        </div>
+                        <h2 className={`text-xl font-semibold mb-1 ${todayStatus.status === 'pending' ? 'text-amber-800' : 'text-green-800'
+                            }`}>
+                            {todayStatus.status === 'pending' ? 'Request Pending' : 'Attendance Marked'}
+                        </h2>
+
+                        <div className="flex items-center gap-2 mt-2 bg-white px-3 py-1 rounded-full border border-green-200 shadow-sm">
+                            {todayStatus.locationType === 'Office' ? (
+                                <BuildingOfficeIcon className="w-4 h-4 text-green-600" />
+                            ) : (
+                                <MapPinIcon className="w-4 h-4 text-amber-600" />
+                            )}
+                            <span className="text-sm font-medium text-slate-700">
+                                {todayStatus.locationType === 'Office' ? 'Office' : `Site: ${todayStatus.siteName || 'Unknown'}`}
+                            </span>
+                        </div>
+
+                        <p className="text-xs text-slate-500 mt-4">
+                            Marked at {new Date(todayStatus.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+
+                        {/* Unlimited Marking for Tester */}
+                        {currentUser?.email === 'adityagchavan.skn.comp@gmail.com' && (
+                            <div className="mt-5 pt-4 border-t border-slate-100 w-full animate-fade-in">
+                                <button
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="w-full py-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-colors shadow-sm flex items-center justify-center gap-2"
+                                >
+                                    <span>🧪</span> Mark Again (Test Mode)
+                                </button>
                             </div>
                         )}
-                        <div className="user-info">
-                            <h2>{currentUser?.displayName || 'User'}</h2>
-                            <p>Employee</p>
-                        </div>
                     </div>
-                    <div className="notification-btn">
-                        <div className="notif-dot"></div>
-                        <BellIcon className="w-5 h-5 text-white" />
-                    </div>
-                </div>
+                )}
 
-                <div className="header-row-2">
-                    <h1 className="page-title">Todays Attendance</h1>
-                    <span className="current-date">{format(currentTime, 'd MMM, yyyy')}</span>
-                </div>
-            </div>
-
-            {/* Clock Card */}
-            <div className="clock-card">
-                <div className="work-label">Working Time</div>
-                <div className="time-display">
-                    <div className="time-box">
-                        <span className="time-val">{format(currentTime, 'hh')}</span>
-                    </div>
-                    <span className="time-colon">:</span>
-                    <div className="time-box">
-                        <span className="time-val">{format(currentTime, 'mm')}</span>
-                    </div>
-                    <div className="ampm-box">
-                        {format(currentTime, 'a')}
-                    </div>
-                </div>
-
-                <div className="location-row">
-                    <MapPinIcon className="w-4 h-4" />
-                    {todayAttendance
-                        ? (todayAttendance.location === 'office' ? 'Office Location' : (todayAttendance.siteName || 'Remote Site'))
-                        : 'Location Pending'}
-                </div>
-
-                <button
-                    className={`main-action-btn ${todayAttendance && todayAttendance.status !== 'pending' ? 'disabled' : ''}`}
-                    onClick={() => {
-                        if (!todayAttendance) setIsModalOpen(true)
-                        else if (todayAttendance.status !== 'pending' && correctionCount < MAX_CORRECTIONS_PER_DAY) {
-                            setIsCorrectionMode(true)
-                            setIsModalOpen(true)
-                        }
-                    }}
-                    disabled={isSunday(currentTime) && !todayAttendance}
-                >
-                    <ClockIcon className="w-5 h-5" />
-                    {todayAttendance
-                        ? (todayAttendance.status === 'pending' ? 'Marked' : 'Correction')
-                        : 'Checkout'}
-                </button>
-            </div>
-
-            {/* Stats */}
-            <div className="stats-wrapper">
-                <div className="stats-header">
-                    <span className="stats-title">Total Attendance (Days)</span>
-                    <button className="stats-filter">
-                        {format(new Date(), 'MMM')} <ChevronDownIcon className="w-3 h-3" />
-                    </button>
-                </div>
-
-                <div className="stats-card">
-                    <div className="stat-item present">
-                        <span className="stat-num">{stats.present}</span>
-                        <span className="stat-label">Present</span>
-                    </div>
-                    <div className="stat-item late">
-                        <span className="stat-num">{stats.late}</span>
-                        <span className="stat-label">Late</span>
-                    </div>
-                    <div className="stat-item absent">
-                        <span className="stat-num">{stats.absent}</span>
-                        <span className="stat-label">Absent</span>
+                {/* Monthly Stats */}
+                <div>
+                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3 px-1">This Month</h3>
+                    <div className="grid grid-cols-3 gap-3">
+                        <StatCard label="Present" value={attendanceStats.present} type="present" delay={0} />
+                        <StatCard label="Late" value={attendanceStats.late} type="late" delay={50} />
+                        <StatCard label="Absent" value={attendanceStats.absent} type="absent" delay={100} />
                     </div>
                 </div>
             </div>
 
-            {/* Modals */}
+            {/* Attendance Modal */}
             <AttendanceModal
                 isOpen={isModalOpen}
-                onClose={() => {
-                    setIsModalOpen(false)
-                    setIsCorrectionMode(false)
-                }}
-                onConfirm={isCorrectionMode ? handleCorrectionRequest : handleMarkAttendance}
-                isSubmitting={isSubmitting}
-                isCorrection={isCorrectionMode}
-                currentAttendance={isCorrectionMode ? todayAttendance : null}
-            />
-
-            <RefinedModal
-                isOpen={modalConfig.isOpen}
-                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-                title={modalConfig.title}
-                message={modalConfig.message}
-                type={modalConfig.type}
+                onClose={() => setIsModalOpen(false)}
+                onSuccess={handleAttendanceSuccess}
             />
         </div>
     )

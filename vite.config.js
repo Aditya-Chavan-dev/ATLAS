@@ -7,77 +7,80 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   plugins: [
     react(),
-    // VitePWA({
-    //   registerType: 'autoUpdate',
-    //   includeAssets: ['ATLAS.jpg', 'logo-transparent.png'],
-    //   manifest: {
-    //     name: 'ATLAS',
-    //     short_name: 'ATLAS',
-    //     description: 'Streamlined Attendance Tracking and Workforce Management',
-    //     theme_color: '#3b82f6',
-    //     background_color: '#0f172a',
-    //     display: 'standalone',
-    //     orientation: 'portrait-primary',
-    //     start_url: '/',
-    //     icons: [
-    //       {
-    //         src: '/ATLAS.jpg',
-    //         sizes: '192x192',
-    //         type: 'image/jpeg',
-    //         purpose: 'any'
-    //       },
-    //       {
-    //         src: '/ATLAS.jpg',
-    //         sizes: '512x512',
-    //         type: 'image/jpeg',
-    //         purpose: 'maskable'
-    //       },
-    //       {
-    //         src: '/logo-transparent.png',
-    //         sizes: '512x512',
-    //         type: 'image/png',
-    //         purpose: 'any'
-    //       }
-    //     ]
-    //   },
-    //   workbox: {
-    //     globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg}'],
-    //     skipWaiting: true,
-    //     clientsClaim: true,
-    //     cleanupOutdatedCaches: true,
-    //     runtimeCaching: [
-    //       {
-    //         urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-    //         handler: 'CacheFirst',
-    //         options: {
-    //           cacheName: 'google-fonts-cache',
-    //           expiration: {
-    //             maxEntries: 10,
-    //             maxAgeSeconds: 60 * 60 * 24 * 365
-    //           },
-    //           cacheableResponse: {
-    //             statuses: [0, 200]
-    //           }
-    //         }
-    //       },
-    //       {
-    //         urlPattern: /^https:\/\/.*\.firebaseio\.com\/.*/i,
-    //         handler: 'NetworkOnly'
-    //       },
-    //       {
-    //         urlPattern: /^https:\/\/.*\.googleapis\.com\/.*/i,
-    //         handler: 'NetworkFirst',
-    //         options: {
-    //           cacheName: 'api-cache',
-    //           expiration: {
-    //             maxEntries: 50,
-    //             maxAgeSeconds: 60 * 5
-    //           }
-    //         }
-    //       }
-    //     ]
-    //   }
-    // })
+    VitePWA({
+
+      includeAssets: ['ATLAS.jpg', 'logo-transparent.png'],
+      manifest: {
+        name: 'ATLAS',
+        short_name: 'ATLAS',
+        description: 'Streamlined Attendance Tracking and Workforce Management',
+        theme_color: '#3b82f6',
+        background_color: '#0f172a',
+        display: 'standalone',
+        orientation: 'portrait-primary',
+        start_url: '/',
+        icons: [
+          {
+            src: '/ATLAS.jpg',
+            sizes: '192x192',
+            type: 'image/jpeg',
+            purpose: 'any'
+          },
+          {
+            src: '/ATLAS.jpg',
+            sizes: '512x512',
+            type: 'image/jpeg',
+            purpose: 'maskable'
+          },
+          {
+            src: '/logo-transparent.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          }
+        ]
+      },
+      // DO NOT CHANGE THIS EVER - REQUIRED FOR ONE REFRESH UPDATES
+      registerType: 'autoUpdate',
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg}'],
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+        // END OF REQUIRED PWA CONFIGURATION
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/.*\.firebaseio\.com\/.*/i,
+            handler: 'NetworkOnly'
+          },
+          {
+            urlPattern: /^https:\/\/.*\.googleapis\.com\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 5
+              }
+            }
+          }
+        ]
+      }
+    }),
   ],
   resolve: {
     alias: {
@@ -85,4 +88,3 @@ export default defineConfig({
     },
   },
 })
-

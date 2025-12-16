@@ -1,43 +1,50 @@
-// History Page - Clean Professional UI
+// Enterprise History Page
 import { useState, useEffect } from 'react'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSunday, getDay } from 'date-fns'
-import { ChevronLeftIcon, ChevronRightIcon, BuildingOfficeIcon, MapPinIcon, CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { ref, onValue } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
+import {
+    ChevronLeftIcon,
+    ChevronRightIcon,
+    CalendarIcon
+} from '@heroicons/react/24/outline'
+import StatusBadge from '../components/StatusBadge'
 
-export default function EmployeeHistory() {
+export default function History() {
     const { currentUser } = useAuth()
+    const [history, setHistory] = useState([])
     const [currentDate, setCurrentDate] = useState(new Date())
-    const [attendanceData, setAttendanceData] = useState({})
     const [loading, setLoading] = useState(true)
-    const [selectedDate, setSelectedDate] = useState(null)
-    const [viewMode, setViewMode] = useState('list') // 'list' or 'calendar'
 
-    // Real-time listener for attendance data
+    // Formatted Month (e.g., "December 2024")
+    const displayMonth = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
     useEffect(() => {
         if (!currentUser) return
 
-        const attendanceRef = ref(database, `employees/${currentUser.uid}/attendance`)
+        setLoading(true)
+        const year = currentDate.getFullYear()
+        // Pads month with 0 if single digit (e.g. 2024-05) - IMPORTANT for Firebase keys
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0')
+        const queryPath = `${year}-${month}`
 
-        const unsubscribe = onValue(attendanceRef, (snapshot) => {
-            setLoading(true)
-            if (snapshot.exists()) {
-                const allData = snapshot.val()
-                const monthData = {}
-                const start = startOfMonth(currentDate)
-                const end = endOfMonth(currentDate)
+        const historyRef = ref(database, `users/${currentUser.uid}/attendance`)
 
-                Object.entries(allData).forEach(([dateStr, record]) => {
-                    const recordDate = new Date(dateStr)
-                    if (recordDate >= start && recordDate <= end) {
-                        monthData[dateStr] = { ...record, date: dateStr }
-                    }
-                })
+        const unsubscribe = onValue(historyRef, (snapshot) => {
+            const data = snapshot.val()
+            if (data) {
+                // Filter entries that match the selected month
+                const monthEntries = Object.entries(data)
+                    .filter(([date]) => date.startsWith(queryPath))
+                    .map(([date, record]) => ({
+                        date,
+                        ...record
+                    }))
+                    .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort Descending
 
-                setAttendanceData(monthData)
+                setHistory(monthEntries)
             } else {
-                setAttendanceData({})
+                setHistory([])
             }
             setLoading(false)
         })
@@ -45,300 +52,66 @@ export default function EmployeeHistory() {
         return () => unsubscribe()
     }, [currentUser, currentDate])
 
-    const daysInMonth = eachDayOfInterval({
-        start: startOfMonth(currentDate),
-        end: endOfMonth(currentDate)
-    })
-
-    const previousMonth = () => {
-        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
-        setSelectedDate(null)
+    const changeMonth = (delta) => {
+        const newDate = new Date(currentDate)
+        newDate.setMonth(newDate.getMonth() + delta)
+        setCurrentDate(newDate)
     }
-
-    const nextMonth = () => {
-        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
-        setSelectedDate(null)
-    }
-
-    // Stats
-    const totalDays = Object.values(attendanceData).filter(d => d.status === 'approved').length
-    const leaveCount = Object.values(attendanceData).filter(d => d.location === 'leave').length
-    const pendingCount = Object.values(attendanceData).filter(d => d.status === 'pending').length
-
-    const getDayStatus = (date) => {
-        const dateStr = format(date, 'yyyy-MM-dd')
-        const record = attendanceData[dateStr]
-        if (!record) return null
-        return record
-    }
-
-    const getDayColor = (date) => {
-        const record = getDayStatus(date)
-        if (!record) return ''
-        if (record.status === 'approved') {
-            return record.location === 'office' ? 'var(--emp-accent)' : 'var(--emp-success)'
-        }
-        if (record.status === 'pending') return 'var(--emp-warning)'
-        if (record.status === 'rejected') return 'var(--emp-danger)'
-        return ''
-    }
-
-    const getStatusBadge = (record) => {
-        if (record.status === 'approved') {
-            return (
-                <span className="emp-badge success">
-                    <span className="emp-status-dot success"></span>
-                    Present
-                </span>
-            )
-        }
-        if (record.status === 'pending') {
-            return (
-                <span className="emp-badge warning">
-                    <span className="emp-status-dot warning"></span>
-                    Pending
-                </span>
-            )
-        }
-        return (
-            <span className="emp-badge danger">
-                <span className="emp-status-dot danger"></span>
-                Rejected
-            </span>
-        )
-    }
-
-    // Get first day offset for calendar grid
-    const firstDayOfMonth = getDay(startOfMonth(currentDate))
-    const emptyDays = Array(firstDayOfMonth).fill(null)
 
     return (
-        <div className="space-y-6 emp-fade-in">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-xl font-bold" style={{ color: 'var(--emp-text-primary)' }}>
-                        History
-                    </h1>
-                    <p className="text-sm mt-1" style={{ color: 'var(--emp-text-muted)' }}>
-                        Your attendance records
-                    </p>
-                </div>
-
-                {/* View Toggle */}
-                <div className="flex p-1 rounded-lg" style={{ background: 'var(--emp-bg-secondary)' }}>
-                    <button
-                        onClick={() => setViewMode('list')}
-                        className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
-                        style={{
-                            background: viewMode === 'list' ? 'var(--emp-accent)' : 'transparent',
-                            color: viewMode === 'list' ? '#ffffff' : 'var(--emp-text-muted)'
-                        }}
-                    >
-                        List
-                    </button>
-                    <button
-                        onClick={() => setViewMode('calendar')}
-                        className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
-                        style={{
-                            background: viewMode === 'calendar' ? 'var(--emp-accent)' : 'transparent',
-                            color: viewMode === 'calendar' ? '#ffffff' : 'var(--emp-text-muted)'
-                        }}
-                    >
-                        Calendar
-                    </button>
-                </div>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-3 gap-3">
-                <div className="emp-stat-card">
-                    <p className="emp-stat-value" style={{ color: 'var(--emp-accent)' }}>{totalDays}</p>
-                    <p className="emp-stat-label">Total Days</p>
-                </div>
-                <div className="emp-stat-card">
-                    <p className="emp-stat-value" style={{ color: 'var(--emp-warning)' }}>{leaveCount}</p>
-                    <p className="emp-stat-label">Leaves</p>
-                </div>
-                <div className="emp-stat-card">
-                    <p className="emp-stat-value" style={{ color: 'var(--emp-text-muted)' }}>{pendingCount}</p>
-                    <p className="emp-stat-label">Pending</p>
-                </div>
-            </div>
-
-            {/* Month Navigation */}
-            <div className="flex items-center justify-between">
-                <button
-                    onClick={previousMonth}
-                    className="p-2 rounded-lg transition-all"
-                    style={{ background: 'var(--emp-bg-card)', color: 'var(--emp-text-primary)' }}
-                >
+        <div className="min-h-full bg-slate-50 font-sans p-6 pb-24">
+            {/* Header / Config Bar */}
+            <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-slate-200 mb-6 sticky top-20 z-10 md:static">
+                <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
                     <ChevronLeftIcon className="w-5 h-5" />
                 </button>
-                <h3 className="text-base font-semibold" style={{ color: 'var(--emp-text-primary)' }}>
-                    {format(currentDate, 'MMMM yyyy')}
-                </h3>
-                <button
-                    onClick={nextMonth}
-                    className="p-2 rounded-lg transition-all"
-                    style={{ background: 'var(--emp-bg-card)', color: 'var(--emp-text-primary)' }}
-                >
+                <h2 className="text-lg font-bold text-slate-900">{displayMonth}</h2>
+                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
                     <ChevronRightIcon className="w-5 h-5" />
                 </button>
             </div>
 
+            {/* List View */}
             {loading ? (
-                <div className="flex justify-center items-center py-12">
-                    <div
-                        className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent"
-                        style={{ borderColor: 'var(--emp-accent)', borderTopColor: 'transparent' }}
-                    />
-                </div>
-            ) : viewMode === 'calendar' ? (
-                /* Calendar View */
-                <div className="emp-calendar">
-                    {/* Day Labels */}
-                    <div className="grid grid-cols-7 gap-1 mb-2">
-                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                            <div
-                                key={i}
-                                className="text-center text-xs font-medium py-2"
-                                style={{ color: 'var(--emp-text-muted)' }}
-                            >
-                                {day}
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Calendar Grid */}
-                    <div className="grid grid-cols-7 gap-1">
-                        {/* Empty cells for alignment */}
-                        {emptyDays.map((_, i) => (
-                            <div key={`empty-${i}`} className="emp-calendar-day opacity-0">-</div>
-                        ))}
-
-                        {/* Actual days */}
-                        {daysInMonth.map((date) => {
-                            const dayColor = getDayColor(date)
-                            const record = getDayStatus(date)
-                            const isSelected = selectedDate && isSameDay(date, selectedDate)
-
-                            return (
-                                <button
-                                    key={date.toISOString()}
-                                    onClick={() => setSelectedDate(date)}
-                                    className={`emp-calendar-day ${isSelected ? 'ring-2' : ''}`}
-                                    style={{
-                                        background: dayColor || 'transparent',
-                                        color: dayColor ? '#ffffff' : 'var(--emp-text-primary)',
-                                        ringColor: 'var(--emp-accent)',
-                                        opacity: isSunday(date) && !record ? 0.4 : 1
-                                    }}
-                                >
-                                    {format(date, 'd')}
-                                </button>
-                            )
-                        })}
-                    </div>
-
-                    {/* Legend */}
-                    <div className="flex justify-center gap-4 pt-4 mt-4" style={{ borderTop: '1px solid var(--emp-border)' }}>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--emp-accent)' }} />
-                            <span className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>Office</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--emp-success)' }} />
-                            <span className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>Site</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--emp-warning)' }} />
-                            <span className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>Pending</span>
-                        </div>
-                    </div>
+                <div className="text-center py-12 text-slate-400">Loading history...</div>
+            ) : history.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <CalendarIcon className="w-16 h-16 text-slate-200 mb-4" />
+                    <p className="text-lg font-medium text-slate-900">No records found</p>
+                    <p className="text-sm text-slate-500">No attendance records for this month.</p>
                 </div>
             ) : (
-                /* List View */
-                <div className="emp-card p-0 overflow-hidden">
-                    {/* Table Header */}
-                    <div className="emp-table-header">
-                        <span>Date</span>
-                        <span>Out</span>
-                        <span>Status</span>
-                    </div>
+                <div className="space-y-4">
+                    {history.map((record, index) => {
+                        const dateObj = new Date(record.date)
+                        const day = dateObj.toLocaleDateString('en-US', { weekday: 'long' })
+                        const simpleDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
-                    {Object.keys(attendanceData).length === 0 ? (
-                        <div className="p-8 text-center">
-                            <p style={{ color: 'var(--emp-text-muted)' }}>No records this month</p>
-                        </div>
-                    ) : (
-                        Object.keys(attendanceData)
-                            .sort((a, b) => new Date(b) - new Date(a))
-                            .map(dateStr => {
-                                const record = attendanceData[dateStr]
-                                const dateObj = new Date(dateStr)
-                                const timeStr = record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '--'
-
-                                return (
-                                    <div key={dateStr} className="emp-table-row">
-                                        <div>
-                                            <p className="font-medium text-sm" style={{ color: 'var(--emp-text-primary)' }}>
-                                                {format(dateObj, 'MMM d')}
-                                            </p>
-                                            <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>
-                                                {format(dateObj, 'EEE')}
-                                            </p>
-                                        </div>
-                                        <span style={{ color: 'var(--emp-text-muted)' }}>
-                                            {timeStr}
-                                        </span>
-                                        <div>
-                                            {getStatusBadge(record)}
-                                        </div>
-                                    </div>
-                                )
-                            })
-                    )}
-                </div>
-            )}
-
-            {/* Selected Date Details (Calendar Mode) */}
-            {viewMode === 'calendar' && selectedDate && attendanceData[format(selectedDate, 'yyyy-MM-dd')] && (
-                <div className="emp-card">
-                    <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--emp-text-primary)' }}>
-                        {format(selectedDate, 'EEEE, do MMMM')}
-                    </h3>
-                    {(() => {
-                        const record = attendanceData[format(selectedDate, 'yyyy-MM-dd')]
                         return (
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div
-                                        className="w-10 h-10 rounded-full flex items-center justify-center"
-                                        style={{
-                                            background: record.location === 'office' ? 'var(--emp-accent-glow)' : 'rgba(34, 197, 94, 0.15)',
-                                            color: record.location === 'office' ? 'var(--emp-accent)' : 'var(--emp-success)'
-                                        }}
-                                    >
-                                        {record.location === 'office' ? (
-                                            <BuildingOfficeIcon className="w-5 h-5" />
-                                        ) : (
-                                            <MapPinIcon className="w-5 h-5" />
-                                        )}
-                                    </div>
+                            <div
+                                key={record.date}
+                                className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm flex flex-col gap-2 animate-scale-in"
+                                style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'backwards' }}
+                            >
+                                <div className="flex justify-between items-start">
                                     <div>
-                                        <p className="font-medium text-sm" style={{ color: 'var(--emp-text-primary)' }}>
-                                            {record.location === 'office' ? 'Office' : record.siteName || 'Site'}
-                                        </p>
-                                        <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>
-                                            {record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : 'N/A'}
-                                        </p>
+                                        <h3 className="font-semibold text-slate-900">{simpleDate}, {dateObj.getFullYear()}</h3>
+                                        <div className="text-xs text-slate-500">{day}</div>
                                     </div>
+                                    <StatusBadge status={record.status} />
                                 </div>
-                                {getStatusBadge(record)}
+
+                                <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-100 mt-1">
+                                    <span className="text-slate-600 font-medium">
+                                        {new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    <span className="text-slate-500 truncate max-w-[150px] text-right">
+                                        {record.locationType === 'Office' ? 'Office' : `Site: ${record.siteName || 'Unknown'}`}
+                                    </span>
+                                </div>
                             </div>
                         )
-                    })()}
+                    })}
                 </div>
             )}
         </div>

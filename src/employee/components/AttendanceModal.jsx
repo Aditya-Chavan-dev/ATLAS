@@ -1,182 +1,179 @@
-import { Fragment, useState, useEffect } from 'react'
-import { Dialog, Transition } from '@headlessui/react'
-import { BuildingOfficeIcon, MapPinIcon, XMarkIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+// Enterprise Attendance Modal
+import { Fragment, useState } from 'react'
+import { Dialog, DialogPanel, DialogTitle, Transition } from '@headlessui/react'
+import {
+    XMarkIcon,
+    BuildingOfficeIcon,
+    MapPinIcon
+} from '@heroicons/react/24/outline'
+import { ref, update } from 'firebase/database'
+import { database } from '../../firebase/config'
+import { useAuth } from '../../context/AuthContext'
 
-export default function AttendanceModal({
-    isOpen,
-    onClose,
-    onConfirm,
-    isSubmitting,
-    isCorrection = false,
-    currentAttendance = null
-}) {
-    const [selectedType, setSelectedType] = useState(null) // null, 'OFFICE', 'SITE'
+export default function AttendanceModal({ isOpen, onClose, onSuccess }) {
+    const { currentUser } = useAuth()
+    const [selectedLocation, setSelectedLocation] = useState(null) // 'Office' | 'Site'
     const [siteName, setSiteName] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
 
-    // Reset state when modal opens/closes
-    useEffect(() => {
-        if (!isOpen) {
-            setSelectedType(null)
-            setSiteName('')
+    const handleSubmit = async () => {
+        setError('')
+        if (!selectedLocation) {
+            setError('Please select where you are working today.')
+            return
         }
-    }, [isOpen])
-
-    const handleClose = () => {
-        setSelectedType(null)
-        setSiteName('')
-        onClose()
-    }
-
-    const handleConfirm = () => {
-        if (selectedType === 'SITE') {
-            onConfirm('SITE', siteName)
-        } else {
-            onConfirm('OFFICE')
+        if (selectedLocation === 'Site' && siteName.length < 3) {
+            setError('Please enter a valid site name (min 3 chars).')
+            return
         }
-        setSelectedType(null)
-        setSiteName('')
+
+        setLoading(true)
+
+        try {
+            // Save to Firebase
+            const dateStr = new Date().toISOString().split('T')[0]
+            const timestamp = new Date().toISOString()
+            const attendanceRef = ref(database, `users/${currentUser.uid}/attendance/${dateStr}`)
+
+            // Logic: All requests are PENDING approval from MD.
+            const status = 'pending'
+
+            await update(attendanceRef, {
+                status,
+                timestamp,
+                locationType: selectedLocation,
+                siteName: selectedLocation === 'Site' ? siteName : null,
+                // Removed coordinates as per request to remove geolocation
+            })
+
+            onSuccess()
+        } catch (err) {
+            console.error(err)
+            setError(err.message || 'Failed to mark attendance.')
+        } finally {
+            setLoading(false)
+        }
     }
-
-    const handleBack = () => {
-        setSelectedType(null)
-        setSiteName('')
-    }
-
-    const title = isCorrection
-        ? 'Correction Request'
-        : 'Where are you working today?'
-
-    const subtitle = isCorrection && currentAttendance
-        ? `Current: ${currentAttendance.location}${currentAttendance.siteName ? ` - ${currentAttendance.siteName}` : ''}`
-        : null
 
     return (
-        <Transition appear show={isOpen} as={Fragment}>
-            <Dialog as="div" className="relative z-50" onClose={handleClose}>
-                <Transition.Child
-                    as={Fragment}
-                    enter="ease-out duration-300"
-                    enterFrom="opacity-0"
-                    enterTo="opacity-100"
-                    leave="ease-in duration-200"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
-                >
-                    <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
-                </Transition.Child>
+        <Dialog
+            open={isOpen}
+            onClose={onClose}
+            transition
+            className="relative z-50 transition duration-300 ease-out data-[closed]:opacity-0"
+        >
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm transition duration-300 ease-out data-[closed]:opacity-0" />
 
-                <div className="fixed inset-0 overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-4 text-center">
-                        <Transition.Child
-                            as={Fragment}
-                            enter="ease-out duration-300"
-                            enterFrom="opacity-0 scale-95"
-                            enterTo="opacity-100 scale-100"
-                            leave="ease-in duration-200"
-                            leaveFrom="opacity-100 scale-100"
-                            leaveTo="opacity-0 scale-95"
-                        >
-                            <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                                <div className="flex justify-between items-center mb-4">
-                                    {selectedType === 'SITE' ? (
-                                        <button
-                                            onClick={handleBack}
-                                            className="text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1"
-                                        >
-                                            <ArrowLeftIcon className="w-5 h-5" />
-                                            <span className="text-sm">Back</span>
-                                        </button>
-                                    ) : (
-                                        <div>
-                                            <Dialog.Title
-                                                as="h3"
-                                                className="text-lg font-medium leading-6 text-slate-900"
-                                            >
-                                                {title}
-                                            </Dialog.Title>
-                                            {subtitle && (
-                                                <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
-                                            )}
-                                        </div>
-                                    )}
-                                    <button
-                                        onClick={handleClose}
-                                        className="text-slate-400 hover:text-slate-500 transition-colors"
-                                    >
-                                        <XMarkIcon className="w-6 h-6" />
-                                    </button>
+            <div className="fixed inset-0 overflow-y-auto">
+                <div className="flex min-h-full items-end justify-center sm:items-center p-0 sm:p-4">
+                    <DialogPanel
+                        className="w-full max-w-md transform overflow-hidden rounded-t-2xl sm:rounded-2xl bg-white text-left align-middle shadow-xl transition-all duration-300 ease-out data-[closed]:translate-y-full data-[closed]:opacity-0 sm:data-[closed]:translate-y-0 sm:data-[closed]:scale-95"
+                    >
+                        {/* Header */}
+                        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                            <div>
+                                <DialogTitle as="h3" className="text-lg font-bold text-slate-900">
+                                    Mark Attendance
+                                </DialogTitle>
+                                <p className="text-sm text-slate-500 mt-1">Where are you working today?</p>
+                            </div>
+                            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 bg-slate-50 rounded-full">
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 space-y-4">
+                            {/* Location Cards */}
+                            <div className="grid gap-4">
+                                {/* Office Option */}
+                                <button
+                                    onClick={() => setSelectedLocation('Office')}
+                                    className={`relative flex items-center p-4 border-2 rounded-xl transition-all text-left group ${selectedLocation === 'Office'
+                                        ? 'border-blue-600 bg-blue-50'
+                                        : 'border-slate-200 hover:border-blue-300'
+                                        }`}
+                                >
+                                    <div className={`p-3 rounded-full mr-4 ${selectedLocation === 'Office' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                                        }`}>
+                                        <BuildingOfficeIcon className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h4 className={`font-semibold ${selectedLocation === 'Office' ? 'text-blue-900' : 'text-slate-900'
+                                            }`}>Office</h4>
+                                        <p className="text-xs text-slate-500">Working from main office location</p>
+                                    </div>
+                                </button>
+
+                                {/* Site Option */}
+                                <button
+                                    onClick={() => setSelectedLocation('Site')}
+                                    className={`relative flex items-center p-4 border-2 rounded-xl transition-all text-left group ${selectedLocation === 'Site'
+                                        ? 'border-blue-600 bg-blue-50'
+                                        : 'border-slate-200 hover:border-blue-300'
+                                        }`}
+                                >
+                                    <div className={`p-3 rounded-full mr-4 ${selectedLocation === 'Site' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-500'
+                                        }`}>
+                                        <MapPinIcon className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h4 className={`font-semibold ${selectedLocation === 'Site' ? 'text-blue-900' : 'text-slate-900'
+                                            }`}>Site</h4>
+                                        <p className="text-xs text-slate-500">Working from client/project site</p>
+                                    </div>
+                                </button>
+                            </div>
+
+                            {/* Site Name Input */}
+                            <div className={`transition-all duration-300 overflow-hidden ${selectedLocation === 'Site' ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0'}`}>
+                                <div className="pt-2">
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Site Location Name</label>
+                                    <input
+                                        type="text"
+                                        className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                        placeholder="e.g. Mumbai Construction Site"
+                                        value={siteName}
+                                        onChange={(e) => setSiteName(e.target.value)}
+                                    />
                                 </div>
+                            </div>
 
-                                {isCorrection && !selectedType && (
-                                    <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg mb-4">
-                                        Select the correct location. This will be sent for MD approval.
-                                    </p>
-                                )}
+                            {/* Error Message */}
+                            {error && (
+                                <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg flex items-center">
+                                    <span className="mr-2">⚠️</span> {error}
+                                </div>
+                            )}
 
-                                {/* Site Name Input */}
-                                {selectedType === 'SITE' ? (
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                                Enter Site Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={siteName}
-                                                onChange={(e) => setSiteName(e.target.value)}
-                                                placeholder="e.g., Construction Site A"
-                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-sm bg-white text-slate-900"
-                                                style={{ color: '#1e293b', backgroundColor: '#ffffff' }}
-                                                autoFocus
-                                            />
-                                        </div>
-                                        <button
-                                            onClick={handleConfirm}
-                                            disabled={!siteName.trim() || isSubmitting}
-                                            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-orange-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {isSubmitting ? 'Submitting...' : isCorrection ? 'Submit Correction' : 'Confirm Site Attendance'}
-                                        </button>
-                                    </div>
-                                ) : (
-                                    /* Type Selection */
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <button
-                                            onClick={() => onConfirm('OFFICE')}
-                                            disabled={isSubmitting}
-                                            className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-slate-100 hover:border-indigo-600 hover:bg-indigo-50 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                                <BuildingOfficeIcon className="w-6 h-6" />
-                                            </div>
-                                            <span className="font-semibold text-slate-700 group-hover:text-indigo-700">Office</span>
-                                        </button>
+                            {/* Info Message */}
+                            <div className="bg-blue-50 text-blue-700 text-xs p-3 rounded-lg flex items-start">
+                                <span className="mr-2 text-lg">ℹ️</span>
+                                <span className="mt-0.5">Your attendance will be sent to the MD for approval immediately. You will be notified once approved.</span>
+                            </div>
+                        </div>
 
-                                        <button
-                                            onClick={() => setSelectedType('SITE')}
-                                            disabled={isSubmitting}
-                                            className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-slate-100 hover:border-orange-600 hover:bg-orange-50 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                                <MapPinIcon className="w-6 h-6" />
-                                            </div>
-                                            <span className="font-semibold text-slate-700 group-hover:text-orange-700">Site</span>
-                                        </button>
-                                    </div>
-                                )}
-
-                                {isSubmitting && !selectedType && (
-                                    <div className="mt-6 text-center">
-                                        <p className="text-sm text-slate-500 animate-pulse">
-                                            {isCorrection ? 'Submitting correction...' : 'Marking your attendance...'}
-                                        </p>
-                                    </div>
-                                )}
-                            </Dialog.Panel>
-                        </Transition.Child>
-                    </div>
+                        {/* Footer */}
+                        <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
+                            <button
+                                onClick={onClose}
+                                className="px-4 py-3 rounded-lg font-medium text-slate-600 hover:bg-slate-200 transition-colors flex-1"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSubmit}
+                                disabled={loading}
+                                className="bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 active:scale-95 disabled:opacity-70 disabled:scale-100 transition-all flex-1 shadow-md"
+                            >
+                                {loading ? 'Sending Request...' : 'Send for Approval'}
+                            </button>
+                        </div>
+                    </DialogPanel>
                 </div>
-            </Dialog>
-        </Transition>
+            </div>
+        </Dialog>
     )
 }

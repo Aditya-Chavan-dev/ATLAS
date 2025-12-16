@@ -1,41 +1,187 @@
-/* MD Theme - Completely Separate from Global/Employee Theme */
-
+/* MD Console Design System - Foundation */
 :root {
-    /* MD Specific Color Palette - Premium Dark/Gold Theme */
-    --md-bg-primary: #0f172a;
-    /* Deep Slate */
-    --md-bg-secondary: #1e293b;
-    /* Lighter Slate */
-    --md-bg-card: #1e293b;
+    /* --- Colors: Light Mode (Default) --- */
 
-    --md-text-primary: #f8fafc;
-    --md-text-secondary: #94a3b8;
-    --md-text-accent: #38bdf8;
-    /* Sky Blue */
+    /* Primary (Blue) */
+    --color-primary: #2563eb;
+    /* Blue 600 */
+    --color-primary-hover: #1d4ed8;
+    /* Blue 700 */
+    --color-primary-light: #eff6ff;
+    /* Blue 50 */
 
-    --md-accent-color: #38bdf8;
-    --md-accent-hover: #0ea5e9;
+    /* Neutral / Surface */
+    --color-background: #ffffff;
+    /* White */
+    --color-surface: #f8fafc;
+    /* Slate 50 */
+    --color-surface-hover: #f1f5f9;
+    /* Slate 100 */
+    --color-border: #e2e8f0;
+    /* Slate 200 */
 
-    --md-border-color: rgba(255, 255, 255, 0.1);
-    --md-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    /* Text */
+    --color-text-primary: #0f172a;
+    /* Slate 900 */
+    --color-text-secondary: #475569;
+    /* Slate 600 */
+    --color-text-tertiary: #94a3b8;
+    /* Slate 400 */
+    --color-text-inverse: #ffffff;
+    /* White */
 
-    --md-font-family: 'Outfit', sans-serif;
-    /* Distinct font if available, else fallback */
+    /* Semantic */
+    --color-success: #059669;
+    /* Emerald 600 */
+    --color-success-bg: #ecfdf5;
+    /* Emerald 50 */
+    --color-warning: #d97706;
+    /* Amber 600 */
+    --color-warning-bg: #fffbeb;
+    /* Amber 50 */
+    --color-error: #dc2626;
+    /* Red 600 */
+    --color-error-bg: #fef2f2;
+    /* Red 50 */
+    --color-info: #0891b2;
+    /* Cyan 600 */
+    --color-info-bg: #ecfeff;
+    /* Cyan 50 */
+
+    /* --- Spacing System --- */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-2xl: 48px;
+    --space-3xl: 64px;
+
+    /* --- Shadows --- */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+
+    /* --- Border Radius --- */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+
+    /* --- Typography --- */
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+    /* --- Transitions --- */
+    --ease-smooth: cubic-bezier(0.4, 0.0, 0.2, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --duration-quick: 200ms;
+    --duration-standard: 300ms;
 }
 
-/* MD Global Resets (Scoped) */
-.md-layout {
-    font-family: var(--md-font-family);
-    background-color: var(--md-bg-primary);
-    color: var(--md-text-primary);
-    min-height: 100vh;
-    display: flex;
+/* --- Dark Mode Overrides --- */
+[data-theme="dark"] {
+    /* Primary */
+    --color-primary: #3b82f6;
+    /* Blue 500 */
+    --color-primary-hover: #60a5fa;
+    /* Blue 400 */
+    --color-primary-light: #1e3a8a;
+    /* Blue 900 (20% opacity equivalent context) */
+
+    /* Neutral / Surface */
+    --color-background: #0f172a;
+    /* Slate 900 */
+    --color-surface: #1e293b;
+    /* Slate 800 */
+    --color-surface-hover: #334155;
+    /* Slate 700 */
+    --color-border: #334155;
+    /* Slate 700 */
+
+    /* Text */
+    --color-text-primary: #f8fafc;
+    /* Slate 50 */
+    --color-text-secondary: #cbd5e1;
+    /* Slate 300 */
+    --color-text-tertiary: #64748b;
+    /* Slate 500 */
+
+    /* Semantic */
+    --color-success: #10b981;
+    /* Emerald 500 */
+    --color-success-bg: #064e3b;
+    /* Emerald 900 */
+    --color-warning: #f59e0b;
+    /* Amber 500 */
+    --color-warning-bg: #451a03;
+    /* Amber 900 */
+    --color-error: #ef4444;
+    /* Red 500 */
+    --color-error-bg: #450a0a;
+    /* Red 900 */
+    --color-info: #06b6d4;
+    /* Cyan 500 */
+    --color-info-bg: #083344;
+    /* Cyan 900 */
+
+    /* Shadows (Stronger for dark mode depth) */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.6);
 }
 
-.md-main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
+/* --- Global Reset & Base Styles --- */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    /* Smooth theme transition */
+    transition: background-color 0.3s ease, color 0.3s ease;
+
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--color-text-primary);
+    font-weight: 600;
+}
+
+/* --- Utilities --- */
+.md-page-container {
+    padding: var(--space-lg);
+    max-width: 1400px;
+    /* Large desktop constraint */
+    margin: 0 auto;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-tertiary);
 }

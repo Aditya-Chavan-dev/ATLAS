@@ -3,17 +3,8 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --brand-primary: #4F46E5;
-    --brand-secondary: #818CF8;
-    --bg-ground: #F8FAFC;
-    --text-primary: #0F172A;
-    --text-secondary: #64748B;
-  }
-
   body {
-    @apply bg-slate-50 text-slate-900 font-sans antialiased;
-    background-color: var(--bg-ground);
+    @apply bg-slate-50 text-slate-700 font-sans antialiased;
   }
 
   h1,
@@ -22,72 +13,66 @@
   h4,
   h5,
   h6 {
-    @apply font-display font-semibold tracking-tight text-slate-900;
+    @apply text-slate-900 font-bold;
   }
 }
 
 @layer components {
+  /* Enterprise Component Library */
 
-  /* Premium Glass Card */
-  .glass-panel {
-    @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-glass rounded-2xl transition-all duration-300;
-  }
-
-  .glass-panel-hover {
-    @apply hover:bg-white/80 hover:shadow-glass-hover hover:-translate-y-1;
-  }
-
-  /* Buttons */
   .btn {
-    @apply px-4 py-2 rounded-xl font-medium transition-all duration-200 active:scale-95 flex items-center justify-center gap-2;
+    @apply inline-flex items-center justify-center px-4 py-2 font-medium transition-all duration-150 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95;
   }
 
   .btn-primary {
-    @apply btn bg-brand-primary text-white shadow-lg shadow-brand-primary/30 hover:bg-brand-dark hover:shadow-brand-primary/50;
+    @apply bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow-md focus:ring-blue-600;
   }
 
   .btn-secondary {
-    @apply btn bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300;
-  }
-
-  .btn-ghost {
-    @apply btn text-slate-600 hover:bg-slate-100 hover:text-slate-900 bg-transparent shadow-none;
+    @apply bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 focus:ring-slate-400;
   }
 
   .btn-danger {
-    @apply btn bg-red-50 text-red-600 hover:bg-red-100;
+    @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-600;
   }
 
-  /* Inputs */
-  .input-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-all duration-200;
+  .input-field {
+    @apply block w-full px-4 py-3 rounded-lg border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all sm:text-sm shadow-sm;
   }
 
-  .premium-input {
-    @apply w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/50 backdrop-blur-sm input-ring text-slate-800 placeholder:text-slate-400;
+  .atlas-card {
+    @apply bg-white rounded-lg border border-slate-200 shadow-sm p-4 overflow-hidden;
   }
 
-  /* Layout Utilities */
-  .page-container {
-    @apply min-h-screen bg-slate-50 lg:pl-0;
-    /* Left padding will be handled by layout logic */
+  /* Status Badges */
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  /* Safe Area Utilities for Mobile */
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
   }
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+@layer utilities {
+  .animate-pulse-subtle {
+    animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+  @keyframes pulse-subtle {
 
-::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 rounded-full;
-}
+    0%,
+    100% {
+      opacity: 1;
+    }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-400;
+    50% {
+      opacity: 0.85;
+    }
+  }
 }

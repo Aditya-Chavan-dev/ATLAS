@@ -1,111 +1,82 @@
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Search, MapPin, Clock, ArrowRight } from 'lucide-react'
-import Card from '../../components/ui/Card'
-import Badge from '../../components/ui/Badge'
-import { clsx } from 'clsx'
+import React, { useState, useMemo } from 'react'
+import { Search } from 'lucide-react'
+import clsx from 'clsx'
 
-export default function ProfileList({ employees, selectedId, onSelect, searchTerm, setSearchTerm }) {
+export default function ProfileList({
+    employees,
+    onSelect,
+    selectedId,
+    className
+}) {
+    const [searchQuery, setSearchQuery] = useState('')
 
-    // Filter employees based on search
-    const filtered = employees.filter(emp =>
-        (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (emp.email || '').toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const filteredEmployees = useMemo(() => {
+        return employees.filter(emp =>
+            (emp.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+            (emp.email?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+        )
+    }, [employees, searchQuery])
 
     return (
-        <div className="flex flex-col h-full bg-white border-r border-slate-200">
+        <div className={clsx("flex flex-col h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800", className)}>
             {/* Search Header */}
-            <div className="p-4 border-b border-slate-100 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input
                         type="text"
-                        placeholder="Search team..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
+                        placeholder="Search profiles..."
+                        className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-500"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
             </div>
 
-            {/* List Content */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                <AnimatePresence>
-                    {filtered.map((emp) => {
-                        const isSelected = selectedId === emp.uid
-                        return (
-                            <motion.div
-                                key={emp.uid}
-                                initial={{ opacity: 0, y: 5 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                layout
-                            >
-                                <div
-                                    onClick={() => onSelect(emp.uid)}
-                                    className={clsx(
-                                        "p-3 rounded-xl cursor-pointer transition-all duration-200 border",
-                                        isSelected
-                                            ? "bg-brand-light border-brand-primary/30 shadow-sm"
-                                            : "bg-white border-transparent hover:bg-slate-50 hover:border-slate-200"
-                                    )}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        {/* Avatar */}
-                                        <div className={clsx(
-                                            "w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold shadow-sm transition-colors",
-                                            isSelected ? "bg-brand-primary text-white" : "bg-slate-100 text-slate-600"
-                                        )}>
-                                            {(emp.name || 'U').charAt(0).toUpperCase()}
-                                        </div>
+            {/* List */}
+            <div className="flex-1 overflow-y-auto">
+                {filteredEmployees.map(emp => (
+                    <button
+                        key={emp.uid}
+                        onClick={() => onSelect(emp)}
+                        className={clsx(
+                            "w-full text-left p-4 flex items-center gap-4 transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800/50",
+                            selectedId === emp.uid && "bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-900/30"
+                        )}
+                    >
+                        {/* Avatar */}
+                        <div className={clsx(
+                            "w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold transition-colors shrink-0",
+                            selectedId === emp.uid
+                                ? "bg-blue-200 text-blue-700 dark:bg-blue-800 dark:text-blue-100"
+                                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                        )}>
+                            {emp.name?.[0]?.toUpperCase() || 'U'}
+                        </div>
 
-                                        {/* Info */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between">
-                                                <h3 className={clsx(
-                                                    "font-semibold truncate",
-                                                    isSelected ? "text-brand-dark" : "text-slate-800"
-                                                )}>
-                                                    {emp.name || 'Unknown'}
-                                                </h3>
-                                                {isSelected && <ArrowRight className="w-4 h-4 text-brand-primary" />}
-                                            </div>
-                                            <p className="text-xs text-slate-500 truncate">{emp.email}</p>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                            <h4 className={clsx(
+                                "font-semibold truncate",
+                                selectedId === emp.uid ? "text-blue-700 dark:text-blue-400" : "text-slate-900 dark:text-white"
+                            )}>
+                                {emp.name}
+                            </h4>
+                            <p className="text-xs text-slate-500 truncate">{emp.email}</p>
+                        </div>
 
-                                            {/* Status Line */}
-                                            <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
-                                                <div className="flex items-center gap-1">
-                                                    <div className={clsx(
-                                                        "w-1.5 h-1.5 rounded-full",
-                                                        emp.present > 0 ? "bg-emerald-500" : "bg-slate-300"
-                                                    )} />
-                                                    <span>{emp.present > 0 ? 'Present' : 'Absent'}</span>
-                                                </div>
-                                                <span>•</span>
-                                                <div className="flex items-center gap-1">
-                                                    <Clock className="w-3 h-3" />
-                                                    <span>{emp.lastSeen ? new Date(emp.lastSeen).toLocaleDateString() : 'Never'}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )
-                    })}
-                </AnimatePresence>
+                        {/* Arrow indicator for active */}
+                        {selectedId === emp.uid && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                        )}
+                    </button>
+                ))}
 
-                {filtered.length === 0 && (
-                    <div className="text-center py-10 text-slate-400">
-                        <p>No employees found.</p>
+                {filteredEmployees.length === 0 && (
+                    <div className="p-8 text-center text-slate-500 text-sm">
+                        No profiles found.
                     </div>
                 )}
-            </div>
-
-            {/* Footer Stats */}
-            <div className="p-3 bg-slate-50 border-t border-slate-200 text-xs text-center text-slate-500 font-medium">
-                {filtered.length} Employees
             </div>
         </div>
     )

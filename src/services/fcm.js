@@ -71,7 +71,7 @@ const saveTokenToDatabase = async (uid, token) => {
     if (!uid || !token) return;
 
     try {
-        const userRef = ref(database, `users/${uid}`);
+        const userRef = ref(database, `employees/${uid}`);
         await update(userRef, {
             fcmToken: token,
             lastTokenUpdate: new Date().toISOString(),

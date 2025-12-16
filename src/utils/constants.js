@@ -9,3 +9,9 @@ export const MD1_CONFIG = {
 }
 
 export const COMPANY_NAME = 'Autoteknic'
+
+// Office Coordinates (Extracted from Google Maps Link)
+export const OFFICE_COORDS = {
+    lat: 18.4999692,
+    lng: 73.8087546
+}

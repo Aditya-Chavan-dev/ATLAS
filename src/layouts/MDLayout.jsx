@@ -1,72 +1,39 @@
 import { useState, useEffect } from 'react'
-import { Outlet, Navigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import Navbar from '../components/Navbar'
-import Sidebar from '../components/Sidebar/Sidebar'
+import { Outlet } from 'react-router-dom'
+import MDNavbar from '../md/components/MDNavbar'
+import MDBottomNav from '../md/components/MDBottomNav'
 import { clsx } from 'clsx'
 
-// Remove the old CSS import since we are full Tailwind/Framer now
-// import './MDLayout.css' 
+export default function MDLayout() {
+    const [isMobile, setIsMobile] = useState(false)
 
-function MDLayout() {
-    const { userRole } = useAuth()
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
-
-    // Responsive Handler
     useEffect(() => {
-        const handleResize = () => {
-            const mobile = window.innerWidth < 768
-            setIsMobile(mobile)
-            if (mobile) setIsSidebarOpen(false)
-            else setIsSidebarOpen(true)
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 1024)
         }
-        window.addEventListener('resize', handleResize)
-        return () => window.removeEventListener('resize', handleResize)
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+        return () => window.removeEventListener('resize', checkMobile)
     }, [])
 
-    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
-
-    // Layout Classes
-    const mainContentClass = clsx(
-        "min-h-screen bg-bg-ground transition-all duration-300 ease-in-out pt-20", // pt-20 for fixed Navbar
-        // Desktop margin adjustments based on sidebar state
-        !isMobile && (isSidebarOpen ? "ml-[280px]" : "ml-[88px]")
-    )
-
     return (
-        <div className="min-h-screen bg-bg-ground flex">
+        <div className="min-h-screen bg-white dark:bg-slate-950 transition-colors">
+            {/* Top Navbar */}
+            <MDNavbar isMobile={isMobile} toggleSidebar={() => { }} />
 
-            {/* New Sidebar Component */}
-            <Sidebar
-                isOpen={isSidebarOpen}
-                setIsOpen={setIsSidebarOpen}
-                isMobile={isMobile}
-            />
+            {/* Main Content */}
+            <main className={clsx(
+                "w-full max-w-7xl mx-auto p-4 md:p-6 pb-24", // pb-24 for bottom nav clearance
+            )}>
+                <Outlet />
+            </main>
 
-            {/* Main Wrapper */}
-            <div className="flex-1 flex flex-col min-w-0">
-
-                {/* Navbar - Pass props to control sidebar */}
-                <div className={clsx(
-                    "fixed top-0 right-0 z-30 transition-all duration-300",
-                    !isMobile && (isSidebarOpen ? "left-[280px]" : "left-[88px]"),
-                    isMobile && "left-0"
-                )}>
-                    <Navbar toggleSidebar={toggleSidebar} isMobile={isMobile} />
-                </div>
-
-                {/* Content Area */}
-                <main className={mainContentClass}>
-                    <div className="p-6 md:p-8 max-w-7xl mx-auto w-full">
-                        <Outlet />
-                    </div>
-                </main>
-
-            </div>
+            {/* Bottom Navigation (Always Visible) */}
+            <MDBottomNav />
         </div>
     )
 }
 
-export default MDLayout
+
+
 

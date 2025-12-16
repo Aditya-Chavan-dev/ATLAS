@@ -1,319 +1,166 @@
-// Profile Page - Clean Settings-Style UI
-import { useState, useEffect } from 'react'
+// Enterprise Profile
+import { useState, useRef, useEffect } from 'react'
+import { ref, update, onValue } from 'firebase/database'
+import { updateProfile } from 'firebase/auth'
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { database, storage } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
-import { useTheme } from '../../context/ThemeContext'
-import { useNavigate } from 'react-router-dom'
 import {
-    UserCircleIcon,
-    ArrowRightOnRectangleIcon,
-    EnvelopeIcon,
-    PencilSquareIcon,
-    PhoneIcon,
-    IdentificationIcon,
-    SunIcon,
-    MoonIcon,
+    CameraIcon,
     BellIcon,
-    ShieldCheckIcon,
+    LanguageIcon,
+    QuestionMarkCircleIcon,
+    ArrowRightOnRectangleIcon,
     ChevronRightIcon
 } from '@heroicons/react/24/outline'
-import { ref, update } from 'firebase/database'
-import { database } from '../../firebase/config'
-import { unsubscribeTokenFromBroadcast } from '../../services/fcm'
+import StatCard from '../components/StatCard'
+import Toast from '../components/Toast'
 
-export default function EmployeeProfile() {
-    const { currentUser, userProfile, logout, loading: authLoading } = useAuth()
-    const { isDarkMode, toggleTheme } = useTheme()
-    const navigate = useNavigate()
-    const [isEditing, setIsEditing] = useState(false)
-    const [editForm, setEditForm] = useState({ name: '', phone: '' })
-    const [isSaving, setIsSaving] = useState(false)
+export default function Profile() {
+    const { currentUser, userProfile, logout } = useAuth()
+    const [stats, setStats] = useState({ present: 0, late: 0, absent: 0 })
+    const [loading, setLoading] = useState(false)
+    const [toast, setToast] = useState(null)
+    const fileInputRef = useRef(null)
 
+    // Calculate Stats for Current Month
     useEffect(() => {
-        if (!isEditing) {
-            setEditForm({
-                name: userProfile?.name || currentUser?.displayName || '',
-                phone: userProfile?.phone || ''
-            })
-        }
-    }, [userProfile, currentUser, isEditing])
+        if (!currentUser) return
+        const currentMonth = new Date().toISOString().slice(0, 7)
+        const attendanceRef = ref(database, `users/${currentUser.uid}/attendance`)
 
-    if (authLoading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                <div
-                    className="animate-spin rounded-full h-8 w-8 border-2"
-                    style={{ borderColor: 'var(--emp-accent)', borderTopColor: 'transparent' }}
-                />
-                <p className="text-sm mt-3" style={{ color: 'var(--emp-text-muted)' }}>
-                    Loading profile...
-                </p>
-            </div>
-        )
-    }
-
-    if (!currentUser) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                <p style={{ color: 'var(--emp-text-muted)' }}>Please log in to view profile</p>
-                <button
-                    onClick={() => navigate('/')}
-                    className="mt-4 px-4 py-2 rounded-lg"
-                    style={{ background: 'var(--emp-accent)', color: '#fff' }}
-                >
-                    Go to Login
-                </button>
-            </div>
-        )
-    }
-
-    const handleLogout = async () => {
-        try {
-            if (userProfile?.fcmToken) {
-                await unsubscribeTokenFromBroadcast(userProfile.fcmToken)
+        const unsubscribe = onValue(attendanceRef, (snapshot) => {
+            const data = snapshot.val()
+            if (data) {
+                let s = { present: 0, late: 0, absent: 0 }
+                Object.entries(data).forEach(([date, record]) => {
+                    if (date.startsWith(currentMonth)) {
+                        if (record.status === 'Present') s.present++
+                        else if (record.status === 'Late') s.late++
+                        else if (record.status === 'Absent') s.absent++
+                    }
+                })
+                setStats(s)
             }
-            await logout()
-            navigate('/')
-        } catch (error) {
-            console.error('Failed to log out', error)
-        }
-    }
+        })
+        return () => unsubscribe()
+    }, [currentUser])
 
-    const handleSaveProfile = async () => {
-        if (!editForm.name.trim() || !currentUser) return
-        setIsSaving(true)
+    const handlePhotoUpload = async (e) => {
+        const file = e.target.files[0]
+        if (!file) return
+
+        // Basic validation
+        if (file.size > 2 * 1024 * 1024) {
+            setToast({ message: 'Image must be under 2MB', type: 'error' })
+            return
+        }
+
+        setLoading(true)
         try {
-            const userRef = ref(database, `employees/${currentUser.uid}`)
-            await update(userRef, {
-                name: editForm.name,
-                phone: editForm.phone
-            })
-            setIsEditing(false)
+            // Upload to Storage
+            const fileRef = storageRef(storage, `profiles/${currentUser.uid}_${Date.now()}`)
+            await uploadBytes(fileRef, file)
+            const photoURL = await getDownloadURL(fileRef)
+
+            // Update Auth & DB
+            await updateProfile(currentUser, { photoURL })
+            await update(ref(database, `users/${currentUser.uid}`), { photoURL })
+
+            setToast({ message: 'Profile photo updated!', type: 'success' })
         } catch (error) {
-            console.error('Error updating profile:', error)
-            alert('Failed to update profile')
+            console.error(error)
+            setToast({ message: 'Failed to upload photo.', type: 'error' })
         } finally {
-            setIsSaving(false)
+            setLoading(false)
         }
     }
 
-    const displayName = userProfile?.name || currentUser?.displayName || 'Employee'
-    const displayEmail = currentUser?.email || 'No email'
-    const displayPhone = userProfile?.phone || 'Not set'
-    const displayId = userProfile?.employeeId || 'N/A'
-    const avatarLetter = displayName.charAt(0).toUpperCase()
+    const menuItems = [
+        { icon: BellIcon, label: 'Notifications', type: 'toggle', value: true },
+        { icon: LanguageIcon, label: 'Language', sub: 'English', action: () => { } },
+        { icon: QuestionMarkCircleIcon, label: 'Help & Support', action: () => { } },
+        { icon: ArrowRightOnRectangleIcon, label: 'Logout', color: 'text-red-600', action: logout }
+    ]
 
     return (
-        <div className="space-y-6 emp-fade-in pb-6">
-            {/* Profile Header */}
-            <div className="emp-card text-center py-6">
-                {/* Avatar */}
-                <div className="relative inline-block mb-4">
-                    {currentUser?.photoURL ? (
-                        <img
-                            src={currentUser.photoURL}
-                            alt="Profile"
-                            className="w-20 h-20 rounded-full object-cover"
-                            style={{ border: '3px solid var(--emp-accent)' }}
-                        />
-                    ) : (
-                        <div
-                            className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold"
-                            style={{
-                                background: 'var(--emp-button-gradient)',
-                                color: '#ffffff',
-                                boxShadow: '0 4px 16px rgba(37, 99, 235, 0.3)'
-                            }}
-                        >
-                            {avatarLetter}
-                        </div>
-                    )}
-                    {!isEditing && (
-                        <button
-                            onClick={() => {
-                                setIsEditing(true)
-                                setEditForm({
-                                    name: displayName,
-                                    phone: userProfile?.phone || ''
-                                })
-                            }}
-                            className="absolute -bottom-1 -right-1 p-1.5 rounded-full shadow-lg"
-                            style={{ background: 'var(--emp-accent)', color: '#ffffff' }}
-                        >
-                            <PencilSquareIcon className="w-3.5 h-3.5" />
-                        </button>
-                    )}
-                </div>
+        <div className="min-h-full bg-slate-50 font-sans p-6 pb-24">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-                {/* Name & Edit Form */}
-                {isEditing ? (
-                    <div className="space-y-3 max-w-xs mx-auto">
-                        <input
-                            type="text"
-                            value={editForm.name}
-                            onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                            className="emp-input text-center"
-                            placeholder="Enter Name"
-                            autoFocus
-                        />
-                        <input
-                            type="tel"
-                            value={editForm.phone}
-                            onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                            className="emp-input text-center"
-                            placeholder="Enter Phone Number"
-                        />
-                        <div className="flex justify-center gap-2 pt-1">
-                            <button
-                                onClick={handleSaveProfile}
-                                disabled={isSaving}
-                                className="px-5 py-2 rounded-lg text-sm font-medium transition-all"
-                                style={{ background: 'var(--emp-success)', color: '#ffffff' }}
-                            >
-                                {isSaving ? 'Saving...' : 'Save'}
-                            </button>
-                            <button
-                                onClick={() => setIsEditing(false)}
-                                className="px-5 py-2 rounded-lg text-sm font-medium"
-                                style={{ background: 'var(--emp-bg-secondary)', color: 'var(--emp-text-secondary)' }}
-                            >
-                                Cancel
-                            </button>
-                        </div>
+            {/* Identity Card */}
+            <div className="bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-lg p-6 shadow-sm flex flex-col items-center text-center relative overflow-hidden">
+                <div className="relative group">
+                    <div className="w-24 h-24 rounded-full border-4 border-white shadow-md overflow-hidden bg-slate-200">
+                        {userProfile?.photoURL || currentUser?.photoURL ? (
+                            <img src={userProfile?.photoURL || currentUser?.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-blue-600 text-white text-2xl font-bold">
+                                {userProfile?.name?.charAt(0) || 'U'}
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <>
-                        <h2 className="text-lg font-bold" style={{ color: 'var(--emp-text-primary)' }}>{displayName}</h2>
-                        <p className="text-sm" style={{ color: 'var(--emp-text-muted)' }}>Software Engineer</p>
-                    </>
-                )}
-            </div>
-
-            {/* Account Section */}
-            <div>
-                <p className="emp-section-title">Account</p>
-                <div className="emp-card p-0 overflow-hidden">
-                    {/* Email */}
-                    <div className="emp-settings-item">
-                        <div className="flex items-center gap-3">
-                            <div className="emp-settings-icon" style={{ background: 'var(--emp-accent-glow)', color: 'var(--emp-accent)' }}>
-                                <EnvelopeIcon className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Email</p>
-                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>{displayEmail}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Phone */}
-                    <div className="emp-settings-item">
-                        <div className="flex items-center gap-3">
-                            <div className="emp-settings-icon" style={{ background: 'rgba(34, 197, 94, 0.1)', color: 'var(--emp-success)' }}>
-                                <PhoneIcon className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Phone</p>
-                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>{displayPhone}</p>
-                            </div>
-                        </div>
-                        <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--emp-text-muted)' }} />
-                    </div>
-
-                    {/* Employee ID */}
-                    <div className="emp-settings-item">
-                        <div className="flex items-center gap-3">
-                            <div className="emp-settings-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--emp-warning)' }}>
-                                <IdentificationIcon className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Employee ID</p>
-                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>{displayId}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Preferences Section */}
-            <div>
-                <p className="emp-section-title">Preferences</p>
-                <div className="emp-card p-0 overflow-hidden">
-                    {/* Dark Mode Toggle */}
+                    {/* Upload Button Overlay */}
                     <button
-                        onClick={toggleTheme}
-                        className="emp-settings-item w-full"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute bottom-0 right-0 bg-slate-900 text-white p-2 rounded-full shadow-lg transform transition-transform active:scale-95"
+                    >
+                        {loading ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <CameraIcon className="w-4 h-4" />
+                        )}
+                    </button>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                    />
+                </div>
+
+                <h1 className="text-xl font-bold text-slate-900 mt-4">{userProfile?.name || 'Employee'}</h1>
+                <p className="text-sm text-slate-500">{userProfile?.role || 'Staff Member'}</p>
+                <div className="mt-2 inline-flex px-3 py-1 bg-slate-100 rounded-full text-xs font-mono text-slate-600">
+                    ID: #{currentUser?.uid?.slice(0, 6).toUpperCase()}
+                </div>
+            </div>
+
+            {/* Quick Stats */}
+            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mt-6 mb-3 px-1">This Month</h3>
+            <div className="grid grid-cols-3 gap-3">
+                <StatCard label="Present" value={stats.present} type="present" />
+                <StatCard label="Late" value={stats.late} type="late" />
+                <StatCard label="Absent" value={stats.absent} type="absent" />
+            </div>
+
+            {/* Settings Menu */}
+            <div className="bg-white rounded-lg border border-slate-200 mt-6 divide-y divide-slate-50 shadow-sm">
+                {menuItems.map((item, idx) => (
+                    <button
+                        key={idx}
+                        onClick={item.action}
+                        className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="emp-settings-icon" style={{
-                                background: isDarkMode ? 'rgba(59, 130, 246, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                                color: isDarkMode ? 'var(--emp-accent)' : 'var(--emp-warning)'
-                            }}>
-                                {isDarkMode ? <MoonIcon className="w-5 h-5" /> : <SunIcon className="w-5 h-5" />}
-                            </div>
-                            <div className="text-left">
-                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Dark Mode</p>
-                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>
-                                    {isDarkMode ? 'On' : 'Off'}
-                                </p>
-                            </div>
+                            <item.icon className={`w-5 h-5 ${item.color || 'text-slate-400'}`} />
+                            <span className={`text-sm font-medium ${item.color || 'text-slate-700'}`}>{item.label}</span>
                         </div>
-                        <div className={`emp-toggle ${isDarkMode ? 'active' : ''}`}></div>
+                        <div className="flex items-center gap-2">
+                            {item.sub && <span className="text-sm text-slate-400">{item.sub}</span>}
+                            {item.type === 'toggle' ? (
+                                <div className="w-10 h-6 bg-blue-600 rounded-full relative">
+                                    <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm" />
+                                </div>
+                            ) : (
+                                <ChevronRightIcon className="w-4 h-4 text-slate-300" />
+                            )}
+                        </div>
                     </button>
-
-                    {/* Notifications */}
-                    <div className="emp-settings-item">
-                        <div className="flex items-center gap-3">
-                            <div className="emp-settings-icon" style={{ background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' }}>
-                                <BellIcon className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Receive Notifications</p>
-                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>Attendance reminders</p>
-                            </div>
-                        </div>
-                        <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--emp-text-muted)' }} />
-                    </div>
-                </div>
+                ))}
             </div>
 
-            {/* Security Section */}
-            <div>
-                <p className="emp-section-title">Security</p>
-                <div className="emp-card p-0 overflow-hidden">
-                    {/* Change Password */}
-                    <div className="emp-settings-item">
-                        <div className="flex items-center gap-3">
-                            <div className="emp-settings-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--emp-accent)' }}>
-                                <ShieldCheckIcon className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium" style={{ color: 'var(--emp-text-primary)' }}>Change Password</p>
-                                <p className="text-xs" style={{ color: 'var(--emp-text-muted)' }}>Update your password</p>
-                            </div>
-                        </div>
-                        <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--emp-text-muted)' }} />
-                    </div>
-                </div>
-            </div>
-
-            {/* Logout Button */}
-            <button
-                onClick={handleLogout}
-                className="w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-                style={{
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    color: 'var(--emp-danger)',
-                    border: '1px solid rgba(239, 68, 68, 0.2)'
-                }}
-            >
-                <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                Sign Out
-            </button>
-
-            {/* Version */}
-            <p className="text-center text-xs pt-2" style={{ color: 'var(--emp-text-muted)' }}>
-                ATLAS v2.5.0
-            </p>
+            <p className="text-center text-xs text-slate-300 mt-8">ATLAS v1.0.0 (Enterprise)</p>
         </div>
     )
 }

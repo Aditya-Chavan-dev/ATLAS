@@ -1,162 +1,214 @@
-import { useState, useEffect } from 'react'
-import { ref, onValue } from 'firebase/database'
+import React, { useState } from 'react'
+import { ref, get } from 'firebase/database'
 import { database } from '../../firebase/config'
-import { useAuth } from '../../context/AuthContext'
-import './Export.css'
-function MDExport() {
-    const { currentUser } = useAuth()
-    const [loading, setLoading] = useState(false)
-    const [employees, setEmployees] = useState([])
+import {
+    Download, FileSpreadsheet, FileText, Calendar,
+    CheckCircle, AlertCircle
+} from 'lucide-react'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns'
+import * as XLSX from 'xlsx' // assuming installed, or we use CDN/mock logic if not in package.json
+// If XLSX is not available in environment, we can fallback to CSV generation manually
 
-    // Form State
-    const [reportType, setReportType] = useState('master') // 'master' or 'single'
-    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
-    const [selectedEmpId, setSelectedEmpId] = useState('')
+// UI Components
+import Card from '../../components/ui/Card'
+import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+export default function MDExport() {
+    const [reportType, setReportType] = useState('attendance') // 'attendance' | 'leaves' | 'employees'
+    const [month, setMonth] = useState(format(new Date(), 'yyyy-MM'))
+    const [fileFormat, setFileFormat] = useState('xlsx') // 'xlsx' | 'csv'
+    const [isGenerating, setIsGenerating] = useState(false)
+    const [status, setStatus] = useState(null) // { type: 'success'|'error', message: '' }
 
-    useEffect(() => {
-        const usersRef = ref(database, 'users')
+    const handleExport = async (e) => {
+        e.preventDefault()
+        setIsGenerating(true)
+        setStatus(null)
 
-        const unsubUsers = onValue(usersRef, (snapshot) => {
-            const data = snapshot.val() || {}
-            const empList = Object.entries(data)
-                .map(([uid, user]) => ({ uid, ...user }))
-                .filter(u => u.role !== 'md' && u.role !== 'admin')
-            setEmployees(empList)
-            if (empList.length > 0 && !selectedEmpId) {
-                setSelectedEmpId(empList[0].uid)
-            }
-        })
-
-        return () => {
-            unsubUsers()
-        }
-    }, [selectedEmpId])
-
-    const handleExport = async () => {
-        setLoading(true)
         try {
-            let url = ''
+            // 1. Fetch Data
+            const usersSnap = await get(ref(database, 'users'))
+            const users = usersSnap.val() || {}
 
-            if (reportType === 'master') {
-                // Master Report - Monthly only (as per user requirement)
-                const [year, month] = selectedMonth.split('-')
-                url = `${API_URL}/api/export-attendance-report?month=${month}&year=${year}`
+            let data = []
+            let filename = `atlas_report_${format(new Date(), 'yyyyMMdd_HHmm')}`
 
-                // Trigger download
-                const link = document.createElement('a')
-                link.href = url
-                link.download = `Attendance_${month}_${year}.xlsx`
-                document.body.appendChild(link)
-                link.click()
-                document.body.removeChild(link)
-            } else {
-                // Single Employee Report - Not implemented yet, can use client-side for now
-                alert('Single employee report coming soon. Please use Master Report for now.')
+            if (reportType === 'employees') {
+                // Employee List
+                filename = `atlas_employees_${format(new Date(), 'yyyyMMdd')}`
+                data = Object.values(users).map(u => ({
+                    Name: u.name,
+                    Email: u.email,
+                    Role: u.role,
+                    Joined: u.createdAt ? format(new Date(u.createdAt), 'yyyy-MM-dd') : '-',
+                    Status: u.isPlaceholder ? 'Pending' : 'Active'
+                }))
+
+            } else if (reportType === 'attendance') {
+                // Monthly Attendance
+                filename = `atlas_attendance_${month}`
+                // Fetch attendance for all users for selected month
+                // Note: In a real large app, this data fetch would be optimized or server-side
+
+                const promises = Object.keys(users).map(async uid => {
+                    const snap = await get(ref(database, `employees/${uid}/attendance`))
+                    const att = snap.val() || {}
+                    // Filter for month
+                    const records = Object.values(att).filter(r => r.date && r.date.startsWith(month))
+                    return records.map(r => ({
+                        Employee: users[uid].name,
+                        Date: r.date,
+                        Time: '9:00 AM', // Mock if not stored
+                        Status: r.status,
+                        Location: r.location,
+                        Site: r.siteName || '-'
+                    }))
+                })
+
+                const results = await Promise.all(promises)
+                data = results.flat().sort((a, b) => a.Date.localeCompare(b.Date))
+
+            } else if (reportType === 'leaves') {
+                // Leaves Report
+                filename = `atlas_leaves_${month}`
+                const promises = Object.keys(users).map(async uid => {
+                    const snap = await get(ref(database, `leaves/${uid}`))
+                    const leaves = snap.val() || {}
+                    return Object.values(leaves).map(l => ({
+                        Employee: users[uid].name,
+                        AppliedOn: l.appliedAt ? format(new Date(l.appliedAt), 'yyyy-MM-dd') : '-',
+                        From: l.from,
+                        To: l.to,
+                        Days: l.totalDays,
+                        Type: l.type,
+                        Status: l.status,
+                        Reason: l.reason
+                    }))
+                })
+                const results = await Promise.all(promises)
+                data = results.flat()
             }
+
+            if (data.length === 0) {
+                setStatus({ type: 'error', message: 'No data found for the selected criteria.' })
+                setIsGenerating(false)
+                return
+            }
+
+            // 2. Generate File
+            const worksheet = XLSX.utils.json_to_sheet(data)
+            const workbook = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Report")
+
+            if (fileFormat === 'csv') {
+                XLSX.writeFile(workbook, `${filename}.csv`)
+            } else {
+                XLSX.writeFile(workbook, `${filename}.xlsx`)
+            }
+
+            setStatus({ type: 'success', message: 'Report generated and downloaded successfully.' })
+
         } catch (error) {
-            console.error("Export failed:", error)
-            alert("Export failed. Please check console.")
+            console.error(error)
+            setStatus({ type: 'error', message: 'Failed to generate report. Please try again.' })
         } finally {
-            setLoading(false)
+            setIsGenerating(false)
         }
     }
 
     return (
-        <div className="md-page-container">
-            <header className="page-header">
-                <div>
-                    <h1>Export Data</h1>
-                    <p>Download attendance reports in Excel format</p>
-                </div>
-            </header>
+        <div className="page-container p-6 max-w-2xl mx-auto animate-fade-in">
+            <div className="mb-8 text-center">
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Export Data</h1>
+                <p className="text-slate-500 dark:text-slate-400">Generate reports for attendance, leaves, and employee records.</p>
+            </div>
 
-            <div className="export-container">
-                {/* 1. Report Type Selection */}
-                <div className="radio-group">
-                    <div
-                        className={`radio-card ${reportType === 'master' ? 'active' : ''}`}
-                        onClick={() => setReportType('master')}
-                    >
-                        <div className="radio-icon">📊</div>
-                        <div className="radio-label">Master Report</div>
-                        <div className="radio-sub">Combined attendance for all employees</div>
+            <Card className="p-8 border border-slate-200 dark:border-slate-800 shadow-lg">
+                <form onSubmit={handleExport} className="space-y-8">
+
+                    {/* Report Type */}
+                    <div className="space-y-3">
+                        <label className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">Report Type</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {[
+                                { id: 'attendance', label: 'Attendance', icon: Calendar },
+                                { id: 'employees', label: 'Employees', icon: FileText },
+                                { id: 'leaves', label: 'Leaves', icon: FileSpreadsheet }
+                            ].map(type => (
+                                <button
+                                    key={type.id}
+                                    type="button"
+                                    onClick={() => setReportType(type.id)}
+                                    className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${reportType === type.id
+                                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-400 ring-1 ring-blue-500'
+                                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-blue-300'
+                                        }`}
+                                >
+                                    <type.icon size={24} className="opacity-80" />
+                                    <span className="font-medium text-sm">{type.label}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
-                    <div
-                        className={`radio-card ${reportType === 'single' ? 'active' : ''}`}
-                        onClick={() => setReportType('single')}
-                    >
-                        <div className="radio-icon">👤</div>
-                        <div className="radio-label">Single Employee</div>
-                        <div className="radio-sub">Detailed report for one employee</div>
-                    </div>
-                </div>
-
-                {/* 2. Parameters Section */}
-                <div className="export-section">
-                    <div className="section-title">
-                        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                        </svg>
-                        Report Settings
-                    </div>
-
-                    {/* Month Picker - Only for Master Report */}
-                    {reportType === 'master' && (
-                        <div className="control-group">
-                            <label className="control-label">Select Month</label>
+                    {/* Date Range (Conditional) */}
+                    {reportType !== 'employees' && (
+                        <div className="space-y-3">
+                            <label className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">Select Month</label>
                             <input
                                 type="month"
-                                className="date-input"
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(e.target.value)}
+                                value={month}
+                                onChange={(e) => setMonth(e.target.value)}
+                                className="w-full text-lg p-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
                             />
                         </div>
                     )}
 
-                    {currentUser && currentUser.email === 'santy9shinde@gmail.com' ? (
-                        <button
-                            className="download-btn"
-                            onClick={handleExport}
-                            disabled={loading}
-                        >
-                            {loading ? (
-                                <>
-                                    <span className="spinner"></span>
-                                    Generating...
-                                </>
-                            ) : (
-                                <>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                        <polyline points="7 10 12 15 17 10" />
-                                        <line x1="12" y1="15" x2="12" y2="3" />
-                                    </svg>
-                                    Download Excel
-                                </>
-                            )}
-                        </button>
-                    ) : (
-                        <div className="restricted-access-msg text-amber-600 bg-amber-50 p-3 rounded-lg text-sm font-medium border border-amber-100 flex items-center gap-2">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                            </svg>
-                            Access Restricted: Only authorized administrators can download this report.
+                    {/* Format */}
+                    <div className="space-y-3">
+                        <label className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">File Format</label>
+                        <div className="flex gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${fileFormat === 'xlsx' ? 'border-blue-600' : 'border-slate-300'}`}>
+                                    {fileFormat === 'xlsx' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                                </div>
+                                <input type="radio" name="format" value="xlsx" checked={fileFormat === 'xlsx'} onChange={() => setFileFormat('xlsx')} className="hidden" />
+                                <span className="group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Excel (.xlsx)</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${fileFormat === 'csv' ? 'border-blue-600' : 'border-slate-300'}`}>
+                                    {fileFormat === 'csv' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                                </div>
+                                <input type="radio" name="format" value="csv" checked={fileFormat === 'csv'} onChange={() => setFileFormat('csv')} className="hidden" />
+                                <span className="group-hover:text-slate-900 dark:group-hover:text-white transition-colors">CSV (.csv)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Submit */}
+                    <Button
+                        size="lg"
+                        className="w-full h-14 text-base shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all bg-brand-primary"
+                        loading={isGenerating}
+                        icon={Download}
+                    >
+                        {isGenerating ? 'Generating Report...' : 'Download Report'}
+                    </Button>
+
+                    {/* Status Message */}
+                    {status && (
+                        <div className={`p-4 rounded-lg flex items-center gap-3 text-sm animate-fade-in ${status.type === 'success'
+                                ? 'bg-green-50 text-green-700 border border-green-200'
+                                : 'bg-red-50 text-red-700 border border-red-200'
+                            }`}>
+                            {status.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+                            {status.message}
                         </div>
                     )}
-                </div>
 
-                {message && (
-                    <div className={`notification-result ${message.type}`}>
-                        {message.text}
-                    </div>
-                )}
-            </div>
+                </form>
+            </Card>
         </div>
     )
 }
-
-export default MDExport

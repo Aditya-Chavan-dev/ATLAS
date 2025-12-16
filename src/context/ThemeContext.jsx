@@ -13,7 +13,8 @@ export const ThemeProvider = ({ children }) => {
     useEffect(() => {
         const root = document.documentElement
         root.setAttribute('data-theme', theme)
-        // Also add class for Tailwind dark mode support
+
+        // Tailwind/CSS Class Toggle
         if (theme === 'dark') {
             root.classList.add('dark')
             root.classList.remove('light')
@@ -21,8 +22,21 @@ export const ThemeProvider = ({ children }) => {
             root.classList.add('light')
             root.classList.remove('dark')
         }
+
         localStorage.setItem('atlas-theme', theme)
     }, [theme])
+
+    // Listen for system preference changes if no manual override (optional refinement)
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+        const handleChange = (e) => {
+            if (!localStorage.getItem('atlas-theme')) {
+                setTheme(e.matches ? 'dark' : 'light')
+            }
+        }
+        mediaQuery.addEventListener('change', handleChange)
+        return () => mediaQuery.removeEventListener('change', handleChange)
+    }, [])
 
     const toggleTheme = () => {
         setTheme(prev => prev === 'dark' ? 'light' : 'dark')
