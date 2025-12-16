@@ -187,14 +187,7 @@ exports.getPendingEmployees = async (req, res) => {
 
 exports.logError = (req, res) => {
     const { message, stack, componentStack, url, userAgent, timestamp } = req.body;
-    const logEntry = `
-[${ timestamp }]ERROR: ${ message }
-URL: ${ url }
-User - Agent: ${ userAgent }
-Stack: ${ stack }
-Component Stack: ${ componentStack || 'N/A' }
---------------------------------------------------
-    `;
+    const logEntry = `[${ timestamp }]ERROR: ${ message } \nURL: ${ url } \nUser - Agent: ${ userAgent } \nStack: ${ stack } \nComponent Stack: ${ componentStack || 'N/A' } \n--------------------------------------------------\n`;
 
     const fs = require('fs');
     const path = require('path');
