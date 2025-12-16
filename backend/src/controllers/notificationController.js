@@ -1,4 +1,4 @@
-```javascript
+
 const { db } = require('../config/firebase');
 const { sendPushNotification, sendTopicNotification, subscribeToTopic, unsubscribeFromTopic } = require('../services/notificationService');
 const { sendEmail, generateEmailTemplate } = require('../services/emailService');
@@ -78,7 +78,7 @@ exports.triggerReminder = async (req, res) => {
             // Check Push Eligibility
             if (user.fcmToken && typeof user.fcmToken === 'string' && user.fcmToken.length > 0) {
                 pushTokens.push(user.fcmToken);
-            } 
+            }
             // Check Email Eligibility (Only if NO Push or as fallback? User said: "Whoever has not [app] we can send via email")
             else if (user.email) {
                 emailTargets.push(user.email);
@@ -211,7 +211,7 @@ exports.runMorningReminder = async () => {
     try {
         const usersSnapshot = await db.ref('employees').once('value');
         const users = usersSnapshot.val() || {};
-        
+
         const pushTokens = [];
         const emailTargets = [];
 
@@ -269,4 +269,4 @@ exports.runAfternoonReminder = async () => {
         console.error("Error in afternoon reminder:", e);
     }
 };
-```
+
