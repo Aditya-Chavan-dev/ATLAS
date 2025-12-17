@@ -170,7 +170,7 @@ export default function MDEmployeeManagement() {
             ) : (
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
                     {/* Desktop Table Header */}
-                    <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium text-slate-500 text-sm">
+                    <div className="hidden lg:grid grid-cols-12 gap-4 p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium text-slate-500 text-sm">
                         <div className="col-span-5">Member</div>
                         <div className="col-span-3">Role</div>
                         <div className="col-span-3">Joined</div>
@@ -180,11 +180,11 @@ export default function MDEmployeeManagement() {
                     {/* Rows */}
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
                         {filteredEmployees.map((emp) => (
-                            <div key={emp.uid} className="group md:grid md:grid-cols-12 md:gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                            <div key={emp.uid} className="group lg:grid lg:grid-cols-12 lg:gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
 
                                 {/* Mobile-Optimized View: Flex Layout */}
                                 {/* Desktop: Col Span 5 */}
-                                <div className="col-span-5 flex items-center gap-3 mb-2 md:mb-0">
+                                <div className="col-span-5 flex items-center gap-3 mb-2 lg:mb-0">
                                     <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300">
                                         {emp.name?.[0]?.toUpperCase() || 'U'}
                                     </div>
@@ -197,16 +197,16 @@ export default function MDEmployeeManagement() {
                                 </div>
 
                                 {/* Role */}
-                                <div className="col-span-3 mb-2 md:mb-0 pl-[52px] md:pl-0">
-                                    <div className="md:hidden text-xs text-slate-400 mb-1">Role</div>
+                                <div className="col-span-3 mb-2 lg:mb-0 pl-[52px] lg:pl-0">
+                                    <div className="lg:hidden text-xs text-slate-400 mb-1">Role</div>
                                     <Badge variant={emp.role === 'admin' ? 'primary' : 'default'} className="uppercase text-[10px] tracking-wider">
                                         {emp.role}
                                     </Badge>
                                 </div>
 
                                 {/* Joined */}
-                                <div className="col-span-3 mb-2 md:mb-0 pl-[52px] md:pl-0">
-                                    <div className="md:hidden text-xs text-slate-400 mb-1">Joined</div>
+                                <div className="col-span-3 mb-2 lg:mb-0 pl-[52px] lg:pl-0">
+                                    <div className="lg:hidden text-xs text-slate-400 mb-1">Joined</div>
                                     <div className="text-sm text-slate-600 dark:text-slate-400 flex items-center gap-2">
                                         <Calendar size={14} />
                                         {emp.createdAt ? format(new Date(emp.createdAt), 'MMM yyyy') : 'N/A'}
@@ -214,7 +214,7 @@ export default function MDEmployeeManagement() {
                                 </div>
 
                                 {/* Actions */}
-                                <div className="col-span-1 flex md:justify-end gap-2 pl-[52px] md:pl-0 mt-2 md:mt-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="col-span-1 flex lg:justify-end gap-2 pl-[52px] lg:pl-0 mt-2 lg:mt-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={() => openEdit(emp)}
                                         className="p-2 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 transition-colors"

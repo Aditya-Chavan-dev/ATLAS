@@ -10,6 +10,12 @@ import {
 } from '@heroicons/react/24/outline'
 import StatusBadge from '../components/StatusBadge'
 
+const STATUS_GROUPS = {
+    GREEN: ['present', 'approved', 'office', 'site', 'on time', 'work from home'],
+    YELLOW: ['pending', 'late', 'half day', 'correction pending', 'clocked out'],
+    RED: ['absent', 'rejected']
+}
+
 export default function History() {
     const { currentUser } = useAuth()
     const [history, setHistory] = useState([])
@@ -60,27 +66,15 @@ export default function History() {
 
     // Stats Calculation
     const stats = {
-        present: history.filter(r => r.status === 'Present').length,
-        pending: history.filter(r => r.status === 'Pending').length,
-        late: history.filter(r => r.status === 'Late').length
+        present: history.filter(r => STATUS_GROUPS.GREEN.includes(r.status?.toLowerCase().trim())).length,
+        pending: history.filter(r => STATUS_GROUPS.YELLOW.includes(r.status?.toLowerCase().trim())).length,
+        late: history.filter(r => r.status?.toLowerCase().trim() === 'late').length
     }
 
-    // Weekly Strip Logic (Static for visual flair for now, centered on 'today' or first of month)
-    const getWeekDays = () => {
-        const today = new Date()
-        const startOfWeek = new Date(today)
-        startOfWeek.setDate(today.getDate() - today.getDay() + 1) // Start Mon
 
-        return Array.from({ length: 7 }).map((_, i) => {
-            const day = new Date(startOfWeek)
-            day.setDate(startOfWeek.getDate() + i)
-            return day
-        })
-    }
-    const weekDays = getWeekDays()
 
     return (
-        <div className="min-h-full bg-slate-50 font-sans pb-24">
+        <div className="min-h-full bg-slate-50 dark:bg-slate-950 font-sans pb-24 transition-colors duration-300">
 
             {/* Glassmorphic Header */}
             <div className="sticky top-0 z-20 backdrop-blur-md bg-white/80 border-b border-slate-200/50 px-6 py-4 flex items-center justify-between transition-all">
@@ -104,78 +98,60 @@ export default function History() {
 
             <div className="p-6 space-y-6">
 
-                {/* Weekly Strip Decoration */}
-                <div className="flex justify-between items-center overflow-x-auto pb-2 no-scrollbar">
-                    {weekDays.map((day, i) => {
-                        const isToday = day.toDateString() === new Date().toDateString()
-                        return (
-                            <div key={i} className={`flex flex-col items-center min-w-[3rem] p-2 rounded-xl border transition-all ${isToday
-                                    ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200 scale-105'
-                                    : 'bg-white border-slate-100 text-slate-400 opacity-70'
-                                }`}>
-                                <span className="text-[10px] font-bold uppercase">{day.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0)}</span>
-                                <span className={`text-sm font-bold ${isToday ? 'text-white' : 'text-slate-600'}`}>{day.getDate()}</span>
-                            </div>
-                        )
-                    })}
-                </div>
+
 
                 {/* Premium Stats Summary - Glass + Gradient */}
+                {/* Stats Summary - Dark Mode Compatible */}
                 {!loading && history.length > 0 && (
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-6 shadow-xl shadow-blue-200 md:grid md:grid-cols-3 md:gap-8 flex justify-between items-center text-white">
-
-                        <div className="flex flex-col items-center relative z-10">
-                            <span className="text-3xl font-bold tracking-tighter">{stats.present}</span>
-                            <span className="text-xs font-medium text-blue-100 uppercase tracking-wide">Present</span>
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                        <div className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm animate-scale-in">
+                            <span className="text-2xl font-black text-green-600 dark:text-green-400 mb-1">{stats.present}</span>
+                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Present</span>
                         </div>
-
-                        <div className="w-[1px] h-8 bg-white/20 md:hidden"></div>
-
-                        <div className="flex flex-col items-center relative z-10">
-                            <span className="text-3xl font-bold tracking-tighter text-amber-300">{stats.pending}</span>
-                            <span className="text-xs font-medium text-blue-100 uppercase tracking-wide">Pending</span>
+                        <div className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm animate-scale-in" style={{ animationDelay: '50ms' }}>
+                            <span className="text-2xl font-black text-amber-500 dark:text-amber-400 mb-1">{stats.pending}</span>
+                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Pending</span>
                         </div>
-
-                        <div className="w-[1px] h-8 bg-white/20 md:hidden"></div>
-
-                        <div className="flex flex-col items-center relative z-10">
-                            <span className="text-3xl font-bold tracking-tighter">{history.length}</span>
-                            <span className="text-xs font-medium text-blue-100 uppercase tracking-wide">Total</span>
-                        </div>
-
-                        {/* Decimal Decoration */}
-                        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-                            <CalendarIcon className="w-32 h-32 transform rotate-12 translate-x-8 -translate-y-8" />
+                        <div className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm animate-scale-in" style={{ animationDelay: '100ms' }}>
+                            <span className="text-2xl font-black text-blue-600 dark:text-blue-400 mb-1">{history.length}</span>
+                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total</span>
                         </div>
                     </div>
                 )}
 
                 {/* Timeline Feed */}
                 {loading ? (
-                    <div className="flex flex-col items-center py-12 gap-3 text-slate-400">
-                        <div className="w-8 h-8 border-2 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
+                    <div className="flex flex-col items-center py-12 gap-3 text-slate-400 dark:text-slate-500">
+                        <div className="w-8 h-8 border-2 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                         <span className="text-sm">Loading history...</span>
                     </div>
                 ) : history.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl border border-dashed border-slate-200">
-                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                            <CalendarIcon className="w-8 h-8 text-slate-400" />
+                    <div className="flex flex-col items-center justify-center py-16 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                        <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                            <CalendarIcon className="w-8 h-8 text-slate-400 dark:text-slate-500" />
                         </div>
-                        <p className="text-lg font-semibold text-slate-900">No records found</p>
-                        <p className="text-sm text-slate-500 mt-1">No attendance activity for {displayMonth}.</p>
+                        <p className="text-lg font-semibold text-slate-900 dark:text-white">No records found</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">No attendance activity for {displayMonth}.</p>
                     </div>
                 ) : (
-                    <div className="relative space-y-6 pl-4 border-l-2 border-slate-100 ml-4">
+                    <div className="relative space-y-4 pl-4 border-l-2 border-slate-200 dark:border-slate-800 ml-4">
                         {history.map((record, index) => {
                             const dateObj = new Date(record.date)
                             const day = dateObj.toLocaleDateString('en-US', { weekday: 'short' })
                             const simpleDate = dateObj.getDate()
 
-                            const isPresent = record.status === 'Present'
-                            const isPending = record.status === 'Pending'
+                            // Status Logic (Normalized)
+                            const status = record.status?.toLowerCase().trim() || ''
 
-                            // Dot Color
-                            const dotColor = isPresent ? 'bg-green-500 ring-green-100' : isPending ? 'bg-amber-500 ring-amber-100' : 'bg-red-500 ring-red-100'
+                            const isGreen = STATUS_GROUPS.GREEN.includes(status)
+                            const isYellow = STATUS_GROUPS.YELLOW.includes(status)
+                            const isRed = STATUS_GROUPS.RED.includes(status)
+
+                            // Circle Color
+                            let circleClass = 'bg-slate-400 ring-slate-200 dark:ring-slate-700' // Default
+                            if (isGreen) circleClass = 'bg-green-500 ring-green-100 dark:ring-green-900/30'
+                            else if (isYellow) circleClass = 'bg-yellow-400 ring-yellow-100 dark:ring-yellow-900/30'
+                            else if (isRed) circleClass = 'bg-red-500 ring-red-100 dark:ring-red-900/30'
 
                             return (
                                 <div
@@ -184,31 +160,32 @@ export default function History() {
                                     style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'backwards' }}
                                 >
                                     {/* Timeline Dot */}
-                                    <div className={`absolute -left-[25px] w-4 h-4 rounded-full ${dotColor} ring-4 border-2 border-white transition-all group-hover:scale-110`}></div>
+                                    <div className={`absolute -left-[23px] w-3.5 h-3.5 rounded-full ${circleClass} ring-4 border-2 border-white dark:border-slate-950 transition-all group-hover:scale-110 shadow-sm`}></div>
 
                                     {/* Card */}
-                                    <div className="flex-1 bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:shadow-md transition-all active:scale-[0.98]">
+                                    <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-all active:scale-[0.98]">
                                         <div className="flex justify-between items-start mb-2">
                                             <div className="flex items-center gap-3">
-                                                <div className="flex flex-col items-center justify-center w-10 h-10 bg-slate-50 rounded-lg">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase">{day}</span>
-                                                    <span className="text-sm font-bold text-slate-800 leading-none">{simpleDate}</span>
+                                                <div className="flex flex-col items-center justify-center w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                                                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">{day}</span>
+                                                    <span className="text-sm font-bold text-slate-900 dark:text-white leading-none">{simpleDate}</span>
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-bold text-slate-900 text-sm">{record.status}</h3>
-                                                    <div className="text-xs text-slate-500 flex items-center gap-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="font-bold text-slate-900 dark:text-white text-sm">{record.status}</h3>
+                                                        {(status === 'pending' || status === 'correction pending') && <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>}
+                                                    </div>
+                                                    <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
                                                         <span>{record.locationType || 'Remote'}</span>
-                                                        <span>•</span>
+                                                        <span className="text-slate-300 dark:text-slate-600">•</span>
                                                         <span>{new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <StatusBadge status={record.status} size="sm" />
-                                            {/* Note: Update StatusBadge to accept size or just keep default */}
                                         </div>
 
                                         {record.siteName && (
-                                            <div className="mt-2 text-xs font-medium text-slate-500 bg-slate-50 inline-block px-2 py-1 rounded">
+                                            <div className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 inline-flex px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-slate-700">
                                                 📍 {record.siteName}
                                             </div>
                                         )}

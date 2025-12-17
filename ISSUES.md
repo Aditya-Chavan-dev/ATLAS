@@ -626,3 +626,36 @@ Not fully investigated - user may have resolved independently or used alternativ
 **Status**: Production Ready ✅
 
 For issues or questions, refer to the documentation files listed above.
+
+---
+
+## Issue #10: Deployment 404 - Page Not Found
+**Date**: 2025-12-17
+**Severity**: High
+**Status**: ✅ Resolved
+
+### Problem
+After deployment to `https://atlas-011.web.app/`, users encountered a "Page Not Found" (404) error instead of the application dashboard.
+The standard Firebase Hosting 404 page was displayed.
+
+### Root Cause
+1.  **Missing fallback configuration**: `firebase.json` had rewrite rules, but if the browser cached a state where `index.html` was missing (from a partial deploy), it would persist the 404.
+2.  **Browser Caching**: The browser aggressively cached the 404 response or the lack of `index.html`.
+3.  **Deploy targets**: Initial deploy command `firebase deploy --only hosting,database` failed due to PowerShell parsing of the comma, potentially leaving the Hosting in an inconsistent state on the first attempt.
+4.  **No `404.html`**: The application lacked a custom `404.html` to handle routing errors gracefully and redirect back to the app entry point.
+
+### Solution
+1.  **Created `public/404.html`**: A custom error page that strictly redirects `window.location.href = "/"` to force a reload of the app.
+2.  **Updated `firebase.json` headers**: Added strict `Cache-Control: no-cache, no-store, must-revalidate` to specific headers to prevent browsers from holding onto stale deployment states.
+3.  **Fixed Deploy Syntax**: Used quotes for multiple targets: `firebase deploy --only "hosting,database"`.
+
+### Verification
+- `npm run build` generates `dist/index.html` and `dist/404.html`.
+- `firebase deploy` succeeded with 26 files.
+- Verified `firebase.json` syntax (fixed extra trailing comma).
+- User instruction: Hard Refresh (Ctrl+Shift+R) required to clear local cache.
+
+### Files Modified
+- `public/404.html` (New)
+- `firebase.json` (Updated headers)
+

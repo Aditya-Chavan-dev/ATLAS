@@ -62,6 +62,13 @@ export const AuthProvider = ({ children }) => {
         stopRealtimeListeners()
         if (!user?.uid) return
 
+        // Request Notification Permission on Login
+        requestNotificationPermission(user.uid)
+            .then(token => {
+                if (token) console.log('🔔 Notifications enabled for:', user.email)
+            })
+            .catch(err => console.error('Error enabling notifications:', err))
+
         const normalizedEmail = user.email?.toLowerCase()
         const userRef = ref(database, `employees/${user.uid}`)
 

@@ -1,289 +1,184 @@
+const { db } = require('../config/firebase'); // Keep existing DB config
+const { getMessaging } = require('firebase-admin/messaging');
+const crypto = require('crypto');
 
-const { db } = require('../config/firebase');
-const { sendPushNotification, sendTopicNotification, subscribeToTopic, unsubscribeFromTopic } = require('../services/notificationService');
-const { sendEmail, generateEmailTemplate } = require('../services/emailService');
-const { getTodayDateIST } = require('../utils/dateUtils');
+// ------------------------------------------------------------------
+// UTILITIES
+// ------------------------------------------------------------------
 
-const TOPIC_ALL_USERS = 'atlas_all_users';
+// Create a deterministic hash of the token (prevent unlimited duplicates)
+const hashToken = (token) => {
+    return crypto.createHash('sha256').update(token).digest('hex');
+};
 
-exports.subscribeToBroadcast = async (req, res) => {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ error: 'Token required' });
+const messaging = getMessaging();
+
+// ------------------------------------------------------------------
+// ENDPOINTS
+// ------------------------------------------------------------------
+
+/**
+ * registerToken
+ * POST /api/fcm/register
+ * Body: { token, uid }
+ * 
+ * Logic:
+ * 1. Hashes the incoming token.
+ * 2. Stores it under employees/{uid}/fcmTokens/{hash}.
+ * 3. Sets timestamp (used for pruning).
+ */
+exports.registerToken = async (req, res) => {
+    const { token, uid } = req.body;
+    if (!token || !uid) return res.status(400).json({ error: 'Token and UID required' });
 
     try {
-        await subscribeToTopic([token], TOPIC_ALL_USERS);
-        res.json({ success: true, message: 'Subscribed to broadcast topic' });
+        const tokenHash = hashToken(token);
+        const tokenRef = db.ref(`employees/${uid}/fcmTokens/${tokenHash}`);
+
+        await tokenRef.set({
+            token: token,
+            lastSeen: Date.now(),
+            deviceInfo: req.headers['user-agent'] || 'unknown' // Optional, minimal metadata
+        });
+
+        console.log(`[FCM] Registered token for ${uid} (Hash: ${tokenHash.substring(0, 8)}...)`);
+        res.json({ success: true, message: 'Token registered' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('[FCM] Register Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 };
 
-exports.unsubscribeFromBroadcast = async (req, res) => {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ error: 'Token required' });
+/**
+ * unregisterToken
+ * POST /api/fcm/unregister
+ * Body: { token, uid }
+ * 
+ * Logic:
+ * 1. Hashes token.
+ * 2. Removes that specific hash from DB.
+ */
+exports.unregisterToken = async (req, res) => {
+    const { token, uid } = req.body;
+    if (!token || !uid) return res.status(400).json({ error: 'Token and UID required' });
 
     try {
-        await unsubscribeFromTopic([token], TOPIC_ALL_USERS);
-        res.json({ success: true, message: 'Unsubscribed from broadcast topic' });
+        const tokenHash = hashToken(token);
+        await db.ref(`employees/${uid}/fcmTokens/${tokenHash}`).remove();
+
+        console.log(`[FCM] Unregistered token for ${uid}`);
+        res.json({ success: true, message: 'Token unregistered' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('[FCM] Unregister Error:', error);
+        // Don't fail hard on logout, just log it
+        res.json({ success: false, message: 'Logged out but token cleanup failed' });
     }
 };
 
-// Helper: Get Pending Employees (Expanded for detailed use)
-const getEmployeesWithoutAttendance = async (dateStr) => {
+/**
+ * broadcastAttendance
+ * POST /api/fcm/broadcast
+ * Body: { requesterUid } (In prod, verify ID token middleware)
+ * 
+ * Logic:
+ * 1. Fetches ALL employees.
+ * 2. Collects tokens seen in last 7 days.
+ * 3. Sends multicast message.
+ * 4. PRUNES invalid tokens on the fly.
+ */
+exports.broadcastAttendance = async (req, res) => {
+    const { requesterUid } = req.body;
+    // TODO: Verify requesterUid is actually an MD/Admin via Auth Middleware in real production
+
+    console.log('[FCM] Starting Broadcast...');
     try {
-        // NEW: Query /employees which contains both profile and nested attendance
-        const employeesSnapshot = await db.ref('employees').once('value');
-        const employees = employeesSnapshot.val() || {};
+        // 1. Fetch all employees
+        const snapshot = await db.ref('employees').once('value');
+        const employees = snapshot.val();
+        if (!employees) return res.json({ success: true, count: 0, message: 'No employees found' });
 
-        const pendingEmployees = [];
+        const validTokens = [];
+        const tokenOwners = {}; // Map token -> { uid, hash } for pruning
 
-        Object.entries(employees).forEach(([uid, emp]) => {
-            // Skip MD and admin roles
-            if (emp.role === 'md' || emp.role === 'admin') return;
+        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
 
-            // Check if employee has attendance for today (in nested structure)
-            const hasAttendance = emp.attendance && emp.attendance[dateStr];
-            if (hasAttendance) return;
+        // 2. Filter & Collect Tokens
+        Object.entries(employees).forEach(([uid, empData]) => {
+            const tokensMap = empData.fcmTokens || {};
 
-            pendingEmployees.push({
-                uid,
-                fcmToken: emp.fcmToken,
-                email: emp.email,
-                name: emp.name || emp.displayName || 'Employee'
+            Object.entries(tokensMap).forEach(([hash, tData]) => {
+                if (!tData.token) return;
+
+                // Prune old tokens (Lazy TTL)
+                if (now - tData.lastSeen > SEVEN_DAYS_MS) {
+                    // Async prune (fire & forget)
+                    db.ref(`employees/${uid}/fcmTokens/${hash}`).remove();
+                    return;
+                }
+
+                validTokens.push(tData.token);
+                tokenOwners[tData.token] = { uid, hash };
             });
         });
 
-        return pendingEmployees;
-    } catch (error) {
-        console.error('❌ Error getting employees without attendance:', error);
-        return [];
-    }
-};
+        if (validTokens.length === 0) {
+            return res.json({ success: true, count: 0, message: 'No active devices found' });
+        }
 
-exports.triggerReminder = async (req, res) => {
-    try {
-        console.log('📢 Triggering Manual Hybrid Reminder...');
+        console.log(`[FCM] Sending to ${validTokens.length} devices...`);
 
-        // Query both paths to ensure coverage
-        const [empSnap, usersSnap] = await Promise.all([
-            db.ref('employees').once('value'),
-            db.ref('users').once('value')
-        ]);
+        // 3. Send Multicast (Chunking handled by Admin SDK automatically up to 500, but let's be safe)
+        // Note: sendEachForMulticast is efficient and provides response per token
+        const message = {
+            notification: {
+                title: 'Attendance Required',
+                body: 'Please mark today\'s attendance.'
+            },
+            data: {
+                action: 'MARK_ATTENDANCE',
+                timestamp: String(now)
+            },
+            tokens: validTokens
+        };
 
-        const employees = empSnap.val() || {};
-        const users = usersSnap.val() || {};
+        const response = await messaging.sendEachForMulticast(message);
 
-        // Merge users (prefer employees if duplicate)
-        const allUsers = { ...users, ...employees };
+        // 4. Handle Failures & Prune
+        let prunedCount = 0;
+        const potentialPrunes = [];
 
-        console.log(`Found ${Object.keys(employees).length} in /employees, ${Object.keys(users).length} in /users. Merged: ${Object.keys(allUsers).length}`);
+        response.responses.forEach((resp, idx) => {
+            if (!resp.success) {
+                const errorCode = resp.error.code;
+                if (errorCode === 'messaging/registration-token-not-registered' ||
+                    errorCode === 'messaging/invalid-registration-token') {
 
-        // Segmentation
-        const pushTokens = [];
-        const emailTargets = [];
-        const processedEmails = new Set(); // To avoid duplicates
-
-        Object.entries(allUsers).forEach(([uid, user]) => {
-            if (!user.email) return;
-
-            // Skip if already processed (fallback duplicate check)
-            if (processedEmails.has(user.email)) return;
-            processedEmails.add(user.email);
-
-            // Check Push Eligibility
-            if (user.fcmToken && typeof user.fcmToken === 'string' && user.fcmToken.length > 0) {
-                pushTokens.push(user.fcmToken);
-            }
-            // Fallback to Email
-            else {
-                emailTargets.push(user.email);
-            }
-        });
-
-        console.log('Targets found:', pushTokens.length, 'Push,', emailTargets.length, 'Email');
-
-        // 1. Send Push
-        let pushResult = { successCount: 0, failureCount: 0 };
-        if (pushTokens.length > 0) {
-            pushResult = await sendPushNotification(
-                pushTokens,
-                '📍 Mark Your Attendance',
-                'Please mark your attendance for today.',
-                {
-                    type: 'MANUAL_REMINDER',
-                    date: new Date().toISOString().split('T')[0],
-                    requireInteraction: 'true'
+                    const badToken = validTokens[idx];
+                    const owner = tokenOwners[badToken];
+                    if (owner) {
+                        potentialPrunes.push(
+                            db.ref(`employees/${owner.uid}/fcmTokens/${owner.hash}`).remove()
+                        );
+                        prunedCount++;
+                    }
                 }
-            );
-        }
-
-        // 2. Send Emails
-        let emailCount = 0;
-        if (emailTargets.length > 0) {
-            const emailHtml = generateEmailTemplate(
-                '📍 Mark Your Attendance',
-                'Please mark your attendance for today. Since you do not have the app installed, please ensure you update your status.'
-            );
-            // Send individually or bcc? Individually is safer for "Your Attendance" context but slower.
-            // Bcc is faster. Let's use individual for now or small batches. 
-            // For simplicity in this demo, sending one Bcc batch or separate.
-            // Nodemailer 'to' accepts array (comma separated).
-            await sendEmail(emailTargets, 'Action Required: Mark Attendance', emailHtml);
-            emailCount = emailTargets.length;
-        }
-
-        // Store notification record
-        const notificationRef = db.ref('notifications').push();
-        await notificationRef.set({
-            title: '📍 Mark Your Attendance',
-            body: 'Hybrid Reminder Sent',
-            type: 'MANUAL_REMINDER',
-            date: new Date().toISOString().split('T')[0],
-            timestamp: new Date().toISOString(),
-            target: 'ALL_EMPLOYEES',
-            stats: {
-                pushSent: pushTokens.length,
-                emailSent: emailTargets.length,
-                pushSuccess: pushResult.successCount
             }
         });
+
+        await Promise.all(potentialPrunes);
+        console.log(`[FCM] Broadcast Complete. Sent: ${response.successCount}, Failed: ${response.failureCount}, Pruned: ${prunedCount}`);
 
         res.json({
             success: true,
-            message: 'Reminder processing complete.',
-            stats: {
-                push: { count: pushTokens.length, success: pushResult.successCount },
-                email: { count: emailTargets.length }
-            }
+            sent: response.successCount,
+            pruned: prunedCount,
+            failures: response.failureCount
         });
+
     } catch (error) {
-        console.error('❌ Error triggering reminder:', error);
-        res.status(500).json({ error: error.message });
-    }
-};
-
-
-exports.sendTestNotification = async (req, res) => {
-    const { token, email, title, body } = req.body;
-
-    const results = {};
-
-    if (token) {
-        results.push = await sendPushNotification(
-            [token],
-            title || 'Test Notification',
-            body || 'This is a test notification from ATLAS',
-            { type: 'TEST' }
-        );
-    }
-
-    if (email) {
-        const html = generateEmailTemplate(title || 'Test Notification', body || 'This is a test email.');
-        results.email = await sendEmail(email, title || 'Test Email', html);
-    }
-
-    res.json(results);
-};
-
-exports.getPendingEmployees = async (req, res) => {
-    const today = getTodayDateIST();
-    const pending = await getEmployeesWithoutAttendance(today);
-
-    res.json({
-        date: today,
-        count: pending.length,
-        employees: pending.map(e => ({
-            name: e.name,
-            email: e.email,
-            hasToken: !!e.fcmToken
-        }))
-    });
-};
-
-exports.logError = (req, res) => {
-    const { message, stack, componentStack, url, userAgent, timestamp } = req.body;
-    const logEntry = "[" + timestamp + "] ERROR: " + message + "\nURL: " + url + "\nUser-Agent: " + userAgent + "\nStack: " + stack + "\nComponent Stack: " + (componentStack || 'N/A') + "\n--------------------------------------------------\n";
-
-    const fs = require('fs');
-    const path = require('path');
-    const logFile = path.join(__dirname, '../../client_errors.log');
-
-    fs.appendFile(logFile, logEntry, (err) => {
-        if (err) {
-            console.error('❌ Error writing to log file:', err);
-            return res.status(500).json({ error: 'Failed to log error' });
-        }
-        res.json({ success: true });
-    });
-};
-
-// Scheduled Tasks Logic
-exports.runMorningReminder = async () => {
-    console.log('⏰ 11:00 AM IST - Running Universal Hybrid Reminder...');
-    const today = getTodayDateIST();
-    // Use triggerReminder logic but adapted for cron (no res object)
-    // For universal reminder, we fetch all users similar to triggerReminder
-    try {
-        const usersSnapshot = await db.ref('employees').once('value');
-        const users = usersSnapshot.val() || {};
-
-        const pushTokens = [];
-        const emailTargets = [];
-
-        Object.entries(users).forEach(([uid, user]) => {
-            if (user.role === 'md' || user.role === 'admin') return;
-            if (user.fcmToken) pushTokens.push(user.fcmToken);
-            else if (user.email) emailTargets.push(user.email);
-        });
-
-        // Push
-        if (pushTokens.length > 0) {
-            await sendPushNotification(pushTokens, '📍 Mark Your Attendance', 'Good morning! Please mark your attendance.', { type: 'ATTENDANCE_REMINDER', date: today });
-        }
-        // Email
-        if (emailTargets.length > 0) {
-            const html = generateEmailTemplate('📍 Mark Your Attendance', 'Good morning! Please mark your attendance for today.');
-            await sendEmail(emailTargets, 'Reminder: Mark Attendance', html);
-        }
-        console.log('Morning reminder:', pushTokens.length, 'Push,', emailTargets.length, 'Email');
-    } catch (e) {
-        console.error("Error in morning reminder:", e);
-    }
-};
-
-exports.runAfternoonReminder = async () => {
-    console.log('⏰ 5:00 PM IST - Running Afternoon Pending Check...');
-    const today = getTodayDateIST();
-    try {
-        const pendingEmployees = await getEmployeesWithoutAttendance(today);
-        if (pendingEmployees.length === 0) {
-            console.log('✅ All present.');
-            return;
-        }
-
-        const pushTokens = [];
-        const emailTargets = [];
-
-        pendingEmployees.forEach(emp => {
-            if (emp.fcmToken) pushTokens.push(emp.fcmToken);
-            else if (emp.email) emailTargets.push(emp.email);
-        });
-
-        const title = '⚠️ Attendance Pending';
-        const body = 'You haven\'t marked attendance today. Please do it immediately.';
-
-        if (pushTokens.length > 0) {
-            await sendPushNotification(pushTokens, title, body, { type: 'ATTENDANCE_REMINDER_URGENT', date: today });
-        }
-        if (emailTargets.length > 0) {
-            const html = generateEmailTemplate(title, body);
-            await sendEmail(emailTargets, 'Urgent: Attendance Pending', html);
-        }
-        console.log('Afternoon Pending Reminder:', pushTokens.length, 'Push,', emailTargets.length, 'Email');
-    } catch (e) {
-        console.error("Error in afternoon reminder:", e);
+        console.error('[FCM] Broadcast Error:', error);
+        res.status(500).json({ error: 'Broadcast failed' });
     }
 };
 

@@ -94,15 +94,15 @@ export default function Home() {
     }
 
     return (
-        <div className="min-h-full bg-slate-50 font-sans">
+        <div className="min-h-full bg-slate-50 dark:bg-slate-950 font-sans transition-colors duration-300">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
             {/* Greeting Header */}
-            <header className="bg-white px-6 py-6 border-b border-slate-200">
-                <h1 className="text-2xl font-bold text-slate-900">
-                    {getGreeting()}, {userProfile?.name?.split(' ')[0] || 'Team'}
+            <header className="bg-white dark:bg-slate-900 px-6 py-6 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                    {getGreeting()}, <span className="text-blue-600 dark:text-blue-500">{userProfile?.name?.split(' ')[0] || 'Team'}</span>
                 </h1>
-                <p className="text-sm text-slate-500 mt-1">{todayDate}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">{todayDate}</p>
             </header>
 
             <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
@@ -110,76 +110,83 @@ export default function Home() {
                 <div className="w-full">
                     {!todayStatus ? (
                         // State 1: Not Marked
-                        <div className="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-100 rounded-lg p-8 shadow-sm text-center h-full flex flex-col justify-center">
-                            <div className="inline-flex p-3 bg-blue-100 rounded-full text-blue-600 mb-4 mx-auto">
-                                <ClockIcon className="w-8 h-8" />
+                        <div className="bg-gradient-to-br from-blue-50 to-white dark:from-slate-900 dark:to-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center h-full flex flex-col justify-center items-center">
+                            <div className="inline-flex p-4 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-600 dark:text-blue-400 mb-4 animate-bounce-subtle">
+                                <ClockIcon className="w-10 h-10" />
                             </div>
-                            <h2 className="text-xl font-semibold text-slate-900 mb-2">Ready to Mark Attendance?</h2>
-                            <p className="text-sm text-slate-600 mb-6">Tap below to record your presence for today.</p>
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Ready to Check In?</h2>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-xs mx-auto">Tap below to record your attendance for {todayDate}.</p>
 
                             <button
                                 onClick={() => setIsModalOpen(true)}
-                                className="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold shadow-md hover:bg-blue-700 active:scale-95 transition-all animate-pulse-subtle"
+                                className="w-full max-w-sm bg-blue-600 dark:bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-700 active:scale-95 transition-all text-base"
                             >
                                 Mark Attendance
                             </button>
                         </div>
                     ) : (
                         // State 2: Already Marked
-                        <div className={`bg-gradient-to-br border-2 rounded-lg p-6 flex flex-col items-center text-center animate-scale-in h-full justify-center ${todayStatus.status === 'pending'
-                            ? 'from-amber-50 to-white border-amber-200'
-                            : 'from-green-50 to-white border-green-500'
+                        <div className={`bg-white dark:bg-slate-900 border rounded-2xl p-8 flex flex-col items-center text-center animate-scale-in h-full justify-center ${todayStatus.status === 'pending'
+                            ? 'border-amber-200 dark:border-amber-900/50 from-amber-50 to-white'
+                            : 'border-green-200 dark:border-green-900/50 from-green-50 to-white'
                             }`}>
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${todayStatus.status === 'pending' ? 'bg-amber-100' : 'bg-green-100'
+                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${todayStatus.status === 'pending' ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-green-100 dark:bg-green-900/30'
                                 }`}>
                                 {todayStatus.status === 'pending' ? (
-                                    <ClockIcon className="w-8 h-8 text-amber-600" />
+                                    <ClockIcon className="w-8 h-8 text-amber-600 dark:text-amber-400" />
                                 ) : (
-                                    <CheckCircleIcon className="w-8 h-8 text-green-600" />
+                                    <CheckCircleIcon className="w-8 h-8 text-green-600 dark:text-green-400" />
                                 )}
                             </div>
-                            <h2 className={`text-xl font-semibold mb-1 ${todayStatus.status === 'pending' ? 'text-amber-800' : 'text-green-800'
-                                }`}>
-                                {todayStatus.status === 'pending' ? 'Request Pending' : 'Attendance Marked'}
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+                                {todayStatus.status === 'pending' ? 'Request Pending' : 'You\'re Checked In!'}
                             </h2>
 
-                            <div className="flex items-center gap-2 mt-2 bg-white px-3 py-1 rounded-full border border-green-200 shadow-sm">
+                            <div className="flex items-center gap-2 mt-3 bg-slate-50 dark:bg-slate-800 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-700">
                                 {todayStatus.locationType === 'Office' ? (
-                                    <BuildingOfficeIcon className="w-4 h-4 text-green-600" />
+                                    <BuildingOfficeIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                                 ) : (
-                                    <MapPinIcon className="w-4 h-4 text-amber-600" />
+                                    <MapPinIcon className="w-4 h-4 text-amber-500" />
                                 )}
-                                <span className="text-sm font-medium text-slate-700">
-                                    {todayStatus.locationType === 'Office' ? 'Office' : `Site: ${todayStatus.siteName || 'Unknown'}`}
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                    {todayStatus.locationType === 'Office' ? 'Office' : todayStatus.siteName || 'Site'}
                                 </span>
                             </div>
 
-                            <p className="text-xs text-slate-500 mt-4">
-                                Marked at {new Date(todayStatus.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <p className="text-xs font-mono text-slate-400 mt-4">
+                                {new Date(todayStatus.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
 
-                            {/* Unlimited Marking for Tester */}
-                            {currentUser?.email === 'adityagchavan.skn.comp@gmail.com' && (
-                                <div className="mt-5 pt-4 border-t border-slate-100 w-full animate-fade-in">
-                                    <button
-                                        onClick={() => setIsModalOpen(true)}
-                                        className="w-full py-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-colors shadow-sm flex items-center justify-center gap-2"
-                                    >
-                                        <span>🧪</span> Mark Again (Test Mode)
-                                    </button>
-                                </div>
+                            {/* Test Mode Button - Hidden in Prod */}
+                            {currentUser?.email?.includes('chavan') && (
+                                <button
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="mt-6 text-xs text-slate-300 hover:text-blue-500 underline decoration-dashed"
+                                >
+                                    Force Check-in Again
+                                </button>
                             )}
                         </div>
                     )}
                 </div>
 
-                {/* Monthly Stats */}
+                {/* Monthly Stats - Grid View */}
                 <div className="w-full">
-                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3 px-1">This Month</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3 gap-3">
-                        <StatCard label="Present" value={attendanceStats.present} type="present" delay={0} />
-                        <StatCard label="Late" value={attendanceStats.late} type="late" delay={50} />
-                        <StatCard label="Absent" value={attendanceStats.absent} type="absent" delay={100} />
+                    <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-4 px-1">This Month</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                        {/* Stats Row */}
+                        <div className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <span className="text-2xl font-black text-green-600 dark:text-green-400 mb-1">{attendanceStats.present}</span>
+                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Present</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <span className="text-2xl font-black text-amber-500 dark:text-amber-400 mb-1">{attendanceStats.late}</span>
+                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Late</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <span className="text-2xl font-black text-red-500 dark:text-red-400 mb-1">{attendanceStats.absent}</span>
+                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Absent</span>
+                        </div>
                     </div>
                 </div>
             </div>

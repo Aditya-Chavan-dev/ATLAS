@@ -5,10 +5,12 @@ import { Link } from 'react-router-dom'
 import {
     Users, UserCheck, UserMinus, MapPin,
     ArrowRight, Bell, Calendar as CalendarIcon,
-    LayoutGrid, List as ListIcon
+    LayoutGrid, List as ListIcon, Sun, Moon
 } from 'lucide-react'
 import { format } from 'date-fns'
 import clsx from 'clsx'
+import { useTheme } from '../../context/ThemeContext'
+import { useAuth } from '../../context/AuthContext'
 
 // UI Components
 import Card from '../../components/ui/Card'
@@ -19,6 +21,8 @@ import MDToast from '../components/MDToast'
 const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend-gncd.onrender.com'
 
 export default function MDDashboard() {
+    const { theme, toggleTheme } = useTheme()
+    const { currentUser } = useAuth()
     const [stats, setStats] = useState({
         total: 0,
         present: 0,
@@ -110,23 +114,21 @@ export default function MDDashboard() {
 
         setSendingReminder(true)
         try {
-            const response = await fetch(`${API_URL}/api/trigger-reminder`, {
+            const response = await fetch(`${API_URL}/api/fcm/broadcast`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({ requesterUid: currentUser?.uid })
             })
 
             const data = await response.json()
 
             if (data.success) {
-                const stats = data.stats || {}
-                const pushCount = stats.push?.count || 0
-                const emailCount = stats.email?.count || 0
-                const msg = `Sent: ${pushCount} Push, ${emailCount} Emails.`
+                const msg = `Broadcast Sent: ${data.sent} devices. (Pruned: ${data.pruned})`
                 setToast({ type: 'success', message: msg })
             } else {
-                throw new Error(data.error || 'Failed to trigger reminder')
+                throw new Error(data.error || 'Failed to trigger broadcast')
             }
         } catch (error) {
             console.error(error)
@@ -148,7 +150,16 @@ export default function MDDashboard() {
                         {format(new Date(), 'EEEE, d MMMM yyyy')}
                     </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-3 items-center">
+                    {/* Theme Toggle Button */}
+                    <button
+                        onClick={toggleTheme}
+                        className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-md transition-all active:scale-95"
+                        title="Toggle Theme"
+                    >
+                        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                    </button>
+
                     <Button
                         variant="primary"
                         className="bg-brand-primary text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"

@@ -51,33 +51,43 @@ export default function Leave() {
     }
 
     return (
-        <div className="min-h-full bg-slate-50 font-sans p-6 pb-24 space-y-6">
+        <div className="min-h-full bg-slate-50 dark:bg-slate-950 font-sans p-6 pb-24 space-y-6 transition-colors duration-300">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
             {/* Balance Card - Gradient */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-md p-6 text-white text-center">
-                <p className="text-blue-100 text-sm font-medium mb-1">Available Leave Balance</p>
-                <h2 className="text-4xl font-bold mb-4">12 <span className="text-lg font-normal">Days</span></h2>
-                <div className="flex justify-center gap-6 text-sm border-t border-blue-500/30 pt-4">
-                    <div>
-                        <span className="block font-bold">6</span>
-                        <span className="text-blue-200 text-xs">Casual</span>
-                    </div>
-                    <div>
-                        <span className="block font-bold">6</span>
-                        <span className="text-blue-200 text-xs">Sick</span>
+            <div className="bg-gradient-to-br from-violet-600 to-indigo-700 rounded-2xl shadow-xl shadow-indigo-200 dark:shadow-none p-6 text-white text-center relative overflow-hidden">
+                {/* Decorative Circles */}
+                <div className="absolute top-[-50%] left-[-20%] w-60 h-60 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="absolute bottom-[-50%] right-[-20%] w-60 h-60 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div className="relative z-10">
+                    <p className="text-violet-100 text-sm font-medium mb-1 uppercase tracking-wide">Available Balance</p>
+                    <h2 className="text-5xl font-black mb-5 tracking-tight">12 <span className="text-lg font-medium text-violet-200">Days</span></h2>
+                    <div className="flex justify-center gap-8 text-sm border-t border-white/10 pt-4">
+                        <div className="text-center">
+                            <span className="block font-bold text-lg">6</span>
+                            <span className="text-violet-200 text-xs font-medium uppercase">Casual</span>
+                        </div>
+                        <div className="w-[1px] h-8 bg-white/10"></div>
+                        <div className="text-center">
+                            <span className="block font-bold text-lg">6</span>
+                            <span className="text-violet-200 text-xs font-medium uppercase">Sick</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Request Form */}
-            <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-6 -mt-2 relative z-10">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">New Request</h3>
-                <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 relative z-10">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
+                    <span className="w-1 h-6 bg-violet-600 rounded-full"></span>
+                    New Request
+                </h3>
+                <form onSubmit={handleSubmit} className="space-y-5">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Leave Type</label>
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Leave Type</label>
                         <select
-                            className="input-field"
+                            className="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-violet-500 focus:border-violet-500 transition-all py-2.5"
                             value={formData.type}
                             onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                         >
@@ -87,21 +97,21 @@ export default function Leave() {
                         </select>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">From</label>
+                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">From</label>
                             <input
                                 type="date"
-                                className="input-field"
+                                className="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-violet-500 focus:border-violet-500 transition-all py-2.5"
                                 value={formData.startDate}
                                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">To</label>
+                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">To</label>
                             <input
                                 type="date"
-                                className="input-field"
+                                className="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-violet-500 focus:border-violet-500 transition-all py-2.5"
                                 value={formData.endDate}
                                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                             />
@@ -109,9 +119,9 @@ export default function Leave() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Reason</label>
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Reason</label>
                         <textarea
-                            className="input-field min-h-[100px]"
+                            className="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-violet-500 focus:border-violet-500 transition-all min-h-[100px] py-3"
                             placeholder="Brief reason for leave..."
                             value={formData.reason}
                             onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
@@ -121,7 +131,7 @@ export default function Leave() {
                     <button
                         type="submit"
                         disabled={isSubmitting}
-                        className="btn btn-primary w-full py-3 text-base shadow-md"
+                        className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-violet-200 dark:shadow-none active:scale-95 transition-all text-sm uppercase tracking-wide disabled:opacity-70 disabled:active:scale-100"
                     >
                         {isSubmitting ? 'Submitting...' : 'Submit Request'}
                     </button>
