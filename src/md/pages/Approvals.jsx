@@ -15,6 +15,7 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import MDToast from '../components/MDToast'
+import ApiService from '../../services/api'
 
 export default function MDApprovals() {
     const { userProfile, currentUser } = useAuth()
@@ -99,26 +100,15 @@ export default function MDApprovals() {
                     }
                 })
             } else {
-                const updates = {
+                // Use backend API for transactional notification
+                await ApiService.post('/api/attendance/status', {
+                    employeeUid: item.employeeUid,
+                    date: item.date,
                     status: status,
-                    actionTimestamp: Date.now(),
-                    approvedAt: status === 'approved' ? new Date().toISOString() : null,
-                    rejectedAt: status === 'rejected' ? new Date().toISOString() : null,
-                    handledBy: userProfile?.email || 'MD',
-                    mdReason: reason || null
-                }
-                if ((item.status === 'correction_pending' || item.isCorrection) && status === 'approved') {
-                    updates.isCorrection = false
-                }
-                await update(ref(database, `users/${item.employeeUid}/attendance/${item.date}`), updates)
-
-                // Audit Log
-                await push(ref(database, 'audit'), {
-                    actor: userProfile?.email || 'MD',
-                    action: status === 'approved' ? 'approveAttendance' : 'rejectAttendance',
-                    target: { employeeId: item.employeeEmail, date: item.date },
-                    details: { oldStatus: item.status, newStatus: status, reason },
-                    timestamp: Date.now()
+                    reason: reason || null,
+                    actionData: {
+                        name: userProfile?.email || 'MD'
+                    }
                 })
             }
             setToast({ type: 'success', message: `Request ${status} successfully` })

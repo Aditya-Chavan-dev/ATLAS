@@ -6,9 +6,9 @@ import {
     BuildingOfficeIcon,
     MapPinIcon
 } from '@heroicons/react/24/outline'
-import { ref, update } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
+import ApiService from '../../services/api'
 
 export default function AttendanceModal({ isOpen, onClose, onSuccess }) {
     const { currentUser } = useAuth()
@@ -34,17 +34,13 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess }) {
             // Save to Firebase
             const dateStr = new Date().toISOString().split('T')[0]
             const timestamp = new Date().toISOString()
-            const attendanceRef = ref(database, `users/${currentUser.uid}/attendance/${dateStr}`)
-
-            // Logic: All requests are PENDING approval from MD.
-            const status = 'pending'
-
-            await update(attendanceRef, {
-                status,
-                timestamp,
+            // Use backend API ensuring notification trigger
+            await ApiService.post('/api/attendance/mark', {
+                uid: currentUser.uid,
                 locationType: selectedLocation,
                 siteName: selectedLocation === 'Site' ? siteName : null,
-                // Removed coordinates as per request to remove geolocation
+                timestamp,
+                dateStr
             })
 
             onSuccess()

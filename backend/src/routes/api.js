@@ -17,4 +17,9 @@ router.post('/fcm/register', notificationController.registerToken);
 router.post('/fcm/unregister', notificationController.unregisterToken);
 router.post('/fcm/broadcast', notificationController.broadcastAttendance);
 
+// Attendance Routes (Transactional Notification)
+const attendanceController = require('../controllers/attendanceController');
+router.post('/attendance/mark', attendanceController.markAttendance);
+router.post('/attendance/status', attendanceController.updateStatus);
+
 module.exports = router;
