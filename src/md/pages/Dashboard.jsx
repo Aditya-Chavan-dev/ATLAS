@@ -7,6 +7,7 @@ import {
     ArrowRight, Bell, Calendar as CalendarIcon,
     LayoutGrid, List as ListIcon, Sun, Moon
 } from 'lucide-react'
+import ApiService from '../../services/api'
 import { format } from 'date-fns'
 import clsx from 'clsx'
 import { useTheme } from '../../context/ThemeContext'
@@ -17,8 +18,6 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import MDToast from '../components/MDToast'
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend-gncd.onrender.com'
 
 export default function MDDashboard() {
     const { theme, toggleTheme } = useTheme()
@@ -114,15 +113,7 @@ export default function MDDashboard() {
 
         setSendingReminder(true)
         try {
-            const response = await fetch(`${API_URL}/api/fcm/broadcast`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ requesterUid: currentUser?.uid })
-            })
-
-            const data = await response.json()
+            const data = await ApiService.post('/api/fcm/broadcast', { requesterUid: currentUser?.uid })
 
             if (data.success) {
                 const msg = `Broadcast Sent: ${data.sent} devices. (Pruned: ${data.pruned})`

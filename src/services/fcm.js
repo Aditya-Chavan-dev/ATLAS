@@ -39,7 +39,7 @@ export const requestNotificationPermission = async (uid) => {
                 console.log("FCM Token obtained:", token.substring(0, 20) + "...");
 
                 // Register token with backend (hashing & storage)
-                await ApiService.post('/fcm/register', { token, uid });
+                await ApiService.post('/api/fcm/register', { token, uid });
                 console.log("✅ Token registered with backend");
 
                 return token;
@@ -71,7 +71,7 @@ export const removeNotificationToken = async (uid) => {
         const token = await getToken(messaging, { vapidKey: VAPID_KEY }).catch(() => null);
 
         if (token) {
-            await ApiService.post('/fcm/unregister', { token, uid });
+            await ApiService.post('/api/fcm/unregister', { token, uid });
             console.log("✅ Token unregistered from backend");
         } else {
             console.warn("Could not retrieve token for unregistration (might be already cleared)");

@@ -13,6 +13,7 @@ import {
     setPersistence,
     browserLocalPersistence
 } from 'firebase/auth'
+import { requestNotificationPermission } from '../services/fcm'
 import {
     ref,
     get,
