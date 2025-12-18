@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 
 export function usePWAInstall() {
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
+    const [isInstallable, setIsInstallable] = useState(false);
+    const [isInstalled, setIsInstalled] = useState(false);
     const [isIOS, setIsIOS] = useState(false);
     const [canPrompt, setCanPrompt] = useState(false);
 
