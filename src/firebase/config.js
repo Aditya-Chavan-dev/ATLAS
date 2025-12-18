@@ -64,13 +64,7 @@ export const googleProvider = new GoogleAuthProvider();
 // Initialize Firebase Messaging
 export const messaging = getMessaging(app);
 
-// Listen for foreground messages
-// Note: Background messages are handled by the service worker (firebase-messaging-sw.js)
-onMessage(messaging, (payload) => {
-    console.log('📩 Notification received:', payload);
-    // Display notification in the UI
-    alert(`${payload.notification.title}: ${payload.notification.body}`);
-});
+// Foreground messages are handled in App.jsx via setupForegroundListener in fcm.js
 
 // Export the app instance (optional, for advanced use cases)
 export default app;

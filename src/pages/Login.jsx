@@ -181,12 +181,12 @@ function Login() {
         if (canPrompt) {
             const installed = await installApp()
             if (installed) {
-                showMessage('Success', 'ATLAS has been installed successfully!', 'success')
+                showMessage('Success', 'ATLAS is being installed and will be added to your home screen.', 'success')
             }
         } else if (isIOS) {
-            showMessage('Install on iOS', 'To install ATLAS:\n\n1. Tap the Share button (📤) at the bottom of Safari\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm', 'info')
+            showMessage('Install ATLAS', 'To install ATLAS on your iPhone:\n\n1. Tap the Share button (📤)\n2. Tap "Add to Home Screen"\n3. Tap "Add"', 'info')
         } else {
-            showMessage('Install App', 'To install ATLAS:\n\nLook for the install icon in your browser\'s address bar or menu, then click "Install" or "Add to Home Screen"', 'info')
+            showMessage('Install ATLAS', 'To install ATLAS:\n\nTap the three dots (⋮) in your browser menu and select "Install app" or "Add to Home screen".', 'info')
         }
     }
 
@@ -319,20 +319,18 @@ function Login() {
                     <span>Sign in with Google</span>
                 </button>
 
-                {/* Additional Actions */}
-                <div className="login-actions">
-                    {isInstallable && !isInstalled && !window.matchMedia('(display-mode: standalone)').matches && (
-                        <button className="login-btn-secondary" onClick={handleInstall}>
-                            📲 {isIOS ? 'Install App (iOS)' : 'Install ATLAS App'}
+                {/* Installation Section */}
+                {!isInstalled && (
+                    <div className="login-actions">
+                        <button
+                            className="login-btn-secondary install-highlight"
+                            onClick={handleInstall}
+                        >
+                            <span className="install-icon">📲</span>
+                            <span>Install ATLAS App</span>
                         </button>
-                    )}
-
-                    {!isIOS && (
-                        <a href="/atlas-app.apk" download="ATLAS-App.apk" className="login-btn-secondary">
-                            ⬇️ Download Android APK
-                        </a>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* Footer */}

@@ -8,7 +8,6 @@ import MDLayout from './layouts/MDLayout'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ROLES } from './config/roleConfig'
-import ProtectedRoute from './components/ProtectedRoute'
 import EmployeeLayout from './layouts/EmployeeLayout'
 import EmployeeHome from './employee/pages/Home'
 import EmployeeHistory from './employee/pages/History'
@@ -21,8 +20,9 @@ import MDProfiles from './md/pages/Profiles'
 
 import MDExport from './md/pages/Export'
 import MDEmployeeManagement from './md/pages/EmployeeManagement'
-import DownloadPage from './pages/DownloadPage'
 import { useAuth } from './context/AuthContext'
+import { NotificationProvider, useNotification } from './context/NotificationContext'
+import { setupForegroundListener } from './services/fcm'
 // Demo mode - completely isolated from production
 import DemoApp from '../demo/DemoApp'
 // Metrics dashboard - owner-only analytics
@@ -66,8 +66,30 @@ function MDLandingRedirect() {
 
 function AppContent() {
     const { currentUser, userRole, loading } = useAuth()
+    const { showNotification } = useNotification()
     const isMD = userRole === ROLES.MD
     const isOwnerRole = userRole === ROLES.OWNER
+
+    // Set up foreground notification listener
+    useEffect(() => {
+        if (!currentUser) return
+
+        const unsubscribe = setupForegroundListener((payload) => {
+            console.log('🔔 UI received notification:', payload)
+            showNotification({
+                title: payload.notification?.title || 'ATLAS Alert',
+                body: payload.notification?.body || 'New message received',
+                actionLabel: payload.data?.action === 'MARK_ATTENDANCE' ? 'Mark Attendance' : null,
+                onAction: () => {
+                    if (payload.data?.action === 'MARK_ATTENDANCE') {
+                        window.location.href = '/dashboard'
+                    }
+                }
+            })
+        })
+
+        return () => unsubscribe()
+    }, [currentUser, showNotification])
 
     // Show loading while checking auth
     if (loading) {
@@ -83,7 +105,6 @@ function AppContent() {
         return (
             <Routes>
                 <Route path="/" element={<Login />} />
-                <Route path="/download" element={<DownloadPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         )
@@ -147,8 +168,10 @@ function App() {
             <Route path="/*" element={
                 <AuthProvider>
                     <ThemeProvider>
-                        <PWAUpdater />
-                        <AppContent />
+                        <NotificationProvider>
+                            <PWAUpdater />
+                            <AppContent />
+                        </NotificationProvider>
                     </ThemeProvider>
                 </AuthProvider>
             } />

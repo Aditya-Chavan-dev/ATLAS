@@ -297,6 +297,23 @@
     background: #e2e8f0;
 }
 
+/* Install Highlight Button */
+.install-highlight {
+    background: #eff6ff !important;
+    border: 1px solid #bfdbfe !important;
+    color: #2563eb !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.install-highlight:hover {
+    background: #dbeafe !important;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
+}
+
+.install-icon {
+    font-size: 1.25rem;
+}
+
 /* Loading Screen */
 .loading-screen {
     height: 100vh;

@@ -17,12 +17,29 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
             title,
             body
         },
+        android: {
+            priority: 'high',
+            notification: {
+                channelId: 'attendance-reminders',
+                priority: 'high',
+                visibility: 'public',
+                defaultSound: true,
+                defaultVibrateTimings: true
+            }
+        },
+        webpush: {
+            notification: {
+                requireInteraction: true,
+                tag: 'attendance-reminder'
+            }
+        },
         data: {
             ...data,
+            action: data.action || 'MARK_ATTENDANCE',
             timestamp: new Date().toISOString(),
-            click_action: 'https://atlas-011.web.app/mark-attendance' // URL for Mark Attendance page
+            click_action: 'https://atlas-011.web.app/dashboard'
         },
-        tokens: validTokens // Send to all valid tokens
+        tokens: validTokens
     };
 
     try {
@@ -58,10 +75,38 @@ const sendTopicNotification = async (topic, title, body, data = {}) => {
             title,
             body
         },
+        android: {
+            priority: 'high',
+            notification: {
+                channelId: 'attendance-reminders',
+                priority: 'high',
+                visibility: 'public',
+                defaultSound: true,
+                defaultVibrateTimings: true,
+                clickAction: 'MARK_ATTENDANCE'
+            }
+        },
+        webpush: {
+            headers: {
+                Urgency: 'high'
+            },
+            notification: {
+                requireInteraction: true,
+                icon: 'https://atlas-011.web.app/logo.png',
+                badge: 'https://atlas-011.web.app/logo.png',
+                tag: 'attendance-reminder',
+                renotify: true,
+                actions: [
+                    { action: 'mark', title: 'Mark Attendance' },
+                    { action: 'dismiss', title: 'Dismiss' }
+                ]
+            }
+        },
         data: {
             ...data,
+            action: data.action || 'MARK_ATTENDANCE',
             timestamp: new Date().toISOString(),
-            click_action: 'https://atlas-011.web.app/mark-attendance'
+            click_action: 'https://atlas-011.web.app/dashboard'
         },
         topic: topic
     };

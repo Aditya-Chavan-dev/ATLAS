@@ -2,6 +2,8 @@
 // Handles push notification permissions, token management, and foreground messages
 
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 import app from "../firebase/config";
 import ApiService from "./api";
 
@@ -21,9 +23,27 @@ const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 export const requestNotificationPermission = async (uid) => {
     try {
         // Check if notifications are supported
-        if (!("Notification" in window)) {
+        if (!("Notification" in window) && !Capacitor.isNativePlatform()) {
             console.log("This browser does not support notifications");
             return null;
+        }
+
+        // Create high-importance channel for Android (required for Heads-up / Floating)
+        if (Capacitor.getPlatform() === 'android') {
+            try {
+                await PushNotifications.createChannel({
+                    id: 'attendance-reminders',
+                    name: 'Attendance Reminders',
+                    description: 'High priority alerts for attendance marking',
+                    importance: 5, // High importance
+                    visibility: 1, // Public
+                    sound: 'default',
+                    vibration: true
+                });
+                console.log("✅ Android Notification Channel created/verified");
+            } catch (err) {
+                console.error("Error creating Android channel:", err);
+            }
         }
 
         // Request permission
