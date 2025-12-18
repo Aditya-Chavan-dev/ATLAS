@@ -70,15 +70,21 @@ export function usePWAInstall() {
             return false;
         }
 
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`User response to install prompt: ${outcome}`);
+        // Trigger native prompt immediately
+        try {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to install prompt: ${outcome}`);
 
-        if (outcome === 'accepted') {
-            setDeferredPrompt(null);
-            setIsInstallable(false);
-            setCanPrompt(false);
-            return true;
+            if (outcome === 'accepted') {
+                setDeferredPrompt(null);
+                window.deferredPWAPrompt = null;
+                setIsInstallable(false);
+                setCanPrompt(false);
+                return true;
+            }
+        } catch (err) {
+            console.error('Failed to trigger PWA prompt:', err);
         }
         return false;
     };

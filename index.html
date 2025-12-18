@@ -13,12 +13,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="/manifest.json">
   <script>
-    // Capture the PWA install prompt globally to ensure it's available for the React app
+    // Truly One-Tap PWA Capture
     window.deferredPWAPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('✨ PWA Install Prompt Detected');
       e.preventDefault();
       window.deferredPWAPrompt = e;
       window.dispatchEvent(new Event('pwa-prompt-available'));
+    });
+    window.addEventListener('appinstalled', () => {
+      console.log('✅ ATLAS Successfully Installed');
+      window.deferredPWAPrompt = null;
     });
   </script>
 </head>

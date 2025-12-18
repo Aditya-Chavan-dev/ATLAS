@@ -179,14 +179,13 @@ function Login() {
     // Install PWA
     const handleInstall = async () => {
         if (canPrompt) {
-            const installed = await installApp()
-            if (installed) {
-                showMessage('Success', 'ATLAS is being installed and will be added to your home screen.', 'success')
-            }
+            // Truly One-Tap: No modal, just trigger
+            await installApp()
         } else if (isIOS) {
-            showMessage('Install ATLAS', 'To install ATLAS on your iPhone:\n\n1. Tap the Share button (📤)\n2. Tap "Add to Home Screen"\n3. Tap "Add"', 'info')
+            showMessage('Install ATLAS', 'To install ATLAS on your iPhone:\n\n1. Tap the Share button (📤) at the bottom\n2. Select "Add to Home Screen"\n3. Tap "Add"', 'info')
         } else {
-            showMessage('Install ATLAS', 'To install ATLAS:\n\nTap the three dots (⋮) in your browser menu and select "Install app" or "Add to Home screen".', 'info')
+            // Subtle fallback for non-Chrome Android browsers (rare but possible)
+            showMessage('Install ATLAS', 'To install ATLAS:\n\nTap your browser menu (⋮) and select "Install app" or "Add to Home screen".', 'info')
         }
     }
 
