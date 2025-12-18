@@ -314,6 +314,49 @@
     font-size: 1.25rem;
 }
 
+/* Premium Install Button */
+.install-premium-btn {
+    width: 100%;
+    padding: 1rem;
+    background: #10b981;
+    border: none;
+    border-radius: 0.75rem;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.install-premium-btn:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+
+.pulse-green {
+    animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 15px rgba(16, 185, 129, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
 /* Loading Screen */
 .loading-screen {
     height: 100vh;

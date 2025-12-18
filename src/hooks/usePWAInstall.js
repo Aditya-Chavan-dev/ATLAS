@@ -12,11 +12,20 @@ export function usePWAInstall() {
         const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         setIsIOS(isIOSDevice);
 
+        // Initial sync with global prompt if it already fired
+        if (window.deferredPWAPrompt) {
+            setDeferredPrompt(window.deferredPWAPrompt);
+            setIsInstallable(true);
+            setCanPrompt(true);
+        }
+
         const handleBeforeInstallPrompt = (e) => {
             e.preventDefault();
             setDeferredPrompt(e);
             setIsInstallable(true);
             setCanPrompt(true);
+            // Also update the global variable just in case
+            window.deferredPWAPrompt = e;
             console.log('👋 PWA Install Prompt captured');
         };
 
@@ -26,6 +35,15 @@ export function usePWAInstall() {
             setIsInstallable(false);
             setCanPrompt(false);
             setDeferredPrompt(null);
+            window.deferredPWAPrompt = null;
+        };
+
+        const handleGlobalPromptAvailable = () => {
+            if (window.deferredPWAPrompt) {
+                setDeferredPrompt(window.deferredPWAPrompt);
+                setIsInstallable(true);
+                setCanPrompt(true);
+            }
         };
 
         // Check if already in standalone mode
@@ -37,10 +55,12 @@ export function usePWAInstall() {
 
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
         window.addEventListener('appinstalled', handleAppInstalled);
+        window.addEventListener('pwa-prompt-available', handleGlobalPromptAvailable);
 
         return () => {
             window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
             window.removeEventListener('appinstalled', handleAppInstalled);
+            window.removeEventListener('pwa-prompt-available', handleGlobalPromptAvailable);
         };
     }, []);
 

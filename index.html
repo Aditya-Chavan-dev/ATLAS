@@ -12,6 +12,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="/manifest.json">
+  <script>
+    // Capture the PWA install prompt globally to ensure it's available for the React app
+    window.deferredPWAPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      window.deferredPWAPrompt = e;
+      window.dispatchEvent(new Event('pwa-prompt-available'));
+    });
+  </script>
 </head>
 
 <body>

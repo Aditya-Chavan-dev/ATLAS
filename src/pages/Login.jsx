@@ -321,13 +321,13 @@ function Login() {
 
                 {/* Installation Section */}
                 {!isInstalled && (
-                    <div className="login-actions">
+                    <div className="login-actions pb-4">
                         <button
-                            className="login-btn-secondary install-highlight"
+                            className={`install-premium-btn ${canPrompt ? 'pulse-green' : ''}`}
                             onClick={handleInstall}
                         >
-                            <span className="install-icon">📲</span>
-                            <span>Install ATLAS App</span>
+                            <span className="install-icon">⚡</span>
+                            <span>{canPrompt ? 'Install ATLAS Now' : 'Add to Home Screen'}</span>
                         </button>
                     </div>
                 )}
