@@ -76,13 +76,16 @@ function AppContent() {
         if (!currentUser) return
 
         // Request Token on login (idempotent, safe to call)
+        // Request Token on login (idempotent, safe to call)
         requestNotificationPermission(currentUser.uid).then(token => {
-            if (!token && Notification.permission === 'denied') {
+            const perm = Notification.permission
+            // Diagnostic Toast: Only show if strictly denied or missing token when expected
+            if (!token && perm === 'denied') {
                 showNotification({
-                    title: '⚠️ Notifications Blocked',
-                    message: 'You have blocked notifications. Please enable them in browser settings (Lock Icon) to receive critical attendance reminders.',
+                    title: '🚫 Notifications Blocked',
+                    message: 'Browser Setting: "Blocked". \nAction: Click 🔒 Icon -> Permissions -> Allow -> Reload to fix.',
                     type: 'error',
-                    duration: 10000
+                    duration: 10000 // Long duration to read
                 })
             }
         })

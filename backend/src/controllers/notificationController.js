@@ -1,6 +1,8 @@
-const { db } = require('../config/firebase'); // Keep existing DB config
+const { db } = require('../config/firebase');
 const { getMessaging } = require('firebase-admin/messaging');
 const crypto = require('crypto');
+
+const messaging = getMessaging();
 
 // ------------------------------------------------------------------
 // UTILITIES
@@ -11,21 +13,14 @@ const hashToken = (token) => {
     return crypto.createHash('sha256').update(token).digest('hex');
 };
 
-const messaging = getMessaging();
-
 // ------------------------------------------------------------------
-// ENDPOINTS
+// EXPORTS
 // ------------------------------------------------------------------
 
 /**
  * registerToken
  * POST /api/fcm/register
  * Body: { token, uid }
- * 
- * Logic:
- * 1. Hashes the incoming token.
- * 2. Stores it under employees/{uid}/fcmTokens/{hash}.
- * 3. Sets timestamp (used for pruning).
  */
 exports.registerToken = async (req, res) => {
     const { token, uid } = req.body;
@@ -33,16 +28,19 @@ exports.registerToken = async (req, res) => {
 
     try {
         const tokenHash = hashToken(token);
+
+        // We store tokens under 'employees' to keep user profile data clean
+        // Structure: employees/{uid}/fcmTokens/{hash} = { token, lastSeen, userAgent }
         const tokenRef = db.ref(`employees/${uid}/fcmTokens/${tokenHash}`);
 
         await tokenRef.set({
             token: token,
             lastSeen: Date.now(),
-            deviceInfo: req.headers['user-agent'] || 'unknown' // Optional, minimal metadata
+            userAgent: req.headers['user-agent'] || 'unknown'
         });
 
         console.log(`[FCM] Registered token for ${uid} (Hash: ${tokenHash.substring(0, 8)}...)`);
-        res.json({ success: true, message: 'Token registered' });
+        res.json({ success: true });
     } catch (error) {
         console.error('[FCM] Register Error:', error);
         res.status(500).json({ error: 'Internal Server Error' });
@@ -53,10 +51,6 @@ exports.registerToken = async (req, res) => {
  * unregisterToken
  * POST /api/fcm/unregister
  * Body: { token, uid }
- * 
- * Logic:
- * 1. Hashes token.
- * 2. Removes that specific hash from DB.
  */
 exports.unregisterToken = async (req, res) => {
     const { token, uid } = req.body;
@@ -65,148 +59,121 @@ exports.unregisterToken = async (req, res) => {
     try {
         const tokenHash = hashToken(token);
         await db.ref(`employees/${uid}/fcmTokens/${tokenHash}`).remove();
-
         console.log(`[FCM] Unregistered token for ${uid}`);
-        res.json({ success: true, message: 'Token unregistered' });
+        res.json({ success: true });
     } catch (error) {
         console.error('[FCM] Unregister Error:', error);
-        // Don't fail hard on logout, just log it
-        res.json({ success: false, message: 'Logged out but token cleanup failed' });
+        res.json({ success: false, message: 'Cleanup failed' });
     }
 };
 
 /**
  * broadcastAttendance
  * POST /api/fcm/broadcast
- * Body: { requesterUid } (In prod, verify ID token middleware)
+ * Body: { requesterUid }
  * 
- * Logic:
- * 1. Fetches ALL employees.
- * 2. Collects tokens seen in last 7 days.
- * 3. Sends multicast message.
- * 4. PRUNES invalid tokens on the fly.
+ * "Mission Critical" Logic:
+ * 1. Fetch ALL tokens from ALL employees.
+ * 2. Send "Attendance Reminder" to every single one.
+ * 3. Log results.
  */
 exports.broadcastAttendance = async (req, res) => {
     const { requesterUid } = req.body;
-    // In production, middleware `verifyMD` should exist. Here we trust the caller context or implement a quick check if needed.
+    console.log('[BROADCAST] Initiating mission-critical broadcast...');
 
-    console.log('[BROADCAST] Starting Strict Attendance Broadcast...');
     try {
-        // 1. Audit Start
-        const broadcastId = db.ref('audit/broadcasts').push().key;
-        const auditLog = {
-            id: broadcastId,
-            requester: requesterUid || 'system',
-            timestamp: Date.now(),
-            type: 'ATTENDANCE_REMINDER',
-            status: 'INITIATED'
-        };
-
-        // 2. Fetch All Employees (Source of Truth)
-        // We use 'users' for profile status if available, but tokens are stored in 'employees' by this controller.
-        // To be safe and banking-grade, we fetch both or assume 'employees' node is the record.
-        // Based on registerToken, tokens are in `employees/{uid}/fcmTokens`.
-
+        // 1. Fetch Tokens
         const snapshot = await db.ref('employees').once('value');
         const employees = snapshot.val();
 
-        if (!employees) {
-            await db.ref(`audit/broadcasts/${broadcastId}`).set({ ...auditLog, status: 'FAILED_NO_USERS' });
-            return res.json({ success: true, count: 0, message: 'No employees found' });
-        }
+        if (!employees) return res.json({ success: true, count: 0, message: 'No employees found' });
 
-        const validTokens = [];
-        const tokenOwners = {}; // Map token -> { uid, hash } for pruning
+        let allTokens = [];
+        let tokenOwners = {}; // map token -> { uid, hash } for cleanup
 
-        // 3. Filter Active Employees & Collect Tokens
-        Object.entries(employees).forEach(([uid, empData]) => {
-            // STRICT: Active Status Check
-            // If internal `isActive` flag exists, use it. If `isArchived`, skip.
-            // Default to true if not specified, as "Active" is usually the default state.
-            if (empData.isActive === false || empData.status === 'archived') return;
+        Object.entries(employees).forEach(([uid, data]) => {
+            // Optional: Filter archived users? 
+            // User said "No matter what" -> but presumably ex-employees shouldn't get it.
+            // keeping basic active check if possible, or just send to all valid tokens.
+            if (data.status === 'archived') return;
 
-            const tokensMap = empData.fcmTokens || {};
-            Object.entries(tokensMap).forEach(([hash, tData]) => {
-                if (!tData.token) return;
-                validTokens.push(tData.token);
-                tokenOwners[tData.token] = { uid, hash };
-            });
+            if (data.fcmTokens) {
+                Object.entries(data.fcmTokens).forEach(([hash, tData]) => {
+                    if (tData.token) {
+                        allTokens.push(tData.token);
+                        tokenOwners[tData.token] = { uid, hash };
+                    }
+                });
+            }
         });
 
-        if (validTokens.length === 0) {
-            await db.ref(`audit/broadcasts/${broadcastId}`).set({ ...auditLog, status: 'SKIPPED_NO_TOKENS' });
-            return res.json({ success: true, count: 0, message: 'No active devices found' });
+        if (allTokens.length === 0) {
+            return res.json({ success: true, count: 0, message: 'No devices registered' });
         }
 
-        console.log(`[BROADCAST] Target: ${validTokens.length} active devices.`);
+        console.log(`[BROADCAST] Sending to ${allTokens.length} devices.`);
 
-        // 4. Construct STRICT Payload (No variations allowed)
+        // 2. Construct Payload (Strict)
         const message = {
             notification: {
                 title: 'Attendance Reminder',
                 body: 'Mark the attendance for today'
             },
             data: {
-                action: 'MARK_ATTENDANCE', // Frontend must handle this to navigate to Attendance Screen
-                sender: 'Managing Director',
-                broadcastId: broadcastId,
-                timestamp: String(Date.now())
+                action: 'MARK_ATTENDANCE', // For click handling
+                timestamp: String(Date.now()),
+                sender: 'MD'
             },
-            tokens: validTokens
+            tokens: allTokens
         };
 
-        // 5. Dispatch (Real-time, counting actual responses)
+        // 3. Send (Multicast)
         const response = await messaging.sendEachForMulticast(message);
 
-        // 6. Delivery Analysis & Token Maintenance
-        let prunedCount = 0;
-        const potentialPrunes = [];
+        // 4. Cleanup Invalid Tokens (Critical for long-term health)
+        let pruned = 0;
+        const cleanupPromises = [];
 
         response.responses.forEach((resp, idx) => {
             if (!resp.success) {
-                const errorCode = resp.error.code;
-                if (errorCode === 'messaging/registration-token-not-registered' ||
-                    errorCode === 'messaging/invalid-registration-token') {
+                const err = resp.error.code;
+                if (err === 'messaging/invalid-registration-token' ||
+                    err === 'messaging/registration-token-not-registered') {
 
-                    const badToken = validTokens[idx];
+                    const badToken = allTokens[idx];
                     const owner = tokenOwners[badToken];
                     if (owner) {
-                        potentialPrunes.push(
-                            db.ref(`employees/${owner.uid}/fcmTokens/${owner.hash}`).remove()
-                        );
-                        prunedCount++;
+                        cleanupPromises.push(db.ref(`employees/${owner.uid}/fcmTokens/${owner.hash}`).remove());
+                        pruned++;
                     }
                 }
             }
         });
 
-        await Promise.all(potentialPrunes);
+        await Promise.all(cleanupPromises);
 
-        // 7. Final Audit Log
-        await db.ref(`audit/broadcasts/${broadcastId}`).set({
-            ...auditLog,
-            status: 'COMPLETED',
-            targetCount: validTokens.length,
+        // 5. Audit
+        const logData = {
+            timestamp: Date.now(),
+            requester: requesterUid || 'unknown',
+            targetCount: allTokens.length,
             successCount: response.successCount,
             failureCount: response.failureCount,
-            prunedCount: prunedCount,
-            completedAt: Date.now()
-        });
+            prunedCount: pruned
+        };
+        await db.ref('audit/broadcasts').push(logData);
 
-        console.log(`[BROADCAST] Success: ${response.successCount}, Failed: ${response.failureCount}, Pruned: ${prunedCount}`);
+        console.log(`[BROADCAST] Done. Success: ${response.successCount}, Failed: ${response.failureCount}, Pruned: ${pruned}`);
 
-        // 8. Return TRUTH to Client
         res.json({
             success: true,
-            sent: response.successCount, // The ONLY number equal to "Delivered"
+            sent: response.successCount,
             failures: response.failureCount,
-            pruned: prunedCount,
-            totalTarget: validTokens.length
+            pruned: pruned
         });
 
     } catch (error) {
-        console.error('[BROADCAST] System Error:', error);
-        res.status(500).json({ error: 'Critical Broadcast Failure: ' + error.message });
+        console.error('[BROADCAST] Critical Failure:', error);
+        res.status(500).json({ error: error.message });
     }
 };
-

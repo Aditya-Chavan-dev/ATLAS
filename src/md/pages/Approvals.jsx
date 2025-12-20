@@ -27,12 +27,16 @@ export default function MDApprovals() {
 
     // Modal State
     const [rejectModal, setRejectModal] = useState({ isOpen: false, item: null, reason: '' })
+    const [approveModal, setApproveModal] = useState({ isOpen: false, item: null })
 
     // Data Fetching
     useEffect(() => {
+        // ... (No changes to useEffect content, but keeping context small)
         const usersRef = ref(database, 'users')
         const leavesRef = ref(database, 'leaves')
+        // ...
 
+        // ... (Use existing code for useEffect body)
         let rawUsers = {}
         let rawLeaves = {}
 
@@ -41,7 +45,6 @@ export default function MDApprovals() {
             Object.entries(rawUsers).forEach(([uid, userData]) => {
                 const attendanceRecords = userData.attendance || {}
                 Object.entries(attendanceRecords).forEach(([date, record]) => {
-                    // Include pending and history based on status
                     const isPending = ['pending', 'correction_pending', 'edit_pending', 'pending_co'].includes(record.status)
                     attItems.push({
                         id: date,
@@ -49,7 +52,7 @@ export default function MDApprovals() {
                         date,
                         ...record,
                         reqType: 'attendance',
-                        employeeName: record.employeeName || userData.name || userData.email, // Fallback to email if name missing
+                        employeeName: record.employeeName || userData.name || userData.email,
                         employeeEmail: record.employeeEmail || userData.email,
                         isPending
                     })
@@ -90,16 +93,33 @@ export default function MDApprovals() {
 
         try {
             if (item.reqType === 'leave') {
-                const leaveRef = ref(database, `leaves/${item.uid}/${item.id}`)
-                await update(leaveRef, {
-                    status: status,
-                    actionData: {
-                        by: currentUser.uid,
-                        name: userProfile?.email || 'MD',
-                        at: new Date().toISOString(),
-                        reason: reason || ''
-                    }
-                })
+                // STRICT MODE: Use API for Approval to ensure balance deduction
+                if (status === 'approved') {
+                    await ApiService.post('/api/leave/approve', {
+                        leaveId: item.id,
+                        employeeId: item.uid,
+                        mdId: currentUser.uid,
+                        mdName: userProfile?.email || 'MD'
+                    })
+                } else {
+                    // For rejection, we can use direct update or API. 
+                    // Let's use API to be consistent if previous steps set up rejection API.
+                    // If not, keep existing firebase update for rejection is fine?
+                    // Safe bet: Use what was working or update strictly.
+                    // The previous file content shows direct update for leaves.
+                    // I will switch approval to API as requested by "Strict Mode".
+
+                    const leaveRef = ref(database, `leaves/${item.uid}/${item.id}`)
+                    await update(leaveRef, {
+                        status: status,
+                        actionData: {
+                            by: currentUser.uid,
+                            name: userProfile?.email || 'MD',
+                            at: new Date().toISOString(),
+                            reason: reason || ''
+                        }
+                    })
+                }
             } else {
                 // Use backend API for transactional notification
                 await ApiService.post('/api/attendance/status', {
@@ -121,6 +141,7 @@ export default function MDApprovals() {
         } finally {
             setProcessingId(null)
             setRejectModal({ isOpen: false, item: null, reason: '' })
+            setApproveModal({ isOpen: false, item: null })
         }
     }
 
@@ -132,6 +153,14 @@ export default function MDApprovals() {
             return
         }
         handleAction(item, 'rejected', reason)
+    }
+
+    const handleApproveClick = (item) => {
+        if (item.reqType === 'leave') {
+            setApproveModal({ isOpen: true, item })
+        } else {
+            handleAction(item, 'approved')
+        }
     }
 
     const filteredApprovals = approvals.filter(item => item.isPending)
@@ -173,7 +202,7 @@ export default function MDApprovals() {
                         <RequestCard
                             key={item.id + item.reqType}
                             item={item}
-                            onApprove={() => handleAction(item, 'approved')}
+                            onApprove={() => handleApproveClick(item)}
                             onReject={() => setRejectModal({ isOpen: true, item, reason: '' })}
                             isProcessing={processingId === item.id}
                             isHistory={filter === 'history'}
@@ -223,6 +252,63 @@ export default function MDApprovals() {
                     </div>
                 </div>
             </Modal>
+
+            {/* Approve Confirmation Modal */}
+            <Modal
+                isOpen={approveModal.isOpen}
+                onClose={() => setApproveModal({ isOpen: false, item: null })}
+                title="Confirm Leave Approval"
+                footer={
+                    <>
+                        <Button
+                            variant="secondary"
+                            onClick={() => setApproveModal({ isOpen: false, item: null })}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="primary"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={() => handleAction(approveModal.item, 'approved')}
+                        >
+                            Confirm Approval
+                        </Button>
+                    </>
+                }
+            >
+                {approveModal.item && (
+                    <div className="space-y-4">
+                        <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800">
+                            <div className="flex items-center gap-2 mb-3 text-indigo-800 dark:text-indigo-300 font-bold uppercase tracking-wider text-xs">
+                                <Calendar className="w-4 h-4" /> Leave Request Review
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-slate-600 dark:text-slate-400 text-sm">Employee:</p>
+                                <p className="text-lg font-bold text-slate-900 dark:text-white">{approveModal.item.employeeName}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 mt-4">
+                                <div>
+                                    <p className="text-slate-500 text-xs uppercase font-bold">Duration</p>
+                                    <p className="text-slate-900 dark:text-white font-mono text-lg">{approveModal.item.totalDays} Days</p>
+                                </div>
+                                <div>
+                                    <p className="text-slate-500 text-xs uppercase font-bold">Type</p>
+                                    <p className="text-slate-900 dark:text-white font-bold">{approveModal.item.type}</p>
+                                </div>
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-indigo-200 dark:border-indigo-800">
+                                <p className="text-slate-500 text-xs uppercase font-bold mb-1">Date Range</p>
+                                <p className="text-indigo-700 dark:text-indigo-400 font-bold text-lg">
+                                    {format(new Date(approveModal.item.from), 'do MMM yyyy')} - {format(new Date(approveModal.item.to), 'do MMM yyyy')}
+                                </p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-slate-500 text-center">
+                            Are you sure you want to approve this request?
+                        </p>
+                    </div>
+                )}
+            </Modal>
         </div>
     )
 }
@@ -239,7 +325,8 @@ const RequestCard = ({ item, onApprove, onReject, isProcessing, isHistory }) => 
     return (
         <Card className={clsx(
             "p-5 transition-all border border-slate-200 dark:border-slate-800",
-            !isHistory && "hover:border-blue-400 dark:hover:border-blue-700 hover:shadow-md"
+            !isHistory && "hover:border-blue-400 dark:hover:border-blue-700 hover:shadow-md",
+            isLeave && "border-l-4 border-l-indigo-600 shadow-indigo-100 dark:shadow-none bg-indigo-50/10"
         )}>
             <div className="flex flex-col md:flex-row gap-5 items-start">
 
@@ -273,17 +360,32 @@ const RequestCard = ({ item, onApprove, onReject, isProcessing, isHistory }) => 
                         </div>
                     </div>
 
-                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 space-y-2 mt-2">
+                    <div className={clsx(
+                        "rounded-xl mt-3 transition-colors",
+                        !isLeave && "bg-slate-50 dark:bg-slate-800/50 p-3 space-y-2"
+                    )}>
                         {isLeave ? (
-                            <>
-                                <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                                    <Calendar size={16} className="text-slate-400" />
-                                    <span>{formatDate(item.from)} - {formatDate(item.to)} <span className="text-slate-400">({item.totalDays} Days)</span></span>
+                            <div className="space-y-4 py-1">
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl shrink-0">
+                                        <Calendar size={22} strokeWidth={2} />
+                                    </div>
+                                    <div>
+                                        <div className="font-bold text-slate-800 dark:text-slate-100 text-base leading-tight">
+                                            {format(new Date(item.from), 'do MMM yyyy')} - {format(new Date(item.to), 'do MMM yyyy')}
+                                        </div>
+                                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wide mt-1">
+                                            {item.totalDays} Day{item.totalDays > 1 ? 's' : ''} &bull; <span className="text-indigo-600 dark:text-indigo-400">{item.type} Leave</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="text-sm italic text-slate-600 dark:text-slate-400 pl-6 border-l-2 border-slate-200 dark:border-slate-700">
-                                    "{item.reason || 'No reason specified'}"
+
+                                <div className="pl-12">
+                                    <div className="relative text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 p-3.5 rounded-xl text-sm italic">
+                                        "{item.reason || 'No reason provided'}"
+                                    </div>
                                 </div>
-                            </>
+                            </div>
                         ) : (
                             <>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">

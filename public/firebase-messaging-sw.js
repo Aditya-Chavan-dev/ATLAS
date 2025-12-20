@@ -1,109 +1,73 @@
-// Firebase Messaging Service Worker
-// This handles push notifications when the app is in the background or closed
-
-// Import Firebase scripts
+// Basic Service Worker for FCM
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
-// Firebase config is loaded from the main app's config
-// These are client-side identifiers (not secrets) that are safe to expose
-// They are protected by Firebase Security Rules and domain restrictions
-// See: https://firebase.google.com/docs/projects/api-keys
-
-// The config is injected at build time from environment variables
-// For local development, create a public/config/firebase-sw-config.js file
-// with the firebase config (this file is gitignored)
-
-// Try to load config from injected script, fallback to fetching
+// Events
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker...');
     self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Service worker activated');
     event.waitUntil(clients.claim());
 });
 
-// Initialize Firebase when a push is received
-// Config will be provided by the main app through messaging
-let messagingInitialized = false;
+// Initialize Firebase (Lazy)
+// Logic: If we receive a push, we try to initialize. 
+// Standard FCM behavior handles display automatically for background messages.
+// We only need to handle clicks.
 
-const initializeFirebaseMessaging = async () => {
-    if (messagingInitialized) return;
+let messaging;
 
+const initFirebase = async () => {
+    if (messaging) return messaging;
     try {
-        // Fetch config from the app
         const response = await fetch('/config/firebase-config.json');
         if (response.ok) {
             const config = await response.json();
             firebase.initializeApp(config);
-            messagingInitialized = true;
-            console.log('[SW] Firebase initialized from config file');
+            messaging = firebase.messaging();
+
+            // Optional: Background handler for logging or modifying payload
+            messaging.onBackgroundMessage((payload) => {
+                console.log('[SW] Background Message:', payload);
+                // We let the browser handle the display based on the 'notification' key in payload.
+                // We do NOT call showNotification manually here to avoid duplicates.
+            });
         }
-    } catch (error) {
-        console.log('[SW] Could not fetch config, using default initialization');
-        // Fallback: No hardcoded config for security.
-        // Ensure public/config/firebase-config.json is generated during build.
+    } catch (e) {
+        console.error('[SW] Init failed', e);
     }
 };
 
-// Handle push events
-self.addEventListener('push', async (event) => {
-    console.log('[SW] Push event received');
-
-    await initializeFirebaseMessaging();
-
-    const data = event.data?.json() || {};
-    const notification = data.notification || {};
-
-    const title = notification.title || 'ATLAS Notification';
-    const options = {
-        body: notification.body || 'You have a new notification',
-        icon: '/pwa-192x192.png',
-        badge: '/pwa-192x192.png',
-        tag: data.data?.tag || 'atlas-notification',
-        data: data.data || {},
-        vibrate: [200, 100, 200],
-        actions: [
-            { action: 'open', title: 'Open App' },
-            { action: 'dismiss', title: 'Dismiss' }
-        ]
-    };
-
-    event.waitUntil(
-        self.registration.showNotification(title, options)
-    );
+// Push Event - Ensure Init
+self.addEventListener('push', (event) => {
+    event.waitUntil(initFirebase());
 });
 
-// Handle notification click
+// Click Handler
 self.addEventListener('notificationclick', (event) => {
-    console.log('[SW] Notification clicked:', event);
-
     event.notification.close();
 
-    if (event.action === 'open' || !event.action) {
-        event.waitUntil(
-            clients.matchAll({ type: 'window', includeUncontrolled: true })
-                .then((clientList) => {
-                    for (const client of clientList) {
-                        if (client.url.includes(self.location.origin) && 'focus' in client) {
-                            return client.focus();
-                        }
-                    }
-                    if (clients.openWindow) {
-                        return clients.openWindow('/dashboard');
-                    }
-                })
-        );
-    }
-});
+    // Logic: Focus existing tab or open new
+    // Check data.action for routing
+    const targetUrl = (event.notification.data && event.notification.data.action === 'MARK_ATTENDANCE')
+        ? '/dashboard?action=mark'
+        : '/dashboard';
 
-// Firebase messaging background handler (backup)
-if (typeof firebase !== 'undefined' && firebase.messaging) {
-    const messaging = firebase.messaging();
-    messaging.onBackgroundMessage((payload) => {
-        console.log('[SW] Background message via Firebase:', payload);
-        // Already handled by push event
-    });
-}
+    const fullUrl = new URL(targetUrl, self.location.origin).href;
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+            // Check if tab is open
+            for (let i = 0; i < windowClients.length; i++) {
+                const client = windowClients[i];
+                if (client.url.includes(self.location.origin) && 'focus' in client) {
+                    return client.focus().then(c => c.navigate(fullUrl));
+                }
+            }
+            if (clients.openWindow) {
+                return clients.openWindow(fullUrl);
+            }
+        })
+    );
+});
