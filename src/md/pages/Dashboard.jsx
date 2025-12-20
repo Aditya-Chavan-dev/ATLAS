@@ -116,11 +116,11 @@ export default function MDDashboard() {
             const data = await ApiService.post('/api/fcm/broadcast', { requesterUid: currentUser?.uid })
 
             if (data.success) {
-                // Banking-Grade Confirmation: Zero-Ambiguity
-                const msg = `Broadcast Report: Delivered: ${data.sent} | Failed: ${data.failures} | Pruned: ${data.pruned}`
-                setToast({ type: 'success', message: msg, duration: 6000 })
+                // Spec 8.1 Final Metrics Display
+                const msg = `Broadcast Sent! \nDelivered: ${data.sent} \nFailed: ${data.failures} \nPruned: ${data.pruned}`
+                setToast({ type: 'success', message: msg, duration: 8000 })
             } else {
-                throw new Error(data.error || 'Broadcast Rejected by Server')
+                throw new Error(data.error || 'Broadcast Rejected')
             }
         } catch (error) {
             console.error("Broadcast Logic Failure:", error)

@@ -22,6 +22,7 @@ import MDProfiles from './md/pages/Profiles'
 import MDExport from './md/pages/Export'
 import MDEmployeeManagement from './md/pages/EmployeeManagement'
 import { useAuth } from './context/AuthContext'
+import { requestNotificationPermission, setupForegroundListener } from './services/fcm'
 // Demo mode - completely isolated from production
 import DemoApp from '../demo/DemoApp'
 // Metrics dashboard - owner-only analytics
@@ -68,10 +69,17 @@ function AppContent() {
     const isMD = userRole === ROLES.MD
     const isOwnerRole = userRole === ROLES.OWNER
 
-    // Removed Notification Logic
+    // Notification Integration (Master Spec Section 9)
     useEffect(() => {
-        // App-wide side effects can be placed here
-    }, [currentUser])
+        if (!currentUser) return;
+
+        // Auto-Register Token (Idempotent)
+        requestNotificationPermission(currentUser.uid);
+
+        // Foreground Listener
+        const unsubscribe = setupForegroundListener();
+        return () => unsubscribe && unsubscribe();
+    }, [currentUser]);
 
     // Show loading while checking auth
     if (loading) {
