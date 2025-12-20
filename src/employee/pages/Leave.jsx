@@ -68,7 +68,7 @@ export default function Leave() {
         setPreviewDays(days)
     }, [formData.startDate, formData.endDate])
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault()
         if (!formData.startDate || !formData.endDate || !formData.reason) {
             setToast({ message: 'Please fill all required fields.', type: 'warning' })
@@ -90,30 +90,35 @@ export default function Leave() {
             return
         }
 
-        // Optimistic UI Update
-        const originalForm = { ...formData };
-        setFormData({ type: 'PL', startDate: '', endDate: '', reason: '' })
-        setToast({ message: 'Leave request submitted successfully.', type: 'success' })
+        setIsSubmitting(true)
 
-        // Optimistic Balance Update (Visual Only - real one comes from subscription)
-        // We won't mutate `balance` state because onValue listener handles it, but for 
-        // extremely fast feedback we could temp-decrement. 
-        // Given onValue is fast, we'll rely on subscription for balance, but form reset is crucial.
+        try {
+            // STRICT TRANSACTIONAL FLOW
+            // 1. Send Request to Backend
+            // 2. Await Confirmation (200 OK means DB Write Confirmed)
+            await ApiService.post('/api/leave/apply', {
+                employeeId: currentUser.uid,
+                employeeName: currentUser.displayName || 'Employee',
+                type: formData.type,
+                from: formData.startDate,
+                to: formData.endDate,
+                reason: formData.reason,
+            })
 
-        // Trigger Backend (Fire & Forget for UI)
-        ApiService.post('/api/leave/apply', {
-            employeeId: currentUser.uid,
-            employeeName: currentUser.displayName || 'Employee',
-            type: originalForm.type,
-            from: originalForm.startDate,
-            to: originalForm.endDate,
-            reason: originalForm.reason,
-        }).catch((error) => {
+            // 3. ONLY NOW Show Success (Backend Confirmed)
+            setFormData({ type: 'PL', startDate: '', endDate: '', reason: '' })
+            setToast({ message: 'Leave request submitted successfully.', type: 'success' })
+
+            // The real-time listener (useEffect) will automatically reflect the new leave 
+            // in any history/balance components without manual state updates.
+
+        } catch (error) {
             console.error("Submission failed:", error)
-            // Revert/Notify user
-            setFormData(originalForm) // restore form
-            setToast({ message: 'Sync failed: ' + (error.message || 'Server error'), type: 'error' })
-        })
+            setToast({ message: error.message || 'Server error. Request NOT processed.', type: 'error' })
+            // Do NOT reset form. User can try again.
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
     return (
@@ -220,4 +225,3 @@ export default function Leave() {
         </div>
     )
 }
-
