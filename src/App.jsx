@@ -76,7 +76,16 @@ function AppContent() {
         if (!currentUser) return
 
         // Request Token on login (idempotent, safe to call)
-        requestNotificationPermission(currentUser.uid)
+        requestNotificationPermission(currentUser.uid).then(token => {
+            if (!token && Notification.permission === 'denied') {
+                showNotification({
+                    title: '⚠️ Notifications Blocked',
+                    message: 'You have blocked notifications. Please enable them in browser settings (Lock Icon) to receive critical attendance reminders.',
+                    type: 'error',
+                    duration: 10000
+                })
+            }
+        })
 
         const unsubscribe = setupForegroundListener((payload) => {
             console.log('🔔 UI received notification:', payload)

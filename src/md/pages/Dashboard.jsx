@@ -109,21 +109,22 @@ export default function MDDashboard() {
 
 
     const handleSendReminder = async () => {
-        if (!confirm('Are you sure you want to send a push notification to all employees checking in?')) return
+        if (!confirm('CONFIRM BROADCAST: Send "Attendance Reminder" to ALL active employees?')) return
 
         setSendingReminder(true)
         try {
             const data = await ApiService.post('/api/fcm/broadcast', { requesterUid: currentUser?.uid })
 
             if (data.success) {
-                const msg = `Broadcast Sent: ${data.sent} devices. (Pruned: ${data.pruned})`
-                setToast({ type: 'success', message: msg })
+                // Banking-Grade Confirmation: Zero-Ambiguity
+                const msg = `Broadcast Report: Delivered: ${data.sent} | Failed: ${data.failures} | Pruned: ${data.pruned}`
+                setToast({ type: 'success', message: msg, duration: 6000 })
             } else {
-                throw new Error(data.error || 'Failed to trigger broadcast')
+                throw new Error(data.error || 'Broadcast Rejected by Server')
             }
         } catch (error) {
-            console.error(error)
-            setToast({ type: 'error', message: error.message || 'Failed to connect to notification server' })
+            console.error("Broadcast Logic Failure:", error)
+            setToast({ type: 'error', message: `CRITICAL FAILURE: ${error.message}` })
         } finally {
             setSendingReminder(false)
         }
