@@ -176,16 +176,24 @@ function Login() {
         }
     }
 
+    const [isDownloading, setIsDownloading] = useState(false)
+    const [showIOSHint, setShowIOSHint] = useState(false)
+
     // Install PWA
     const handleInstall = async () => {
         if (canPrompt) {
-            // Truly One-Tap: No modal, just trigger
-            await installApp()
+            setIsDownloading(true)
+            // Small delay to simulate "Fetching Assets" for a more "download" feel
+            setTimeout(async () => {
+                const success = await installApp()
+                setIsDownloading(false)
+            }, 800)
         } else if (isIOS) {
-            showMessage('Install ATLAS', 'To install ATLAS on your iPhone:\n\n1. Tap the Share button (📤) at the bottom\n2. Select "Add to Home Screen"\n3. Tap "Add"', 'info')
+            setShowIOSHint(true)
         } else {
-            // Subtle fallback for non-Chrome Android browsers (rare but possible)
-            showMessage('Install ATLAS', 'To install ATLAS:\n\nTap your browser menu (⋮) and select "Install app" or "Add to Home screen".', 'info')
+            // If they are on Android but prompt isn't ready, 
+            // we don't show the 3 dots. We just say it's preparing.
+            showMessage('Setting Up ATLAS', 'Our high-performance app is preparing for your device. Please wait a moment for the "Install" button to pulse green.', 'info')
         }
     }
 
@@ -319,15 +327,52 @@ function Login() {
                 </button>
 
                 {/* Installation Section */}
+                {/* Installation Link */}
                 {!isInstalled && (
-                    <div className="login-actions pb-4">
-                        <button
-                            className={`install-premium-btn ${canPrompt ? 'pulse-green' : ''}`}
-                            onClick={handleInstall}
+                    <div className="text-center mt-6">
+                        <a
+                            href="/install"
+                            onClick={(e) => {
+                                e.preventDefault()
+                                if (canPrompt) {
+                                    handleInstall()
+                                } else {
+                                    navigate('/install')
+                                }
+                            }}
+                            className="text-blue-600 font-semibold text-sm hover:text-blue-700 transition-colors flex items-center justify-center gap-2"
                         >
-                            <span className="install-icon">⚡</span>
-                            <span>{canPrompt ? 'Install ATLAS Now' : 'Add to Home Screen'}</span>
-                        </button>
+                            <span className="text-lg">📱</span> Download Mobile App
+                        </a>
+                    </div>
+                )}
+
+                {/* iOS Premium Hint */}
+                {showIOSHint && (
+                    <div className="ios-hint-overlay" onClick={() => setShowIOSHint(false)}>
+                        <div className="ios-hint-card" onClick={e => e.stopPropagation()}>
+                            <div className="ios-hint-header">
+                                <h3>Download for iPhone</h3>
+                                <button className="close-hint" onClick={() => setShowIOSHint(false)}>×</button>
+                            </div>
+                            <div className="ios-hint-steps">
+                                <div className="step">
+                                    <span className="step-num">1</span>
+                                    <p>Tap the <strong>Share</strong> button <span className="share-icon-mini">📤</span></p>
+                                </div>
+                                <div className="step">
+                                    <span className="step-num">2</span>
+                                    <p>Scroll down and select <strong>"Add to Home Screen"</strong></p>
+                                </div>
+                                <div className="step">
+                                    <span className="step-num">3</span>
+                                    <p>Tap <strong>"Add"</strong> on the top right</p>
+                                </div>
+                            </div>
+                            <p className="ios-hint-footer text-xs text-slate-400 mt-4 text-center italic">
+                                Once added, ATLAS will behave like a regular app.
+                            </p>
+                        </div>
                     </div>
                 )}
             </div>

@@ -10,7 +10,7 @@ import { database } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
 import ApiService from '../../services/api'
 
-export default function AttendanceModal({ isOpen, onClose, onSuccess }) {
+export default function AttendanceModal({ isOpen, onClose, onSuccess, onOptimisticUpdate }) {
     const { currentUser } = useAuth()
     const [selectedLocation, setSelectedLocation] = useState(null) // 'Office' | 'Site'
     const [siteName, setSiteName] = useState('')
@@ -31,10 +31,10 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess }) {
         setLoading(true)
 
         try {
-            // Save to Firebase
+            // STRICT MODE: Send to backend and wait for confirmation.
             const dateStr = new Date().toISOString().split('T')[0]
             const timestamp = new Date().toISOString()
-            // Use backend API ensuring notification trigger
+
             await ApiService.post('/api/attendance/mark', {
                 uid: currentUser.uid,
                 locationType: selectedLocation,
@@ -51,6 +51,7 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess }) {
             setLoading(false)
         }
     }
+
 
     return (
         <Dialog
@@ -144,11 +145,32 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess }) {
                                 </div>
                             )}
 
-                            {/* Info Message */}
-                            <div className="bg-blue-50 text-blue-700 text-xs p-3 rounded-lg flex items-start">
-                                <span className="mr-2 text-lg">ℹ️</span>
-                                <span className="mt-0.5">Your attendance will be sent to the MD for approval immediately. You will be notified once approved.</span>
-                            </div>
+                            {/* Warning/Info Message */}
+                            {(() => {
+                                const todayStr = new Date().toISOString().split('T')[0];
+                                const isSunday = new Date().getDay() === 0;
+                                const isHoliday = ['2025-01-26', '2025-08-15', '2025-10-02', '2025-12-25'].includes(todayStr);
+
+                                if (isSunday || isHoliday) {
+                                    return (
+                                        <div className="bg-amber-50 text-amber-700 text-xs p-3 rounded-lg flex items-start border border-amber-200">
+                                            <span className="mr-2 text-lg">⚠️</span>
+                                            <div className="mt-0.5">
+                                                <strong>Working on {isHoliday ? 'a Holiday' : 'Sunday'}?</strong>
+                                                <br />
+                                                This will be submitted as a <strong>Comp Off Request</strong>.
+                                                Once approved by MD, you will earn +1 Comp Off balance.
+                                            </div>
+                                        </div>
+                                    )
+                                }
+                                return (
+                                    <div className="bg-blue-50 text-blue-700 text-xs p-3 rounded-lg flex items-start">
+                                        <span className="mr-2 text-lg">ℹ️</span>
+                                        <span className="mt-0.5">Your attendance will be sent to the MD for approval immediately. You will be notified once approved.</span>
+                                    </div>
+                                )
+                            })()}
                         </div>
 
                         {/* Footer */}

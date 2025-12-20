@@ -24,6 +24,16 @@ export default function Home() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [toast, setToast] = useState(null) // { message, type }
 
+    // Auto-open modal from notifications
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        if (params.get('action') === 'mark') {
+            setIsModalOpen(true)
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname)
+        }
+    }, [])
+
     // Fetch Attendance Data
     useEffect(() => {
         if (!currentUser) return

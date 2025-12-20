@@ -14,6 +14,7 @@ import EmployeeHistory from './employee/pages/History'
 import EmployeeLeave from './employee/pages/Leave'
 import EmployeeProfile from './employee/pages/Profile'
 import Login from './pages/Login'
+import InstallPage from './pages/InstallPage'
 import MDDashboard from './md/pages/Dashboard'
 import MDApprovals from './md/pages/Approvals'
 import MDProfiles from './md/pages/Profiles'
@@ -22,7 +23,7 @@ import MDExport from './md/pages/Export'
 import MDEmployeeManagement from './md/pages/EmployeeManagement'
 import { useAuth } from './context/AuthContext'
 import { NotificationProvider, useNotification } from './context/NotificationContext'
-import { setupForegroundListener } from './services/fcm'
+import { setupForegroundListener, requestNotificationPermission } from './services/fcm'
 // Demo mode - completely isolated from production
 import DemoApp from '../demo/DemoApp'
 // Metrics dashboard - owner-only analytics
@@ -70,9 +71,12 @@ function AppContent() {
     const isMD = userRole === ROLES.MD
     const isOwnerRole = userRole === ROLES.OWNER
 
-    // Set up foreground notification listener
+    // Set up foreground notification listener & Request Permission
     useEffect(() => {
         if (!currentUser) return
+
+        // Request Token on login (idempotent, safe to call)
+        requestNotificationPermission(currentUser.uid)
 
         const unsubscribe = setupForegroundListener((payload) => {
             console.log('🔔 UI received notification:', payload)
@@ -81,8 +85,9 @@ function AppContent() {
                 body: payload.notification?.body || 'New message received',
                 actionLabel: payload.data?.action === 'MARK_ATTENDANCE' ? 'Mark Attendance' : null,
                 onAction: () => {
-                    if (payload.data?.action === 'MARK_ATTENDANCE') {
-                        window.location.href = '/dashboard'
+                    const action = payload.data?.action
+                    if (action === 'MARK_ATTENDANCE') {
+                        window.location.href = '/dashboard?action=mark'
                     }
                 }
             })
@@ -164,7 +169,10 @@ function App() {
             {/* Demo route - completely isolated, no auth required */}
             <Route path="/demo" element={<DemoApp />} />
 
-            {/* Main application with auth - includes metrics for owner */}
+            {/* Install route - fast load, no auth required */}
+            <Route path="/install" element={<InstallPage />} />
+
+            {/* Main application with auth - includes metrics for user */}
             <Route path="/*" element={
                 <AuthProvider>
                     <ThemeProvider>

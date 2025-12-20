@@ -1,5 +1,6 @@
 const { db } = require('../config/firebase');
 const { getMessaging } = require('firebase-admin/messaging');
+const { isSunday, isNationalHoliday } = require('../utils/dateUtils');
 
 const messaging = getMessaging();
 
@@ -57,12 +58,25 @@ exports.markAttendance = async (req, res) => {
         const userData = userSnap.val() || {};
         const employeeName = userData.name || 'Employee';
 
+        // STRICT FLOW: Check for Holiday/Sunday
+        const isHoliday = isNationalHoliday(dateStr);
+        const isSun = isSunday(dateStr);
+
+        let status = 'pending';
+        let statusNote = null;
+
+        if (isHoliday || isSun) {
+            status = 'pending_co'; // Special status for CO Request
+            statusNote = isHoliday ? 'Worked on National Holiday' : 'Worked on Sunday';
+        }
+
         const updateData = {
-            status: 'pending',
+            status: status,
             timestamp: timestamp || new Date().toISOString(),
             locationType,
             siteName: siteName || null,
-            mdNotified: false // Flag for idempotency logic if needed detailed tracking
+            mdNotified: false, // Flag for idempotency logic if needed detailed tracking
+            specialNote: statusNote
         };
 
         await attendanceRef.update(updateData);
@@ -130,14 +144,34 @@ exports.updateStatus = async (req, res) => {
         // 1. Update Firebase
         const attendanceRef = db.ref(`users/${employeeUid}/attendance/${date}`);
 
+        // Resolve Final Status per Strict Rules
+        let finalStatus = status;
+        let balanceUpdateMsg = null;
+
+        if (status === 'approved') {
+            finalStatus = 'Present'; // Map action 'approved' to state 'Present'
+
+            // CO Earning Logic
+            const isHoliday = isNationalHoliday(date);
+            const isSun = isSunday(date);
+
+            if (isHoliday || isSun) {
+                // Earned CO
+                const balanceRef = db.ref(`users/${employeeUid}/leaveBalance/co`);
+                await balanceRef.transaction((current) => (current || 0) + 1);
+                balanceUpdateMsg = `Earned 1 CO for working on ${isHoliday ? 'Holiday' : 'Sunday'}`;
+                console.log(`[Attendance] ${balanceUpdateMsg} - ${employeeUid}`);
+            }
+        }
+
         // Prepare update object matching your existing schema
         const updates = {
-            status: status,
+            status: finalStatus,
             actionTimestamp: Date.now(),
             approvedAt: status === 'approved' ? new Date().toISOString() : null,
             rejectedAt: status === 'rejected' ? new Date().toISOString() : null,
             handledBy: actionData?.name || 'MD',
-            mdReason: reason || null,
+            mdReason: reason || balanceUpdateMsg || null,
             employeeNotified: false
         };
 
@@ -147,7 +181,7 @@ exports.updateStatus = async (req, res) => {
         }
 
         await attendanceRef.update(updates);
-        console.log(`[Attendance] Status updated to ${status} for ${employeeUid}`);
+        console.log(`[Attendance] Status updated to ${finalStatus} for ${employeeUid}`);
 
         // Audit Log (Preserving your existing audit logic)
         await db.ref('audit').push({

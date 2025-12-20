@@ -8,8 +8,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-
-      includeAssets: ['ATLAS.jpg', 'logo-transparent.png'],
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      manifestFilename: 'manifest.json',
+      includeAssets: ['pwa-192x192.png', 'pwa-512x512.png', 'logo-transparent.png'],
       manifest: {
         name: 'ATLAS',
         short_name: 'ATLAS',
@@ -22,15 +25,15 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/ATLAS.jpg',
+            src: '/pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/jpeg',
+            type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/ATLAS.jpg',
+            src: '/pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/jpeg',
+            type: 'image/png',
             purpose: 'maskable'
           },
           {
@@ -43,43 +46,10 @@ export default defineConfig({
       },
       // DO NOT CHANGE THIS EVER - REQUIRED FOR ONE REFRESH UPDATES
       registerType: 'autoUpdate',
+      injectRegister: null,
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg}'],
-        skipWaiting: true,
-        clientsClaim: true,
         cleanupOutdatedCaches: true,
-        // END OF REQUIRED PWA CONFIGURATION
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/.*\.firebaseio\.com\/.*/i,
-            handler: 'NetworkOnly'
-          },
-          {
-            urlPattern: /^https:\/\/.*\.googleapis\.com\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 5
-              }
-            }
-          }
-        ]
       }
     }),
   ],

@@ -42,7 +42,7 @@ export default function MDApprovals() {
                 const attendanceRecords = userData.attendance || {}
                 Object.entries(attendanceRecords).forEach(([date, record]) => {
                     // Include pending and history based on status
-                    const isPending = ['pending', 'correction_pending', 'edit_pending'].includes(record.status)
+                    const isPending = ['pending', 'correction_pending', 'edit_pending', 'pending_co'].includes(record.status)
                     attItems.push({
                         id: date,
                         employeeUid: uid,
@@ -87,6 +87,7 @@ export default function MDApprovals() {
 
     const handleAction = async (item, status, reason = '') => {
         setProcessingId(item.id)
+
         try {
             if (item.reqType === 'leave') {
                 const leaveRef = ref(database, `leaves/${item.uid}/${item.id}`)
@@ -111,6 +112,8 @@ export default function MDApprovals() {
                     }
                 })
             }
+            // Strict Mode: We do NOT update the list locally. 
+            // We wait for the Firebase onValue listener to reflect the change from the backend.
             setToast({ type: 'success', message: `Request ${status} successfully` })
         } catch (error) {
             console.error("Error updating status:", error)
@@ -257,6 +260,8 @@ const RequestCard = ({ item, onApprove, onReject, isProcessing, isHistory }) => 
                                 <Badge variant="warning" className="uppercase tracking-wider text-[10px]">Leave Request</Badge>
                             ) : isCorrection ? (
                                 <Badge variant="warning" className="uppercase tracking-wider text-[10px] bg-orange-100 text-orange-700">Correction</Badge>
+                            ) : item.status === 'pending_co' ? (
+                                <Badge variant="warning" className="uppercase tracking-wider text-[10px] bg-purple-100 text-purple-700">Comp Off Earn Request</Badge>
                             ) : (
                                 <Badge variant="info" className="uppercase tracking-wider text-[10px]">Attendance</Badge>
                             )}
