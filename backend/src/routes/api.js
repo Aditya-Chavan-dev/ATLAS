@@ -22,4 +22,12 @@ const attendanceController = require('../controllers/attendanceController');
 router.post('/attendance/mark', attendanceController.markAttendance);
 router.post('/attendance/status', attendanceController.updateStatus);
 
+// Leave Routes
+const leaveController = require('../controllers/leaveController');
+router.post('/leave/apply', leaveController.applyLeave);
+router.get('/leave/history/:employeeId', leaveController.getHistory); // If used
+router.post('/leave/approve', leaveController.approveLeave); // If used via API (MD app uses direct firebase write currently? No, strict mode implies API usage for standard notification/balance)
+router.post('/leave/reject', leaveController.rejectLeave);
+router.post('/leave/cancel', leaveController.cancelLeave);
+
 module.exports = router;

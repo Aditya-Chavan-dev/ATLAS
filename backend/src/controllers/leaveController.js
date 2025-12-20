@@ -61,6 +61,28 @@ exports.applyLeave = async (req, res) => {
         const { employeeId, employeeName, type, from, to, reason } = req.body;
 
         const TodayIST = getTodayDateIST();
+        // ... (validation code)
+
+        // STRICT BALANCE CHECK
+        const daysCount = getLeaveDaysCount(from, to); // This now excludes Holidays/Sundays
+
+        // Fetch Balance
+        const balSnap = await db.ref(`users/${employeeId}/leaveBalance`).once('value');
+        const balance = balSnap.val() || { pl: 17, co: 0 }; // Default 17 PL, 0 CO
+
+        if (type === 'PL') {
+            if (balance.pl < daysCount) {
+                return res.status(400).json({ error: `Insufficient PL Balance. Available: ${balance.pl}, Required: ${daysCount}` });
+            }
+        } else if (type === 'CO') {
+            if (balance.co < daysCount) {
+                return res.status(400).json({ error: `Insufficient Comp Off Balance. Available: ${balance.co}, Required: ${daysCount}` });
+            }
+        } else if (type === 'National Holiday') {
+            return res.status(400).json({ error: 'Cannot apply for National Holiday manually.' });
+        }
+
+        // ... (Rest of logic)
         const dFrom = new Date(from);
         const dToday = new Date(TodayIST);
         dFrom.setHours(0, 0, 0, 0);
@@ -169,6 +191,31 @@ exports.approveLeave = async (req, res) => {
         const leave = snapshot.val();
 
         if (!leave || leave.status !== 'pending') return res.status(400).json({ error: 'Invalid leave request' });
+
+        // STRICT BALANCE DEDUCTION
+        const balanceRef = db.ref(`users/${employeeId}/leaveBalance`);
+
+
+        // Simpler approach: Check then Deduct (Optimistic Locking via Transaction)
+        // Re-implementing correctly:
+        try {
+            await balanceRef.transaction((current) => {
+                const bal = current || { pl: 17, co: 0 };
+                const cost = leave.totalDays;
+
+                if (leave.type === 'PL') {
+                    if (bal.pl < cost) throw new Error('INSUFFICIENT_PL');
+                    bal.pl -= cost;
+                } else if (leave.type === 'CO') {
+                    if (bal.co < cost) throw new Error('INSUFFICIENT_CO');
+                    bal.co -= cost;
+                }
+                return bal;
+            });
+        } catch (err) {
+            // Transaction aborted or threw error
+            return res.status(400).json({ error: 'Insufficient balance for approval' });
+        }
 
         await leaveRef.update({
             status: 'approved',
