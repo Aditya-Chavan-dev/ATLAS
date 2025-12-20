@@ -22,14 +22,20 @@ exports.broadcastAttendance = async (req, res) => {
     try {
         // 1. Validate Requester (MD Check)
         // 1. Validate Requester (MD Check)
-        // Check in 'employees' first, then 'users' to be safe
+        console.log(`[BROADCAST] Security Check for: ${requesterUid}`);
+
         let requesterSnap = await db.ref(`employees/${requesterUid}`).once('value');
         let requester = requesterSnap.val();
+        let source = 'employees';
 
         if (!requester) {
             requesterSnap = await db.ref(`users/${requesterUid}`).once('value');
             requester = requesterSnap.val();
+            source = 'users';
         }
+
+        console.log(`[BROADCAST] Found User in ${source}:`, requester ? 'YES' : 'NO');
+        if (requester) console.log(`[BROADCAST] Role: '${requester.role}'`);
 
         const role = requester?.role?.toLowerCase() || '';
 
