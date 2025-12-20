@@ -1,7 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const notificationController = require('../controllers/notificationController');
-
 // Health Check
 router.get('/', (req, res) => {
     res.json({
@@ -11,11 +9,6 @@ router.get('/', (req, res) => {
         version: '3.0.0 (Lean Render Build)'
     });
 });
-
-// FCM Routes
-router.post('/fcm/register', notificationController.registerToken);
-router.post('/fcm/unregister', notificationController.unregisterToken);
-router.post('/fcm/broadcast', notificationController.broadcastAttendance);
 
 // Attendance Routes (Transactional Notification)
 const attendanceController = require('../controllers/attendanceController');
