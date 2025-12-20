@@ -7,7 +7,7 @@ import Toast from '../components/Toast'
 import ApiService from '../../services/api'
 
 // Sync with backend config manually for frontend preview
-const HOLIDAYS = ['2025-01-26', '2025-08-15', '2025-10-02', '2025-12-25'];
+const HOLIDAYS = ['2025-01-26', '2025-05-01', '2025-08-15', '2025-10-02'];
 
 export default function Leave() {
     const { currentUser } = useAuth()
