@@ -1,5 +1,5 @@
 const { db } = require('../config/firebase');
-const { sendPushNotification } = require('../services/notificationService');
+const notificationService = require('../services/notificationService');
 const { getTodayDateIST, getLeaveDaysCount } = require('../utils/dateUtils');
 
 const checkLeaveOverlap = async (employeeId, start, end) => {
