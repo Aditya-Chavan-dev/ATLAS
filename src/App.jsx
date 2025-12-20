@@ -22,8 +22,6 @@ import MDProfiles from './md/pages/Profiles'
 import MDExport from './md/pages/Export'
 import MDEmployeeManagement from './md/pages/EmployeeManagement'
 import { useAuth } from './context/AuthContext'
-import { NotificationProvider, useNotification } from './context/NotificationContext'
-import { setupForegroundListener, requestNotificationPermission } from './services/fcm'
 // Demo mode - completely isolated from production
 import DemoApp from '../demo/DemoApp'
 // Metrics dashboard - owner-only analytics
@@ -67,46 +65,13 @@ function MDLandingRedirect() {
 
 function AppContent() {
     const { currentUser, userRole, loading } = useAuth()
-    const { showNotification } = useNotification()
     const isMD = userRole === ROLES.MD
     const isOwnerRole = userRole === ROLES.OWNER
 
-    // Set up foreground notification listener & Request Permission
+    // Removed Notification Logic
     useEffect(() => {
-        if (!currentUser) return
-
-        // Request Token on login (idempotent, safe to call)
-        // Request Token on login (idempotent, safe to call)
-        requestNotificationPermission(currentUser.uid).then(token => {
-            const perm = Notification.permission
-            // Diagnostic Toast: Only show if strictly denied or missing token when expected
-            if (!token && perm === 'denied') {
-                showNotification({
-                    title: '🚫 Notifications Blocked',
-                    message: 'Browser Setting: "Blocked". \nAction: Click 🔒 Icon -> Permissions -> Allow -> Reload to fix.',
-                    type: 'error',
-                    duration: 10000 // Long duration to read
-                })
-            }
-        })
-
-        const unsubscribe = setupForegroundListener((payload) => {
-            console.log('🔔 UI received notification:', payload)
-            showNotification({
-                title: payload.notification?.title || 'ATLAS Alert',
-                body: payload.notification?.body || 'New message received',
-                actionLabel: payload.data?.action === 'MARK_ATTENDANCE' ? 'Mark Attendance' : null,
-                onAction: () => {
-                    const action = payload.data?.action
-                    if (action === 'MARK_ATTENDANCE') {
-                        window.location.href = '/dashboard?action=mark'
-                    }
-                }
-            })
-        })
-
-        return () => unsubscribe()
-    }, [currentUser, showNotification])
+        // App-wide side effects can be placed here
+    }, [currentUser])
 
     // Show loading while checking auth
     if (loading) {
@@ -188,10 +153,8 @@ function App() {
             <Route path="/*" element={
                 <AuthProvider>
                     <ThemeProvider>
-                        <NotificationProvider>
-                            <PWAUpdater />
-                            <AppContent />
-                        </NotificationProvider>
+                        <PWAUpdater />
+                        <AppContent />
                     </ThemeProvider>
                 </AuthProvider>
             } />

@@ -9,7 +9,6 @@ import StatCard from '../components/StatCard'
 import Toast from '../components/Toast'
 import RefinedModal from '../../components/ui/RefinedModal'
 import {
-    BellIcon,
     MoonIcon,
     SunIcon,
     ArrowRightOnRectangleIcon,
@@ -82,58 +81,6 @@ export default function Profile() {
         })
     }
 
-    // Local state for optimistic updates
-    const [localNotificationState, setLocalNotificationState] = useState(userProfile?.notificationsEnabled || false)
-
-    // Sync local state with backend when it changes
-    useEffect(() => {
-        if (userProfile) {
-            setLocalNotificationState(userProfile.notificationsEnabled || false)
-        }
-    }, [userProfile?.notificationsEnabled])
-
-    const handleNotificationToggle = async () => {
-        const newState = !localNotificationState
-        // Optimistic Update
-        setLocalNotificationState(newState)
-        setLoading(true)
-
-        try {
-            if (!newState) {
-                // Turn OFF
-                const confirmed = await showConfirm(
-                    'Disable Notifications?',
-                    'You will no longer receive push notifications for attendance reminders.',
-                    'warning'
-                )
-                if (confirmed) {
-                    await import('../../services/fcm').then(mod => mod.removeNotificationToken(currentUser.uid))
-                    setToast({ message: 'Notifications disabled', type: 'success' })
-                } else {
-                    // Revert if cancelled
-                    setLocalNotificationState(true)
-                }
-            } else {
-                // Turn ON
-                const token = await import('../../services/fcm').then(mod => mod.requestNotificationPermission(currentUser.uid))
-                if (token) {
-                    setToast({ message: 'Notifications enabled!', type: 'success' })
-                } else {
-                    setToast({ message: 'Permission denied or failed to enable.', type: 'error' })
-                    // Revert on failure
-                    setLocalNotificationState(false)
-                }
-            }
-        } catch (error) {
-            console.error(error)
-            setToast({ message: 'Failed to update settings.', type: 'error' })
-            // Revert on error
-            setLocalNotificationState(!newState)
-        } finally {
-            setLoading(false)
-        }
-    }
-
     const handleLogout = async () => {
         const confirmed = await showConfirm(
             'Sign Out',
@@ -144,13 +91,6 @@ export default function Profile() {
     }
 
     const menuItems = [
-        {
-            icon: BellIcon,
-            label: 'Notifications',
-            type: 'toggle',
-            value: localNotificationState,
-            action: handleNotificationToggle
-        },
         {
             icon: theme === 'dark' ? SunIcon : MoonIcon,
             label: theme === 'dark' ? 'Light Mode' : 'Dark Mode',
