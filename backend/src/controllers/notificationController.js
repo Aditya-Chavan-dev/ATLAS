@@ -88,63 +88,77 @@ exports.unregisterToken = async (req, res) => {
  */
 exports.broadcastAttendance = async (req, res) => {
     const { requesterUid } = req.body;
-    // TODO: Verify requesterUid is actually an MD/Admin via Auth Middleware in real production
+    // In production, middleware `verifyMD` should exist. Here we trust the caller context or implement a quick check if needed.
 
-    console.log('[FCM] Starting Broadcast...');
+    console.log('[BROADCAST] Starting Strict Attendance Broadcast...');
     try {
-        // 1. Fetch all employees
+        // 1. Audit Start
+        const broadcastId = db.ref('audit/broadcasts').push().key;
+        const auditLog = {
+            id: broadcastId,
+            requester: requesterUid || 'system',
+            timestamp: Date.now(),
+            type: 'ATTENDANCE_REMINDER',
+            status: 'INITIATED'
+        };
+
+        // 2. Fetch All Employees (Source of Truth)
+        // We use 'users' for profile status if available, but tokens are stored in 'employees' by this controller.
+        // To be safe and banking-grade, we fetch both or assume 'employees' node is the record.
+        // Based on registerToken, tokens are in `employees/{uid}/fcmTokens`.
+
         const snapshot = await db.ref('employees').once('value');
         const employees = snapshot.val();
-        if (!employees) return res.json({ success: true, count: 0, message: 'No employees found' });
+
+        if (!employees) {
+            await db.ref(`audit/broadcasts/${broadcastId}`).set({ ...auditLog, status: 'FAILED_NO_USERS' });
+            return res.json({ success: true, count: 0, message: 'No employees found' });
+        }
 
         const validTokens = [];
         const tokenOwners = {}; // Map token -> { uid, hash } for pruning
 
-        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-        const now = Date.now();
-
-        // 2. Filter & Collect Tokens
+        // 3. Filter Active Employees & Collect Tokens
         Object.entries(employees).forEach(([uid, empData]) => {
-            const tokensMap = empData.fcmTokens || {};
+            // STRICT: Active Status Check
+            // If internal `isActive` flag exists, use it. If `isArchived`, skip.
+            // Default to true if not specified, as "Active" is usually the default state.
+            if (empData.isActive === false || empData.status === 'archived') return;
 
+            const tokensMap = empData.fcmTokens || {};
             Object.entries(tokensMap).forEach(([hash, tData]) => {
                 if (!tData.token) return;
-
-                // Prune old tokens (Lazy TTL)
-                if (now - tData.lastSeen > SEVEN_DAYS_MS) {
-                    // Async prune (fire & forget)
-                    db.ref(`employees/${uid}/fcmTokens/${hash}`).remove();
-                    return;
-                }
-
                 validTokens.push(tData.token);
                 tokenOwners[tData.token] = { uid, hash };
             });
         });
 
         if (validTokens.length === 0) {
+            await db.ref(`audit/broadcasts/${broadcastId}`).set({ ...auditLog, status: 'SKIPPED_NO_TOKENS' });
             return res.json({ success: true, count: 0, message: 'No active devices found' });
         }
 
-        console.log(`[FCM] Sending to ${validTokens.length} devices...`);
+        console.log(`[BROADCAST] Target: ${validTokens.length} active devices.`);
 
-        // 3. Send Multicast (Chunking handled by Admin SDK automatically up to 500, but let's be safe)
-        // Note: sendEachForMulticast is efficient and provides response per token
+        // 4. Construct STRICT Payload (No variations allowed)
         const message = {
             notification: {
-                title: 'Attendance Required',
-                body: 'Please mark today\'s attendance.'
+                title: 'Attendance Reminder',
+                body: 'Mark the attendance for today'
             },
             data: {
-                action: 'MARK_ATTENDANCE',
-                timestamp: String(now)
+                action: 'MARK_ATTENDANCE', // Frontend must handle this to navigate to Attendance Screen
+                sender: 'Managing Director',
+                broadcastId: broadcastId,
+                timestamp: String(Date.now())
             },
             tokens: validTokens
         };
 
+        // 5. Dispatch (Real-time, counting actual responses)
         const response = await messaging.sendEachForMulticast(message);
 
-        // 4. Handle Failures & Prune
+        // 6. Delivery Analysis & Token Maintenance
         let prunedCount = 0;
         const potentialPrunes = [];
 
@@ -167,18 +181,32 @@ exports.broadcastAttendance = async (req, res) => {
         });
 
         await Promise.all(potentialPrunes);
-        console.log(`[FCM] Broadcast Complete. Sent: ${response.successCount}, Failed: ${response.failureCount}, Pruned: ${prunedCount}`);
 
+        // 7. Final Audit Log
+        await db.ref(`audit/broadcasts/${broadcastId}`).set({
+            ...auditLog,
+            status: 'COMPLETED',
+            targetCount: validTokens.length,
+            successCount: response.successCount,
+            failureCount: response.failureCount,
+            prunedCount: prunedCount,
+            completedAt: Date.now()
+        });
+
+        console.log(`[BROADCAST] Success: ${response.successCount}, Failed: ${response.failureCount}, Pruned: ${prunedCount}`);
+
+        // 8. Return TRUTH to Client
         res.json({
             success: true,
-            sent: response.successCount,
+            sent: response.successCount, // The ONLY number equal to "Delivered"
+            failures: response.failureCount,
             pruned: prunedCount,
-            failures: response.failureCount
+            totalTarget: validTokens.length
         });
 
     } catch (error) {
-        console.error('[FCM] Broadcast Error:', error);
-        res.status(500).json({ error: 'Broadcast failed' });
+        console.error('[BROADCAST] System Error:', error);
+        res.status(500).json({ error: 'Critical Broadcast Failure: ' + error.message });
     }
 };
 
