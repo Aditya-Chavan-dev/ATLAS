@@ -56,7 +56,7 @@ const logLeaveHistory = async (employeeId, event, leaveData, actorId, actorRole,
     });
 };
 
-exports.applyLeave = async (req, res) => {
+const applyLeave = async (req, res) => {
     try {
         const { employeeId, employeeName, type, from, to, reason } = req.body;
 
@@ -152,7 +152,7 @@ exports.applyLeave = async (req, res) => {
     }
 };
 
-exports.getHistory = async (req, res) => {
+const getHistory = async (req, res) => {
     try {
         const { employeeId } = req.params;
         const snapshot = await db.ref(`leaves/${employeeId}`).once('value');
@@ -163,7 +163,7 @@ exports.getHistory = async (req, res) => {
     }
 };
 
-exports.getPending = async (req, res) => {
+const getPending = async (req, res) => {
     try {
         const snapshot = await db.ref('leaves').once('value');
         const allLeaves = [];
@@ -183,7 +183,7 @@ exports.getPending = async (req, res) => {
     }
 };
 
-exports.approveLeave = async (req, res) => {
+const approveLeave = async (req, res) => {
     const { leaveId, employeeId, mdId, mdName } = req.body;
     try {
         const leaveRef = db.ref(`leaves/${employeeId}/${leaveId}`);
@@ -262,7 +262,7 @@ exports.approveLeave = async (req, res) => {
     }
 };
 
-exports.rejectLeave = async (req, res) => {
+const rejectLeave = async (req, res) => {
     const { leaveId, employeeId, mdId, mdName, reason } = req.body;
     try {
         const leaveRef = db.ref(`leaves/${employeeId}/${leaveId}`);
@@ -293,7 +293,7 @@ exports.rejectLeave = async (req, res) => {
     }
 };
 
-exports.cancelLeave = async (req, res) => {
+const cancelLeave = async (req, res) => {
     const { leaveId, employeeId, reason } = req.body;
     try {
         const leaveRef = db.ref(`leaves/${employeeId}/${leaveId}`);
