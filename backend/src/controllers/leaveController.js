@@ -5,14 +5,14 @@ const { getTodayDateIST, getLeaveDaysCount } = require('../utils/dateUtils');
 const checkLeaveOverlap = async (employeeId, start, end) => {
     const snapshot = await db.ref(`leaves/${employeeId}`).once('value');
     const leaves = snapshot.val();
-    if (!leaves) return false;
+    if (!leaves) return null;
 
     const startD = new Date(start);
     const endD = new Date(end);
     startD.setHours(0, 0, 0, 0);
     endD.setHours(0, 0, 0, 0);
 
-    return Object.values(leaves).some(leave => {
+    return Object.values(leaves).find(leave => {
         if (['rejected', 'cancelled'].includes(leave.status)) return false;
         const lStart = new Date(leave.from);
         const lEnd = new Date(leave.to);
@@ -38,51 +38,17 @@ const checkAttendanceOverlap = async (employeeId, start, end) => {
         return recordDate >= startD && recordDate <= endD;
     });
 };
+// ... (keep logLeaveHistory as is)
 
-const logLeaveHistory = async (employeeId, event, leaveData, actorId, actorRole, meta = {}) => {
-    const historyRef = db.ref(`leaveHistory/${employeeId}`).push();
-    await historyRef.set({
-        event,
-        leaveRef: leaveData.leaveId,
-        type: leaveData.type,
-        from: leaveData.from,
-        to: leaveData.to,
-        totalDays: leaveData.totalDays,
-        reason: leaveData.reason || null,
-        timestamp: Date.now(),
-        actorId,
-        actorRole,
-        meta
-    });
-};
+
 
 const applyLeave = async (req, res) => {
     try {
         const { employeeId, employeeName, type, from, to, reason } = req.body;
 
         const TodayIST = getTodayDateIST();
-        // ... (validation code)
 
-        // STRICT BALANCE CHECK
-        const daysCount = getLeaveDaysCount(from, to); // This now excludes Holidays/Sundays
-
-        // Fetch Balance
-        const balSnap = await db.ref(`users/${employeeId}/leaveBalance`).once('value');
-        const balance = balSnap.val() || { pl: 17, co: 0 }; // Default 17 PL, 0 CO
-
-        if (type === 'PL') {
-            if (balance.pl < daysCount) {
-                return res.status(400).json({ error: `Insufficient PL Balance. Available: ${balance.pl}, Required: ${daysCount}` });
-            }
-        } else if (type === 'CO') {
-            if (balance.co < daysCount) {
-                return res.status(400).json({ error: `Insufficient Comp Off Balance. Available: ${balance.co}, Required: ${daysCount}` });
-            }
-        } else if (type === 'National Holiday') {
-            return res.status(400).json({ error: 'Cannot apply for National Holiday manually.' });
-        }
-
-        // ... (Rest of logic)
+        // Basic Validation
         const dFrom = new Date(from);
         const dToday = new Date(TodayIST);
         dFrom.setHours(0, 0, 0, 0);
@@ -98,21 +64,44 @@ const applyLeave = async (req, res) => {
         maxDate.setDate(maxDate.getDate() + 30);
         if (new Date(to) > maxDate) return res.status(400).json({ error: 'Cannot apply more than 30 days in advance' });
 
-        const isLeaveOverlap = await checkLeaveOverlap(employeeId, from, to);
-        if (isLeaveOverlap) return res.status(409).json({ error: 'Leave request overlaps with existing leave' });
+
+        // STRICT BALANCE CHECK
+        const daysCount = getLeaveDaysCount(from, to);
+        const balSnap = await db.ref(`users/${employeeId}/leaveBalance`).once('value');
+        const balance = balSnap.val() || { pl: 17, co: 0 };
+
+        if (type === 'PL') {
+            if (balance.pl < daysCount) {
+                return res.status(400).json({ error: `Insufficient PL Balance. Available: ${balance.pl}, Required: ${daysCount}` });
+            }
+        } else if (type === 'CO') {
+            if (balance.co < daysCount) {
+                return res.status(400).json({ error: `Insufficient Comp Off Balance. Available: ${balance.co}, Required: ${daysCount}` });
+            }
+        } else if (type === 'National Holiday') {
+            return res.status(400).json({ error: 'Cannot apply for National Holiday manually.' });
+        }
+
+        // DUPLICATE/OVERLAP CHECK
+        const conflict = await checkLeaveOverlap(employeeId, from, to);
+        if (conflict) {
+            if (conflict.status === 'approved') {
+                return res.status(409).json({ error: 'Request Failed: You already have an approved leave for these dates.' });
+            }
+            return res.status(409).json({ error: 'Request Failed: You already have a pending request for these dates.' });
+        }
 
         const isAttendanceOverlap = await checkAttendanceOverlap(employeeId, from, to);
         if (isAttendanceOverlap) {
             const leaveRef = db.ref(`leaves/${employeeId}`).push();
             const leaveId = leaveRef.key;
-
+            // Auto-block logic
             const leaveData = {
                 leaveId, employeeId, employeeName, type, from, to, totalDays, reason,
                 status: 'auto-blocked',
                 appliedAt: Date.now(),
                 conflictNotes: 'Attendance already marked for these dates'
             };
-
             await leaveRef.set(leaveData);
             await logLeaveHistory(employeeId, 'auto-blocked', leaveData, 'system', 'system', { notes: 'Attendance conflict' });
 
@@ -124,6 +113,7 @@ const applyLeave = async (req, res) => {
             return res.status(409).json({ error: 'Attendance already marked for selected dates', conflict: true });
         }
 
+        // Apply
         const leaveRef = db.ref(`leaves/${employeeId}`).push();
         const leaveId = leaveRef.key;
 
@@ -136,6 +126,7 @@ const applyLeave = async (req, res) => {
         await leaveRef.set(leaveData);
         await logLeaveHistory(employeeId, 'applied', leaveData, employeeId, 'employee');
 
+        // Notify MD
         const usersSnap = await db.ref('users').orderByChild('role').equalTo('md').once('value');
         const mds = usersSnap.val() || {};
         const mdTokens = Object.values(mds).map(u => u.fcmToken);
