@@ -321,3 +321,11 @@ exports.cancelLeave = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+module.exports = {
+    applyLeave,
+    getHistory,
+    approveLeave,
+    rejectLeave,
+    cancelLeave
+};
