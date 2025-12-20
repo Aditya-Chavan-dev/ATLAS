@@ -21,11 +21,20 @@ exports.broadcastAttendance = async (req, res) => {
 
     try {
         // 1. Validate Requester (MD Check)
-        const requesterSnap = await db.ref(`employees/${requesterUid}`).once('value');
-        const requester = requesterSnap.val();
+        // 1. Validate Requester (MD Check)
+        // Check in 'employees' first, then 'users' to be safe
+        let requesterSnap = await db.ref(`employees/${requesterUid}`).once('value');
+        let requester = requesterSnap.val();
 
-        if (!requester || (requester.role !== 'MD' && requester.role !== 'owner')) {
-            console.warn(`[BROADCAST] Security Violation: User ${requesterUid} attempted broadcast.`);
+        if (!requester) {
+            requesterSnap = await db.ref(`users/${requesterUid}`).once('value');
+            requester = requesterSnap.val();
+        }
+
+        const role = requester?.role?.toLowerCase() || '';
+
+        if (!requester || (role !== 'md' && role !== 'owner')) {
+            console.warn(`[BROADCAST] Security Violation: User ${requesterUid} (Role: ${requester?.role}) attempted broadcast.`);
             return res.status(403).json({ error: 'Unauthorized: MD Role Required' });
         }
 
