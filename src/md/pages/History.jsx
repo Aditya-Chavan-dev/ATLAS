@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ref, get } from 'firebase/database'
+import { ref, onValue } from 'firebase/database'
 import { database } from '../../firebase/config'
 import Card from '../../components/ui/Card'
 import {
@@ -31,23 +31,18 @@ export default function MDHistory() {
     const [searchTerm, setSearchTerm] = useState('')
 
     useEffect(() => {
-        fetchData()
-    }, [])
-
-    const fetchData = async () => {
-        setLoading(true)
-        try {
-            const usersRef = ref(database, 'users')
-            const snapshot = await get(usersRef)
+        const usersRef = ref(database, 'users')
+        const unsubscribe = onValue(usersRef, (snapshot) => {
             if (snapshot.exists()) {
                 const allUsers = Object.values(snapshot.val()).filter(u => u.role !== 'admin' && u.role !== 'owner')
                 setUsers(allUsers)
+            } else {
+                setUsers([])
             }
-        } catch (error) {
-            console.error(error)
-        }
-        setLoading(false)
-    }
+            setLoading(false)
+        })
+        return () => unsubscribe()
+    }, [])
 
     // Days Generation
     const daysInMonth = eachDayOfInterval({
@@ -159,10 +154,10 @@ export default function MDHistory() {
                     {/* Export */}
                     <button
                         onClick={handleExport}
-                        className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-slate-700 transition"
-                        title="Download Excel"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 dark:shadow-none font-medium text-sm"
                     >
-                        <Download className="w-5 h-5" />
+                        <Download className="w-4 h-4" />
+                        Download Report
                     </button>
                 </div>
             </div>
@@ -216,11 +211,11 @@ export default function MDHistory() {
                                                         <div className="flex items-center justify-center group/cell">
                                                             {/* Indicator Dot */}
                                                             <span className={`text-xs font-bold ${s.type === 'office' ? 'text-slate-900 dark:text-white' :
-                                                                    s.type === 'site' ? 'text-slate-900 dark:text-white' :
-                                                                        s.type === 'absent' ? 'text-red-500' :
-                                                                            s.type === 'leave' ? 'text-orange-500' :
-                                                                                s.type === 'pending' ? 'text-yellow-500' :
-                                                                                    'text-slate-200 dark:text-slate-800'
+                                                                s.type === 'site' ? 'text-slate-900 dark:text-white' :
+                                                                    s.type === 'absent' ? 'text-red-500' :
+                                                                        s.type === 'leave' ? 'text-orange-500' :
+                                                                            s.type === 'pending' ? 'text-yellow-500' :
+                                                                                'text-slate-200 dark:text-slate-800'
                                                                 }`}>
                                                                 {s.type === 'office' ? 'O' :
                                                                     s.type === 'site' ? 'S' :
