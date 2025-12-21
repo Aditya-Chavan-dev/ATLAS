@@ -3,8 +3,8 @@ import { ref, onValue, set, remove, update } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
 import {
-    Search, Plus, Trash2, Edit2,
-    Mail, Calendar, Shield
+    Plus, Trash2, Edit2, PauseCircle,
+    Mail, Shield
 } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -18,6 +18,7 @@ import MDToast from '../components/MDToast'
 export default function MDEmployeeManagement() {
     const { currentUser } = useAuth()
     const [employees, setEmployees] = useState([])
+    // Keeping searchQuery state to preserve logic, but removing UI controls for it
     const [searchQuery, setSearchQuery] = useState('')
     const [loading, setLoading] = useState(true)
     const [toast, setToast] = useState(null)
@@ -34,7 +35,7 @@ export default function MDEmployeeManagement() {
 
     // Fetch Data
     useEffect(() => {
-        const usersRef = ref(database, 'employees') // Updated to 'employees'
+        const usersRef = ref(database, 'employees')
         const unsubscribe = onValue(usersRef, (snapshot) => {
             const data = snapshot.val()
             if (data) {
@@ -56,8 +57,8 @@ export default function MDEmployeeManagement() {
         e.preventDefault()
         setProcessing(true)
         try {
-            const placeholderUid = `emp_${Date.now()}` // Changed prefix to emp_
-            await set(ref(database, `employees/${placeholderUid}`), { // Updated to employees
+            const placeholderUid = `emp_${Date.now()}`
+            await set(ref(database, `employees/${placeholderUid}`), {
                 name: formData.name,
                 email: formData.email,
                 role: formData.role,
@@ -81,7 +82,7 @@ export default function MDEmployeeManagement() {
         if (!selectedEmployee) return
         setProcessing(true)
         try {
-            await update(ref(database, `employees/${selectedEmployee.uid}`), { // Updated to employees
+            await update(ref(database, `employees/${selectedEmployee.uid}`), {
                 name: formData.name,
                 role: formData.role
             })
@@ -100,7 +101,7 @@ export default function MDEmployeeManagement() {
         if (!selectedEmployee) return
         setProcessing(true)
         try {
-            await remove(ref(database, `employees/${selectedEmployee.uid}`)) // Updated to employees
+            await remove(ref(database, `employees/${selectedEmployee.uid}`))
             setIsDeleteModalOpen(false)
             setSelectedEmployee(null)
             setToast({ type: 'success', message: "Member deleted successfully" })
@@ -123,21 +124,19 @@ export default function MDEmployeeManagement() {
         setIsDeleteModalOpen(true)
     }
 
+    // Filter Logic Preserved
     const filteredEmployees = employees.filter(emp =>
         (emp.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
         (emp.email?.toLowerCase() || '').includes(searchQuery.toLowerCase())
     )
 
     return (
-        <div className="space-y-6 animate-fade-in max-w-6xl mx-auto">
+        <div className="space-y-6 animate-fade-in max-w-7xl mx-auto p-4 md:p-6 pb-24 lg:pb-6">
             {toast && <MDToast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-            {/* Header & Actions */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Team Management</h2>
-                    <p className="text-slate-500 dark:text-slate-400">Manage access and roles for your organization</p>
-                </div>
+            {/* Simplified Header */}
+            <div className="flex items-center justify-between">
+                <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Team Management</h2>
                 <Button
                     icon={Plus}
                     onClick={() => setIsAddModalOpen(true)}
@@ -147,96 +146,64 @@ export default function MDEmployeeManagement() {
                 </Button>
             </div>
 
-            {/* Search */}
-            <div className="relative max-w-md">
-                <Input
-                    placeholder="Search by name or email..."
-                    icon={Search}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-white dark:bg-slate-900"
-                />
-            </div>
-
-            {/* Content List */}
+            {/* Content List - Clean Grid of Cards */}
             {loading ? (
                 <div className="text-center py-12">
                     <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
                 </div>
             ) : filteredEmployees.length === 0 ? (
                 <div className="text-center py-12 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-dashed border-slate-200 dark:border-slate-800 text-slate-500">
-                    No members found matching "{searchQuery}"
+                    No members found.
                 </div>
             ) : (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-                    {/* Desktop Table Header */}
-                    <div className="hidden lg:grid grid-cols-12 gap-4 p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium text-slate-500 text-sm">
-                        <div className="col-span-5">Member</div>
-                        <div className="col-span-3">Role</div>
-                        <div className="col-span-3">Joined</div>
-                        <div className="col-span-1 text-right">Actions</div>
-                    </div>
-
-                    {/* Rows */}
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {filteredEmployees.map((emp) => (
-                            <div key={emp.uid} className="group lg:grid lg:grid-cols-12 lg:gap-4 p-4 items-center hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-
-                                {/* Mobile-Optimized View: Flex Layout */}
-                                {/* Desktop: Col Span 5 */}
-                                <div className="col-span-5 flex items-center gap-3 mb-2 lg:mb-0">
-                                    <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300">
-                                        {emp.name?.[0]?.toUpperCase() || 'U'}
-                                    </div>
-                                    <div>
-                                        <div className="font-semibold text-slate-900 dark:text-white">{emp.name}</div>
-                                        <div className="text-sm text-slate-500 flex items-center gap-1.5">
-                                            <Mail size={12} /> {emp.email}
-                                        </div>
-                                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {filteredEmployees.map((emp) => (
+                        <div
+                            key={emp.uid}
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm flex flex-col gap-4 hover:shadow-md transition-shadow"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300 text-lg">
+                                    {emp.name?.[0]?.toUpperCase() || 'U'}
                                 </div>
-
-                                {/* Role */}
-                                <div className="col-span-3 mb-2 lg:mb-0 pl-[52px] lg:pl-0">
-                                    <div className="lg:hidden text-xs text-slate-400 mb-1">Role</div>
-                                    <Badge variant={emp.role === 'admin' ? 'primary' : 'default'} className="uppercase text-[10px] tracking-wider">
-                                        {emp.role}
-                                    </Badge>
-                                </div>
-
-                                {/* Joined */}
-                                <div className="col-span-3 mb-2 lg:mb-0 pl-[52px] lg:pl-0">
-                                    <div className="lg:hidden text-xs text-slate-400 mb-1">Joined</div>
-                                    <div className="text-sm text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                                        <Calendar size={14} />
-                                        {emp.createdAt ? format(new Date(emp.createdAt), 'MMM yyyy') : 'N/A'}
-                                    </div>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="col-span-1 flex lg:justify-end gap-2 pl-[52px] lg:pl-0 mt-2 lg:mt-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={() => openEdit(emp)}
-                                        className="p-2 rounded-lg text-slate-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 transition-colors"
-                                        title="Edit"
-                                    >
-                                        <Edit2 size={18} />
-                                    </button>
-                                    <button
-                                        onClick={() => openDelete(emp)}
-                                        className="p-2 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors"
-                                        title="Delete"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="font-semibold text-slate-900 dark:text-white truncate" title={emp.name}>
+                                        {emp.name}
+                                    </h3>
+                                    <p className="text-sm text-slate-500 truncate flex items-center gap-1" title={emp.email}>
+                                        {emp.email}
+                                    </p>
                                 </div>
                             </div>
-                        ))}
-                    </div>
+
+                            <div className="flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800 pt-3 mt-auto">
+                                <button
+                                    onClick={() => openEdit(emp)}
+                                    className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                    title="Edit Details"
+                                >
+                                    <Edit2 size={18} />
+                                </button>
+                                <button
+                                    className="p-2 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors cursor-pointer"
+                                    title="Pause Access (Coming Soon)"
+                                >
+                                    <PauseCircle size={18} />
+                                </button>
+                                <button
+                                    onClick={() => openDelete(emp)}
+                                    className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    title="Remove Access"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 
-            {/* --- Modals --- */}
+            {/* --- Modals (Preserved) --- */}
 
             {/* Add Modal */}
             <Modal
