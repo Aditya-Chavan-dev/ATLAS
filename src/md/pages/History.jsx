@@ -68,30 +68,37 @@ export default function MDHistory() {
 
         if (!record) return { type: 'none' }
 
-        if (record.status === 'Present') return {
-            type: 'present',
-            time: record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '',
-            loc: record.siteName || record.locationType
+        if (record.status === 'Present') {
+            return {
+                type: record.locationType === 'Office' ? 'office' : 'site',
+                time: record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '',
+                loc: record.siteName || record.locationType
+            }
         }
         if (record.status === 'Leave') return { type: 'leave' }
         if (record.status === 'Absent') return { type: 'absent' }
         if (record.status === 'pending') return { type: 'pending' }
-        if (record.status === 'Late') return { type: 'late', time: record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '' }
-        if (record.status === 'half-day') return { type: 'half-day' }
+        if (record.status === 'Late') {
+            return {
+                type: record.locationType === 'Office' ? 'office' : 'site',
+                isLate: true,
+                time: record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '',
+                loc: record.siteName || record.locationType
+            }
+        }
+        if (record.status === 'half-day') return { type: 'leave' }
 
         return { type: 'none' }
     }
 
-    // Helper: Calculate aggregates for the row
     const getStats = (user) => {
-        let p = 0, a = 0, l = 0
+        let p = 0, a = 0
         daysInMonth.forEach(day => {
             const s = getStatus(user, day)
-            if (s.type === 'present') p++
-            if (s.type === 'late') { p++; l++ } // Late counts as present present usually? Or separate? Let's count as present but flagged.
+            if (s.type === 'office' || s.type === 'site') p++
             if (s.type === 'absent' || s.type === 'leave') a++
         })
-        return { p, a, l }
+        return { p, a }
     }
 
     // Quick Export for current view
@@ -208,14 +215,19 @@ export default function MDHistory() {
                                                     <td key={day.toISOString()} className={`p-1 text-center relative ${isWknd ? 'bg-slate-50/50 dark:bg-slate-900/50' : ''}`}>
                                                         <div className="flex items-center justify-center group/cell">
                                                             {/* Indicator Dot */}
-                                                            <div className={`w-3 h-3 rounded-full transition-transform hover:scale-125 ${s.type === 'present' ? 'bg-green-500 shadow-sm shadow-green-200 dark:shadow-none' :
-                                                                    s.type === 'late' ? 'bg-yellow-400' :
-                                                                        s.type === 'absent' ? 'bg-red-400' :
-                                                                            s.type === 'leave' ? 'bg-orange-400' :
-                                                                                s.type === 'half-day' ? 'bg-purple-400' :
-                                                                                    s.type === 'pending' ? 'bg-amber-300 ring-2 ring-amber-100' :
-                                                                                        'bg-slate-200 dark:bg-slate-800'
-                                                                }`} />
+                                                            <span className={`text-xs font-bold ${s.type === 'office' ? 'text-slate-900 dark:text-white' :
+                                                                    s.type === 'site' ? 'text-slate-900 dark:text-white' :
+                                                                        s.type === 'absent' ? 'text-red-500' :
+                                                                            s.type === 'leave' ? 'text-orange-500' :
+                                                                                s.type === 'pending' ? 'text-yellow-500' :
+                                                                                    'text-slate-200 dark:text-slate-800'
+                                                                }`}>
+                                                                {s.type === 'office' ? 'O' :
+                                                                    s.type === 'site' ? 'S' :
+                                                                        s.type === 'absent' ? 'A' :
+                                                                            s.type === 'leave' ? 'L' :
+                                                                                s.type === 'pending' ? 'P' : '-'}
+                                                            </span>
 
                                                             {/* Hover Tooltip */}
                                                             {s.type !== 'none' && (
@@ -248,14 +260,12 @@ export default function MDHistory() {
                     </table>
                 </div>
 
-                {/* Footer Legend */}
-                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-wrap gap-6 text-xs text-slate-500 justify-center">
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-500 rounded-full"></div> Present</div>
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-yellow-400 rounded-full"></div> Late</div>
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-400 rounded-full"></div> Absent</div>
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-orange-400 rounded-full"></div> Leave</div>
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-amber-300 ring-2 ring-amber-100 rounded-full"></div> Pending</div>
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-slate-200 dark:bg-slate-800 rounded-full"></div> N/A</div>
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-wrap gap-8 text-xs font-bold text-slate-600 dark:text-slate-400 justify-center uppercase tracking-wide">
+                    <div className="flex items-center gap-2"><span className="text-slate-900 dark:text-white text-sm">O</span> Office</div>
+                    <div className="flex items-center gap-2"><span className="text-slate-900 dark:text-white text-sm">S</span> Site</div>
+                    <div className="flex items-center gap-2"><span className="text-red-600 text-sm">A</span> Absent</div>
+                    <div className="flex items-center gap-2"><span className="text-orange-500 text-sm">L</span> Leave</div>
+                    <div className="flex items-center gap-2"><span className="text-yellow-500 text-sm">P</span> Pending</div>
                 </div>
             </Card>
         </div>
