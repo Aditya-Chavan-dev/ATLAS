@@ -8,7 +8,9 @@ import {
     ChevronLeft,
     ChevronRight,
     MapPin,
-    Clock
+    Clock,
+    Filter,
+    Download
 } from 'lucide-react'
 import {
     format,
@@ -17,9 +19,10 @@ import {
     eachDayOfInterval,
     isSameDay,
     parseISO,
-    getDate
+    getDate,
+    isWeekend
 } from 'date-fns'
-import { useTheme } from '../../context/ThemeContext'
+import * as XLSX from 'xlsx'
 
 export default function MDHistory() {
     const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'))
@@ -37,8 +40,7 @@ export default function MDHistory() {
             const usersRef = ref(database, 'users')
             const snapshot = await get(usersRef)
             if (snapshot.exists()) {
-                // Filter out admins? Keep them if needed, but usually staff only
-                const allUsers = Object.values(snapshot.val()).filter(u => u.role !== 'admin')
+                const allUsers = Object.values(snapshot.val()).filter(u => u.role !== 'admin' && u.role !== 'owner')
                 setUsers(allUsers)
             }
         } catch (error) {
@@ -47,177 +49,213 @@ export default function MDHistory() {
         setLoading(false)
     }
 
-    // Logic for Calendar Generation
+    // Days Generation
     const daysInMonth = eachDayOfInterval({
         start: startOfMonth(parseISO(selectedMonth + '-01')),
         end: endOfMonth(parseISO(selectedMonth + '-01'))
     })
 
+    // Filter Users
     const filteredUsers = users.filter(u =>
         u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.email?.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
-    // Helper to get status for a user on a date
+    // Helper: Get Status
     const getStatus = (user, dateObj) => {
         const dateStr = format(dateObj, 'yyyy-MM-dd')
         const record = user.attendance?.[dateStr]
 
-        if (!record) return { type: 'none', label: '-' }
+        if (!record) return { type: 'none' }
 
         if (record.status === 'Present') return {
             type: 'present',
-            label: 'P',
             time: record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '',
             loc: record.siteName || record.locationType
         }
-        if (record.status === 'Leave' || record.status === 'Absent') return { type: 'absent', label: 'A' }
-        if (record.status === 'pending') return { type: 'pending', label: '?' }
-        if (record.status === 'Late') return { type: 'late', label: 'L' }
+        if (record.status === 'Leave') return { type: 'leave' }
+        if (record.status === 'Absent') return { type: 'absent' }
+        if (record.status === 'pending') return { type: 'pending' }
+        if (record.status === 'Late') return { type: 'late', time: record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '' }
+        if (record.status === 'half-day') return { type: 'half-day' }
 
-        return { type: 'none', label: '-' }
+        return { type: 'none' }
+    }
+
+    // Helper: Calculate aggregates for the row
+    const getStats = (user) => {
+        let p = 0, a = 0, l = 0
+        daysInMonth.forEach(day => {
+            const s = getStatus(user, day)
+            if (s.type === 'present') p++
+            if (s.type === 'late') { p++; l++ } // Late counts as present present usually? Or separate? Let's count as present but flagged.
+            if (s.type === 'absent' || s.type === 'leave') a++
+        })
+        return { p, a, l }
+    }
+
+    // Quick Export for current view
+    const handleExport = () => {
+        const data = filteredUsers.map(u => {
+            const stats = getStats(u)
+            const row = {
+                'Employee': u.name,
+                'Total Present': stats.p,
+                'Total Absent': stats.a,
+            }
+            daysInMonth.forEach(day => {
+                const s = getStatus(u, day)
+                row[format(day, 'MMM d')] = s.type === 'none' ? '-' : s.type.toUpperCase()
+            })
+            return row
+        })
+        const ws = XLSX.utils.json_to_sheet(data)
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, "Attendance")
+        XLSX.writeFile(wb, `Attendance_${selectedMonth}.xlsx`)
     }
 
     return (
-        <div className="space-y-6 animate-fade-in max-w-full">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="space-y-6 max-w-full h-full flex flex-col">
+
+            {/* Toolbar */}
+            <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Attendance Register</h1>
-                    <p className="text-slate-500 dark:text-slate-400">Master view of all employee attendance history</p>
+                    <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <CalendarIcon className="w-5 h-5 text-blue-600" />
+                        Attendance History
+                    </h1>
+                    <p className="text-sm text-slate-500 font-medium">{format(parseISO(selectedMonth + '-01'), 'MMMM yyyy')}</p>
                 </div>
 
-                {/* Controls */}
-                <div className="flex flex-wrap gap-3 items-center bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="flex items-center gap-3 w-full md:w-auto">
                     {/* Search */}
-                    <div className="relative">
+                    <div className="relative flex-1 md:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Search employee..."
+                            placeholder="Search..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            className="pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
+                            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
                         />
                     </div>
 
-                    {/* Month Picker */}
-                    <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-3">
-                        <input
-                            type="month"
-                            value={selectedMonth}
-                            onChange={e => setSelectedMonth(e.target.value)}
-                            className="bg-transparent text-sm font-medium text-slate-700 dark:text-slate-200 outline-none"
-                        />
-                    </div>
+                    {/* Month */}
+                    <input
+                        type="month"
+                        value={selectedMonth}
+                        onChange={e => setSelectedMonth(e.target.value)}
+                        className="py-2 px-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-sm font-medium border-none outline-none dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                    />
+
+                    {/* Export */}
+                    <button
+                        onClick={handleExport}
+                        className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-slate-700 transition"
+                        title="Download Excel"
+                    >
+                        <Download className="w-5 h-5" />
+                    </button>
                 </div>
             </div>
 
-            {/* Matrix Table */}
-            <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-0 shadow-lg">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
-                                <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-950 p-4 font-semibold text-left text-slate-900 dark:text-white min-w-[200px] border-r border-slate-200 dark:border-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                    Employee
-                                </th>
+            {/* Clean List / Matrix View */}
+            <Card className="flex-1 overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-0 shadow-lg flex flex-col">
+                <div className="overflow-auto flex-1 custom-scrollbar">
+                    <table className="w-full border-collapse">
+                        <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                            <tr>
+                                <th className="sticky left-0 z-30 bg-white dark:bg-slate-900 p-4 text-left border-b border-slate-100 dark:border-slate-800 min-w-[200px]">Employee</th>
                                 {daysInMonth.map(day => (
-                                    <th key={day.toString()} className="p-2 min-w-[40px] text-center font-medium text-slate-500 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800/50">
-                                        <div className="flex flex-col items-center gap-1">
-                                            <span className="text-[10px] uppercase">{format(day, 'EEEEE')}</span>
-                                            <span className={`w-6 h-6 flex items-center justify-center rounded-full ${isSameDay(day, new Date()) ? 'bg-blue-600 text-white font-bold' : ''
-                                                }`}>
-                                                {getDate(day)}
-                                            </span>
+                                    <th key={day.toString()} className={`p-2 min-w-[36px] text-center border-b border-slate-100 dark:border-slate-800 ${isSameDay(day, new Date()) ? 'text-blue-600 font-bold' : ''}`}>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[10px] mb-0.5">{format(day, 'dd')}</span>
+                                            <span className="text-[9px] opacity-70">{format(day, 'EEE')[0]}</span>
                                         </div>
                                     </th>
                                 ))}
+                                <th className="p-4 text-center border-b border-slate-100 dark:border-slate-800 min-w-[80px]">Pres</th>
+                                <th className="p-4 text-center border-b border-slate-100 dark:border-slate-800 min-w-[80px]">Abs</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={daysInMonth.length + 1} className="p-8 text-center text-slate-500">
-                                        Loading Register...
-                                    </td>
-                                </tr>
-                            ) : filteredUsers.length === 0 ? (
-                                <tr>
-                                    <td colSpan={daysInMonth.length + 1} className="p-8 text-center text-slate-500">
-                                        No employees found.
-                                    </td>
-                                </tr>
+                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50 text-sm">
+                            {users.length === 0 ? (
+                                <tr><td colSpan="100" className="p-10 text-center text-slate-400">No data found</td></tr>
                             ) : (
-                                filteredUsers.map(user => (
-                                    <tr key={user.uid} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
-                                        {/* Sticky Name Column */}
-                                        <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50 p-4 font-medium text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center text-xs font-bold">
-                                                    {user.name?.[0] || 'U'}
-                                                </div>
-                                                <div className="truncate max-w-[140px]">
-                                                    {user.name}
-                                                </div>
-                                            </div>
-                                        </td>
-
-                                        {/* Matrix Cells */}
-                                        {daysInMonth.map(day => {
-                                            const status = getStatus(user, day)
-                                            let cellClass = ''
-                                            let textClass = 'text-slate-300 dark:text-slate-700'
-
-                                            if (status.type === 'present') {
-                                                cellClass = 'bg-green-50 dark:bg-green-900/20'
-                                                textClass = 'text-green-600 dark:text-green-400 font-bold'
-                                            } else if (status.type === 'absent') {
-                                                cellClass = 'bg-red-50 dark:bg-red-900/20'
-                                                textClass = 'text-red-600 dark:text-red-400 font-bold'
-                                            } else if (status.type === 'pending') {
-                                                cellClass = 'bg-amber-50 dark:bg-amber-900/20'
-                                                textClass = 'text-amber-600 dark:text-amber-400 font-bold'
-                                            } else if (status.type === 'late') {
-                                                cellClass = 'bg-yellow-50 dark:bg-yellow-900/20'
-                                                textClass = 'text-yellow-600 dark:text-yellow-400 font-bold'
-                                            }
-
-                                            return (
-                                                <td key={day.toISOString()} className={`p-1 border-r border-slate-100 dark:border-slate-800/50 text-center relative group/cell ${cellClass}`}>
-                                                    <div className={`w-8 h-8 mx-auto flex items-center justify-center rounded-lg text-xs cursor-default ${textClass}`}>
-                                                        {status.label}
+                                filteredUsers.map(user => {
+                                    const stats = getStats(user)
+                                    return (
+                                        <tr key={user.uid} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors group">
+                                            {/* Name */}
+                                            <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/30 p-3 pl-4 border-r border-transparent group-hover:border-slate-200 dark:group-hover:border-slate-700 transition-all">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                        {user.name?.[0]}
                                                     </div>
+                                                    <div className="truncate font-medium text-slate-700 dark:text-slate-200 max-w-[120px]" title={user.name}>
+                                                        {user.name}
+                                                    </div>
+                                                </div>
+                                            </td>
 
-                                                    {/* Tooltip on Hover */}
-                                                    {status.type !== 'none' && (
-                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block min-w-[120px] bg-slate-900 text-white text-[10px] p-2 rounded shadow-xl z-50 pointer-events-none">
-                                                            <div className="font-semibold mb-1">{format(day, 'MMM d')}</div>
-                                                            <div className="flex items-center gap-1.5 opacity-90">
-                                                                <Clock className="w-3 h-3" />
-                                                                {status.time || '-'}
-                                                            </div>
-                                                            {status.loc && (
-                                                                <div className="flex items-center gap-1.5 opacity-90 mt-0.5">
-                                                                    <MapPin className="w-3 h-3" />
-                                                                    {status.loc}
+                                            {/* Days */}
+                                            {daysInMonth.map(day => {
+                                                const s = getStatus(user, day)
+                                                const isWknd = isWeekend(day)
+
+                                                return (
+                                                    <td key={day.toISOString()} className={`p-1 text-center relative ${isWknd ? 'bg-slate-50/50 dark:bg-slate-900/50' : ''}`}>
+                                                        <div className="flex items-center justify-center group/cell">
+                                                            {/* Indicator Dot */}
+                                                            <div className={`w-3 h-3 rounded-full transition-transform hover:scale-125 ${s.type === 'present' ? 'bg-green-500 shadow-sm shadow-green-200 dark:shadow-none' :
+                                                                    s.type === 'late' ? 'bg-yellow-400' :
+                                                                        s.type === 'absent' ? 'bg-red-400' :
+                                                                            s.type === 'leave' ? 'bg-orange-400' :
+                                                                                s.type === 'half-day' ? 'bg-purple-400' :
+                                                                                    s.type === 'pending' ? 'bg-amber-300 ring-2 ring-amber-100' :
+                                                                                        'bg-slate-200 dark:bg-slate-800'
+                                                                }`} />
+
+                                                            {/* Hover Tooltip */}
+                                                            {s.type !== 'none' && (
+                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block z-50 whitespace-nowrap">
+                                                                    <div className="bg-slate-900 text-white text-xs px-2 py-1.5 rounded-lg shadow-xl flex flex-col items-center">
+                                                                        <span className="font-bold">{s.type.toUpperCase()}</span>
+                                                                        {s.time && <span className="opacity-80 text-[10px]">{s.time}</span>}
+                                                                        {s.loc && <span className="opacity-80 text-[10px]">{s.loc}</span>}
+                                                                    </div>
+                                                                    <div className="w-2 h-2 bg-slate-900 rotate-45 mx-auto -mt-1"></div>
                                                                 </div>
                                                             )}
-                                                            <div className="mt-1 capitalize text-blue-300 font-medium border-t border-slate-700 pt-1">
-                                                                {status.type}
-                                                            </div>
-                                                            {/* Arrow */}
-                                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
                                                         </div>
-                                                    )}
-                                                </td>
-                                            )
-                                        })}
-                                    </tr>
-                                ))
+                                                    </td>
+                                                )
+                                            })}
+
+                                            {/* Stats */}
+                                            <td className="p-3 text-center font-bold text-slate-700 dark:text-slate-300 bg-slate-50/30 dark:bg-slate-800/10">
+                                                {stats.p}
+                                            </td>
+                                            <td className="p-3 text-center font-medium text-slate-400 dark:text-slate-500 bg-slate-50/30 dark:bg-slate-800/10">
+                                                {stats.a}
+                                            </td>
+                                        </tr>
+                                    )
+                                })
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Footer Legend */}
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-wrap gap-6 text-xs text-slate-500 justify-center">
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-500 rounded-full"></div> Present</div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-yellow-400 rounded-full"></div> Late</div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-400 rounded-full"></div> Absent</div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-orange-400 rounded-full"></div> Leave</div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-amber-300 ring-2 ring-amber-100 rounded-full"></div> Pending</div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-slate-200 dark:bg-slate-800 rounded-full"></div> N/A</div>
                 </div>
             </Card>
         </div>
