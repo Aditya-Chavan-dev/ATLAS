@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, CheckSquare, Users, FileBarChart, LogOut, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, History, CheckSquare, Users, FileBarChart, LogOut, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 
@@ -11,6 +11,7 @@ export default function MDLayout() {
 
     const navigation = [
         { name: 'Dashboard', href: '/md/dashboard', icon: LayoutDashboard, activeIcon: LayoutDashboard },
+        { name: 'History', href: '/md/history', icon: History, activeIcon: History },
         { name: 'Approvals', href: '/md/approvals', icon: CheckSquare, activeIcon: CheckSquare },
         { name: 'Team', href: '/md/employees', icon: Users, activeIcon: Users },
         { name: 'Reports', href: '/md/export', icon: FileBarChart, activeIcon: FileBarChart },

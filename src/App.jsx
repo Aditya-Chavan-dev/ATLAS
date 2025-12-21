@@ -16,6 +16,7 @@ import EmployeeProfile from './employee/pages/Profile'
 import Login from './pages/Login'
 import InstallPage from './pages/InstallPage'
 import MDDashboard from './md/pages/Dashboard'
+import MDHistory from './md/pages/History'
 import MDApprovals from './md/pages/Approvals'
 import MDProfiles from './md/pages/Profiles'
 
@@ -117,6 +118,7 @@ function AppContent() {
                 <Route path="/md" element={<MDLayout />}>
                     <Route index element={<Navigate to="/md/dashboard" replace />} />
                     <Route path="dashboard" element={<MDDashboard />} />
+                    <Route path="history" element={<MDHistory />} />
                     <Route path="approvals" element={<MDApprovals />} />
                     <Route path="employees" element={<MDEmployeeManagement />} />
                     <Route path="profiles" element={<MDProfiles />} />
