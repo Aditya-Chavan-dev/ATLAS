@@ -2,143 +2,241 @@ import React, { useState } from 'react'
 import { ref, get } from 'firebase/database'
 import { database } from '../../firebase/config'
 import {
-    Download, FileSpreadsheet, FileText, Calendar,
-    CheckCircle, AlertCircle
+    Download, Calendar as CalendarIcon,
+    FileSpreadsheet, AlertCircle, CheckCircle2,
+    Loader2
 } from 'lucide-react'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns'
-import * as XLSX from 'xlsx' // assuming installed, or we use CDN/mock logic if not in package.json
-// If XLSX is not available in environment, we can fallback to CSV generation manually
-
-// UI Components
+import { format } from 'date-fns'
+import * as XLSX from 'xlsx'
+import { motion, AnimatePresence } from 'framer-motion'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
 
 export default function MDExport() {
+    // Default to current month
     const [month, setMonth] = useState(format(new Date(), 'yyyy-MM'))
-    const [fileFormat, setFileFormat] = useState('xlsx') // 'xlsx' | 'csv'
-    const [isGenerating, setIsGenerating] = useState(false)
-    const [status, setStatus] = useState(null) // { type: 'success'|'error', message: '' }
+    const [loading, setLoading] = useState(false)
+    const [status, setStatus] = useState(null) // { type: 'success' | 'error', message: '' }
 
     const handleExport = async (e) => {
         e.preventDefault()
-        setIsGenerating(true)
+        setLoading(true)
         setStatus(null)
 
         try {
-            // 1. Fetch Data
-            const usersSnap = await get(ref(database, 'users'))
-            const users = usersSnap.val() || {}
+            // 1. Fetch Users (Source of Truth)
+            const usersRef = ref(database, 'users')
+            const snapshot = await get(usersRef)
 
-            let data = []
-            let filename = `atlas_attendance_${month}`
+            if (!snapshot.exists()) {
+                throw new Error('No user data found in system.')
+            }
 
-            // Fetch attendance for all users for selected month
-            const promises = Object.keys(users).map(async uid => {
-                // Skip admins/MD from attendance report if needed, or keep them. 
-                // Usually admins don't mark attendance.
-                if (users[uid].role === 'admin' || users[uid].role === 'md') return []
+            const users = snapshot.val()
+            let reportData = []
+            const reportMonth = month // yyyy-MM
 
-                const snap = await get(ref(database, `users/${uid}/attendance`))
-                const att = snap.val() || {}
-                // Filter for month
-                const records = Object.values(att).filter(r => r.date && r.date.startsWith(month))
+            // 2. Process Data
+            Object.values(users).forEach(user => {
+                // Filter: Real Employees Only (skip admins/md if desired, or keep for audit)
+                // Let's exclude purely 'admin' roles who don't mark attendance usually
+                if (user.role === 'admin') return
 
-                // If no records, maybe return empty list? 
-                // Or maybe we want a row per day? For now, just rows for existing records.
-                return records.map(r => ({
-                    Employee: users[uid].name,
-                    Date: r.date,
-                    Status: r.status,
-                    Location: r.location,
-                    CheckInTime: r.timestamp ? format(new Date(r.timestamp), 'h:mm a') : '-',
-                    Site: r.siteName || '-'
-                }))
+                // Check attendance
+                if (user.attendance) {
+                    const records = Object.values(user.attendance).filter(record =>
+                        record.date && record.date.startsWith(reportMonth)
+                    )
+
+                    // Provide a row for every record found
+                    records.forEach(record => {
+                        reportData.push({
+                            'Employee Name': user.name || 'Unknown',
+                            'Email': user.email || '-',
+                            'Date': record.date,
+                            'Status': record.status,
+                            'Location Type': record.locationType || '-',
+                            'Site Name': record.siteName || (record.locationType === 'Office' ? 'Office' : '-'),
+                            'Check-in Time': record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '-',
+                            'Approval Status': record.status === 'Present' ? 'Approved' : 'Pending/Rejected'
+                        })
+                    })
+                }
             })
 
-            const results = await Promise.all(promises)
-            data = results.flat().sort((a, b) => a.Date.localeCompare(b.Date))
+            // 3. Sort by Date then Name
+            reportData.sort((a, b) => {
+                const dateCompare = a['Date'].localeCompare(b['Date'])
+                if (dateCompare !== 0) return dateCompare
+                return a['Employee Name'].localeCompare(b['Employee Name'])
+            })
 
-            if (data.length === 0) {
-                setStatus({ type: 'error', message: 'No attendance records found for this month.' })
-                setIsGenerating(false)
+            if (reportData.length === 0) {
+                setStatus({ type: 'error', message: `No attendance records found for ${month}` })
+                setLoading(false)
                 return
             }
 
-            // 2. Generate File
-            const worksheet = XLSX.utils.json_to_sheet(data)
+            // 4. Generate Excel
+            const worksheet = XLSX.utils.json_to_sheet(reportData)
+
+            // Auto-width for columns (simple heuristic)
+            const colWidths = Object.keys(reportData[0]).map(key => ({
+                wch: Math.max(key.length, 15)
+            }))
+            worksheet['!cols'] = colWidths
+
             const workbook = XLSX.utils.book_new()
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance")
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Monthly Attendance")
 
-            XLSX.writeFile(workbook, `${filename}.xlsx`)
+            // 5. Download
+            const fileName = `ATLAS_Attendance_${month}.xlsx`
+            XLSX.writeFile(workbook, fileName)
 
-            setStatus({ type: 'success', message: 'Attendance report generated successfully.' })
+            setStatus({ type: 'success', message: 'Report downloaded successfully!' })
 
         } catch (error) {
-            console.error(error)
-            setStatus({ type: 'error', message: 'Failed to generate report. Please try again.' })
+            console.error('Export failed:', error)
+            setStatus({ type: 'error', message: error.message || 'Failed to generate report' })
         } finally {
-            setIsGenerating(false)
+            setLoading(false)
         }
     }
 
     return (
-        <div className="page-container p-6 max-w-2xl mx-auto animate-fade-in">
-            <div className="mb-8 text-center">
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Export Attendance</h1>
-                <p className="text-slate-500 dark:text-slate-400">Download monthly attendance reports for all employees.</p>
+        <div className="max-w-4xl mx-auto space-y-8 animate-fade-in p-2">
+
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                        Attendance Reports
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1 text-lg">
+                        Export detailed attendance logs for payroll and compliance.
+                    </p>
+                </div>
             </div>
 
-            <Card className="p-8 border border-slate-200 dark:border-slate-800 shadow-lg">
-                <form onSubmit={handleExport} className="space-y-8">
-
-                    {/* Report Type Visual (Static) */}
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
-                            <Calendar size={24} />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Control Card */}
+                <div className="lg:col-span-2">
+                    <Card className="p-0 overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-none h-full flex flex-col">
+                        <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-900/50">
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <FileSpreadsheet className="w-6 h-6 text-blue-600 dark:text-blue-500" />
+                                Generate Report
+                            </h2>
                         </div>
-                        <div>
-                            <div className="font-semibold text-slate-900 dark:text-white">Monthly Attendance Report</div>
-                            <div className="text-sm text-slate-500 dark:text-slate-400">Aggregated attendance data for all staff</div>
+
+                        <div className="p-8 flex-1 flex flex-col gap-8">
+                            {/* Month Selector */}
+                            <div className="space-y-4">
+                                <label className="block text-sm font-semibold text-slate-900 dark:text-slate-200 uppercase tracking-wider">
+                                    Select Period
+                                </label>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <CalendarIcon className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                    </div>
+                                    <input
+                                        type="month"
+                                        value={month}
+                                        onChange={(e) => setMonth(e.target.value)}
+                                        className="block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-lg font-medium shadow-sm"
+                                    />
+                                </div>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    Report includes all active employees, site visits, and approval statuses.
+                                </p>
+                            </div>
+
+                            {/* Action Area */}
+                            <div className="mt-auto pt-4">
+                                <Button
+                                    onClick={handleExport}
+                                    disabled={loading}
+                                    className="w-full h-16 text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25 active:scale-[0.98] transition-all rounded-xl flex items-center justify-center gap-3"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <Loader2 className="w-6 h-6 animate-spin" />
+                                            Generating Excel...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Download className="w-6 h-6" />
+                                            Download Excel Report
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
                         </div>
-                    </div>
+                    </Card>
+                </div>
 
-                    {/* Date Range */}
-                    <div className="space-y-3">
-                        <label className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">Select Month</label>
-                        <input
-                            type="month"
-                            value={month}
-                            onChange={(e) => setMonth(e.target.value)}
-                            className="w-full text-lg p-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
-                        />
-                    </div>
+                {/* Info / Status Side Panel */}
+                <div className="space-y-6">
+                    {/* Status Card */}
+                    <AnimatePresence mode="wait">
+                        {status && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                            >
+                                <Card className={`p-6 border-l-4 shadow-sm ${status.type === 'success'
+                                        ? 'border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10'
+                                        : 'border-l-red-500 bg-red-50/50 dark:bg-red-900/10'
+                                    }`}>
+                                    <div className="flex items-start gap-3">
+                                        {status.type === 'success' ? (
+                                            <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
+                                        ) : (
+                                            <AlertCircle className="w-6 h-6 text-red-600 shrink-0" />
+                                        )}
+                                        <div>
+                                            <h3 className={`font-bold ${status.type === 'success' ? 'text-emerald-900 dark:text-emerald-400' : 'text-red-900 dark:text-red-400'
+                                                }`}>
+                                                {status.type === 'success' ? 'Ready!' : 'Error'}
+                                            </h3>
+                                            <p className={`text-sm mt-1 ${status.type === 'success' ? 'text-emerald-800 dark:text-emerald-300' : 'text-red-800 dark:text-red-300'
+                                                }`}>
+                                                {status.message}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </Card>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
-                    {/* Format Selection Removed as per Request */}
-
-                    {/* Submit */}
-                    <Button
-                        size="lg"
-                        className="w-full h-14 text-base shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all bg-brand-primary"
-                        loading={isGenerating}
-                        icon={Download}
-                    >
-                        {isGenerating ? 'Generating Report...' : 'Download Report'}
-                    </Button>
-
-                    {/* Status Message */}
-                    {status && (
-                        <div className={`p-4 rounded-lg flex items-center gap-3 text-sm animate-fade-in ${status.type === 'success'
-                            ? 'bg-green-50 text-green-700 border border-green-200'
-                            : 'bg-red-50 text-red-700 border border-red-200'
-                            }`}>
-                            {status.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
-                            {status.message}
-                        </div>
-                    )}
-
-                </form>
-            </Card>
+                    {/* Quick Stats or Tips */}
+                    <Card className="p-6 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 border-dashed">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">
+                            Report Columns
+                        </h3>
+                        <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                            <li className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                Employee Details
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                Exact Check-in Time
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                GPS Location / Site Name
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                Approval Status
+                            </li>
+                        </ul>
+                    </Card>
+                </div>
+            </div>
         </div>
     )
 }
