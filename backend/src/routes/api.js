@@ -30,4 +30,8 @@ router.post('/leave/approve', leaveController.approveLeave); // If used via API 
 router.post('/leave/reject', leaveController.rejectLeave);
 router.post('/leave/cancel', leaveController.cancelLeave);
 
+// Dashboard Routes
+const dashboardController = require('../controllers/dashboardController');
+router.get('/dashboard/stats', dashboardController.getDashboardStats);
+
 module.exports = router;

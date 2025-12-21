@@ -78,34 +78,31 @@ export default function MDDashboard() {
         }
     }, [])
 
-    // Derived Stats (Realtime Calculation)
-    useEffect(() => {
-        if (employees.length === 0) {
-            setStats({ total: 0, present: 0, onLeave: 0, onSite: 0 })
-            return
-        }
-
-        const todayStr = new Date().toISOString().split('T')[0]
-        let present = 0
-        let onLeave = 0
-        let onSite = 0
-
-        employees.forEach(emp => {
-            const todayRecord = emp.attendance?.[todayStr]
-            if (todayRecord) {
-                if (todayRecord.status === 'Present') present++
-                if (todayRecord.status === 'Absent' || todayRecord.status === 'Leave') onLeave++
-                if (todayRecord.locationType === 'Site') onSite++
+    // Derived Stats (Server-Side Canonical Truth)
+    const fetchStats = async () => {
+        try {
+            const data = await ApiService.get('/api/dashboard/stats')
+            if (data && data.success) {
+                setStats({
+                    total: data.data.totalEmployees,
+                    present: data.data.presentToday,
+                    onLeave: data.data.onLeave,
+                    onSite: data.data.onSite
+                })
             }
-        })
+        } catch (error) {
+            console.error('Failed to fetch strict stats:', error)
+        }
+    }
 
-        setStats({
-            total: employees.length,
-            present,
-            onLeave,
-            onSite
-        })
-    }, [employees])
+    useEffect(() => {
+        fetchStats()
+        // Optional: Poll every 30s to stay banking-grade accurate without reload
+        const interval = setInterval(fetchStats, 30000)
+        return () => clearInterval(interval)
+    }, [])
+
+    /* Removed Client-Side Calculation to Enforce Logic Governance */
 
 
     const handleSendReminder = async () => {
