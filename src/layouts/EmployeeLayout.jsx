@@ -139,7 +139,7 @@ export default function EmployeeLayout() {
             </main>
 
             {/* --- Mobile Bottom Navigation (Hidden on Desktop) --- */}
-            <nav className="lg:hidden fixed bottom-6 left-6 right-6 h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl flex justify-around items-center z-50 safe-area-pb shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-1 ring-slate-900/5 dark:ring-white/10">
+            <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-[safe-area-inset-bottom-plus-4rem] pb-[safe-area-inset-bottom] bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 rounded-t-3xl flex justify-around items-center z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] px-2">
                 {navigation.map((item) => {
                     const isActive = location.pathname.startsWith(item.href)
                     const Icon = isActive ? item.activeIcon : item.icon
@@ -148,19 +148,23 @@ export default function EmployeeLayout() {
                         <button
                             key={item.name}
                             onClick={() => handleNavClick(item.href)}
-                            className="group flex flex-col items-center justify-center w-full h-full active:scale-95 transition-transform duration-150 relative"
+                            className={`group flex flex-col items-center justify-center w-full h-full transition-all duration-300 relative ${isActive ? 'flex-grow px-2' : ''}`}
                         >
-                            {/* Active Indicator Dot */}
+                            {/* Active Indicator Splash */}
                             {isActive && (
-                                <span className="absolute -top-1 w-1 h-1 bg-blue-600 dark:bg-blue-500 rounded-full animate-scale-in" />
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-2xl -z-10 animate-scale-in" />
                             )}
 
                             <Icon
-                                className={`w-6 h-6 mb-1 transition-colors duration-200 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'
+                                className={`w-6 h-6 transition-all duration-300 ${isActive
+                                    ? 'text-blue-600 dark:text-blue-400 -translate-y-1'
+                                    : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'
                                     }`}
                             />
                             <span
-                                className={`text-[10px] transition-all duration-200 ${isActive ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-400 dark:text-slate-500 font-medium'
+                                className={`text-[10px] font-bold absolute bottom-2 transition-all duration-300 transform ${isActive
+                                    ? 'opacity-100 translate-y-0 text-blue-600 dark:text-blue-400'
+                                    : 'opacity-0 translate-y-2 pointer-events-none'
                                     }`}
                             >
                                 {item.name}
@@ -172,8 +176,7 @@ export default function EmployeeLayout() {
                     onClick={toggleTheme}
                     className="flex flex-col items-center justify-center w-full h-full active:scale-95 transition-transform duration-150 relative text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                 >
-                    {theme === 'dark' ? <SunIcon className="w-6 h-6 mb-1" /> : <MoonIcon className="w-6 h-6 mb-1" />}
-                    <span className="text-[10px] font-medium">Theme</span>
+                    {theme === 'dark' ? <SunIcon className="w-6 h-6" /> : <MoonIcon className="w-6 h-6" />}
                 </button>
             </nav>
         </div>
