@@ -19,15 +19,11 @@ const initFirebase = async () => {
             firebase.initializeApp(config);
             messaging = firebase.messaging();
 
-            // Background Handler (Critical for "Terminated" state)
-            // This allows us to handle data-only messages if we ever use them,
-            // or just ensures the Worker is "alive" for the push event.
             messaging.onBackgroundMessage((payload) => {
                 console.log('[SW] Background Message:', payload);
-                // Standard FCM notification display is automated by the browser 
-                // when 'notification' key is present in payload.
-                // We DO NOT manually showNotification here to avoid duplicates.
             });
+        } else {
+            console.error('[SW] Config fetch failed:', response.status);
         }
     } catch (e) {
         console.error('[SW] Init failed', e);

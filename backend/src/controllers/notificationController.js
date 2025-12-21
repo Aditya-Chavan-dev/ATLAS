@@ -4,15 +4,12 @@ const { getMessaging } = require('firebase-admin/messaging');
 const messaging = getMessaging();
 
 /**
- * STRICT BROADCAST IMPLEMENTATION
+ * STRICT BROADCAST IMPLEMENTATION (Consolidated to 'users' node)
  * Spec Section 7.3
  */
 exports.broadcastAttendance = async (req, res) => {
     // 0. Security Barrier (Middleware should usually handle this, but we enforce here for safety)
     const { requesterUid } = req.body;
-
-    // In a real production env, you would extract uid from the Bearer token. 
-    // For this implementation, we assume the route is protected or we verify the requester status now.
 
     const broadcastId = db.ref('audit/broadcasts').push().key; // Generate ID upfront
     const timestamp = Date.now();
@@ -21,51 +18,44 @@ exports.broadcastAttendance = async (req, res) => {
 
     try {
         // 1. Validate Requester (MD Check)
-        // 1. Validate Requester (MD Check)
-        console.log(`[BROADCAST] Security Check for: ${requesterUid}`);
+        // Standardize on 'users' node
+        const requesterSnap = await db.ref(`users/${requesterUid}`).once('value');
+        const requester = requesterSnap.val();
 
-        let requesterSnap = await db.ref(`employees/${requesterUid}`).once('value');
-        let requester = requesterSnap.val();
-        let source = 'employees';
-
-        if (!requester) {
-            requesterSnap = await db.ref(`users/${requesterUid}`).once('value');
-            requester = requesterSnap.val();
-            source = 'users';
-        }
-
-        console.log(`[BROADCAST] Found User in ${source}:`, requester ? 'YES' : 'NO');
-        if (requester) console.log(`[BROADCAST] Role: '${requester.role}'`);
+        if (requester) console.log(`[BROADCAST] Found User in users. Role: '${requester.role}'`);
 
         const role = requester?.role?.toLowerCase() || '';
 
+        // Strict Role Check: MD or Owner
         if (!requester || (role !== 'md' && role !== 'owner')) {
             console.warn(`[BROADCAST] Security Violation: User ${requesterUid} (Role: ${requester?.role}) attempted broadcast.`);
-            // return res.status(403).json({ error: 'Unauthorized: MD Role Required' });
-            console.log('--- BYPASSING SECURITY FOR DEBUGGING ---');
+            return res.status(403).json({ error: 'Unauthorized: MD Role Required' });
         }
 
         // 2. Fetch Audience (Active Employees Only)
-        // Spec Section 4.1: Eligible if role=employee AND isActive=true AND has tokens
-        const employeesSnap = await db.ref('employees').once('value');
-        const employees = employeesSnap.val() || {};
+        // Switch to query 'users' to match Dashboard logic
+        const usersSnap = await db.ref('users').once('value');
+        const users = usersSnap.val() || {};
 
         let eligibleTokens = [];
         const tokenOwnerMap = {}; // Map token -> { uid, tokenKey } for pruning
 
-        Object.entries(employees).forEach(([uid, emp]) => {
+        Object.entries(users).forEach(([uid, user]) => {
             // Strict Eligibility Check
-            // Note: We include 'MD' in finding tokens if the MD wants to test, 
-            // but Spec 4.2 says "Ineligible Users: MD users (Explicitly Excluded)".
-            // adhering to Spec 4.2: Exclude MDs from receiving the reminder.
 
-            if (emp.role === 'MD' || emp.role === 'owner') return; // Exclude MD/Owner from receiving
-            if (emp.isActive === false || emp.status === 'archived') return;
+            // Exclude Privileged Roles
+            const uRole = (user.role || '').toLowerCase();
+            if (uRole === 'md' || uRole === 'owner' || uRole === 'admin') return;
 
-            if (emp.fcmTokens) {
-                Object.entries(emp.fcmTokens).forEach(([key, tokenData]) => {
+            // Exclude Inactive
+            if (user.isActive === false || user.status === 'archived') return;
+
+            // Check for tokens
+            if (user.fcmTokens) {
+                Object.entries(user.fcmTokens).forEach(([key, tokenData]) => {
                     const token = tokenData.token;
-                    if (typeof token === 'string' && token.length > 32) { // Basic sanity check
+                    // Basic sanity check
+                    if (typeof token === 'string' && token.length > 20) {
                         eligibleTokens.push(token);
                         tokenOwnerMap[token] = { uid, key };
                     }
@@ -123,7 +113,7 @@ exports.broadcastAttendance = async (req, res) => {
                     if (owner) {
                         // Immediate Prune
                         prunePromises.push(
-                            db.ref(`employees/${owner.uid}/fcmTokens/${owner.key}`).remove()
+                            db.ref(`users/${owner.uid}/fcmTokens/${owner.key}`).remove()
                         );
                         pruned++;
                     }
@@ -194,12 +184,13 @@ exports.registerToken = async (req, res) => {
 
     try {
         const hash = hashToken(token);
-        // Store under employees/{uid}/fcmTokens/{hash}
-        await db.ref(`employees/${uid}/fcmTokens/${hash}`).set({
+        // Store under users/{uid}/fcmTokens/{hash} to match Dashboard data source
+        await db.ref(`users/${uid}/fcmTokens/${hash}`).set({
             token,
             lastSeen: Date.now(),
             userAgent: req.headers['user-agent'] || 'unknown'
         });
+
         res.json({ success: true });
     } catch (e) {
         console.error('[FCM] Register Fail:', e);
@@ -213,7 +204,7 @@ exports.unregisterToken = async (req, res) => {
 
     try {
         const hash = hashToken(token);
-        await db.ref(`employees/${uid}/fcmTokens/${hash}`).remove();
+        await db.ref(`users/${uid}/fcmTokens/${hash}`).remove();
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: 'Storage Error' });
