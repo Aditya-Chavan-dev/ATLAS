@@ -1,5 +1,6 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, History, CheckSquare, Users, FileBarChart, LogOut, Sun, Moon } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 
@@ -80,9 +81,20 @@ export default function MDLayout() {
 
             {/* --- Main Content Area --- */}
             {/* Added lg:ml-64 to push content when sidebar is visible */}
-            <main className="flex-1 lg:ml-64 min-w-0 h-full overflow-y-auto pb-24 lg:pb-0">
+            <main className="flex-1 lg:ml-64 min-w-0 h-full overflow-y-auto pb-24 lg:pb-0 bg-slate-50 dark:bg-slate-950">
                 <div className="max-w-6xl mx-auto w-full h-full p-4 lg:p-8">
-                    <Outlet />
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={location.pathname}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="h-full"
+                        >
+                            <Outlet />
+                        </motion.div>
+                    </AnimatePresence>
                 </div>
             </main>
 

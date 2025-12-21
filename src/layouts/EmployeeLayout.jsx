@@ -1,6 +1,7 @@
 // ATLAS Enterprise Layout
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import RefinedModal from '../components/ui/RefinedModal'
 import {
     Squares2X2Icon,
@@ -131,10 +132,21 @@ export default function EmployeeLayout() {
 
             {/* --- Main Content Area --- */}
             {/* Added lg:ml-64 to push content when sidebar is visible */}
-            <main className="flex-1 pb-24 lg:pb-0 lg:ml-64 min-w-0">
+            <main className="flex-1 pb-24 lg:pb-0 lg:ml-64 min-w-0 bg-slate-50 dark:bg-slate-950">
                 {/* Max-width container for large screens to prevent stretching */}
                 <div className="max-w-5xl mx-auto w-full h-full">
-                    <Outlet />
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={location.pathname}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="h-full"
+                        >
+                            <Outlet />
+                        </motion.div>
+                    </AnimatePresence>
                 </div>
             </main>
 
