@@ -70,11 +70,7 @@ export default function MDExport() {
             const workbook = XLSX.utils.book_new()
             XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance")
 
-            if (fileFormat === 'csv') {
-                XLSX.writeFile(workbook, `${filename}.csv`)
-            } else {
-                XLSX.writeFile(workbook, `${filename}.xlsx`)
-            }
+            XLSX.writeFile(workbook, `${filename}.xlsx`)
 
             setStatus({ type: 'success', message: 'Attendance report generated successfully.' })
 
@@ -118,26 +114,7 @@ export default function MDExport() {
                         />
                     </div>
 
-                    {/* Format */}
-                    <div className="space-y-3">
-                        <label className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">File Format</label>
-                        <div className="flex gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer group">
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${fileFormat === 'xlsx' ? 'border-blue-600' : 'border-slate-300'}`}>
-                                    {fileFormat === 'xlsx' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
-                                </div>
-                                <input type="radio" name="format" value="xlsx" checked={fileFormat === 'xlsx'} onChange={() => setFileFormat('xlsx')} className="hidden" />
-                                <span className="group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Excel (.xlsx)</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer group">
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${fileFormat === 'csv' ? 'border-blue-600' : 'border-slate-300'}`}>
-                                    {fileFormat === 'csv' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
-                                </div>
-                                <input type="radio" name="format" value="csv" checked={fileFormat === 'csv'} onChange={() => setFileFormat('csv')} className="hidden" />
-                                <span className="group-hover:text-slate-900 dark:group-hover:text-white transition-colors">CSV (.csv)</span>
-                            </label>
-                        </div>
-                    </div>
+                    {/* Format Selection Removed as per Request */}
 
                     {/* Submit */}
                     <Button

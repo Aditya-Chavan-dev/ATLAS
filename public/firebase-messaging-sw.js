@@ -21,6 +21,19 @@ const initFirebase = async () => {
 
             messaging.onBackgroundMessage((payload) => {
                 console.log('[SW] Background Message:', payload);
+                const { title, body, ...restData } = payload.data || {};
+
+                // Explicitly show notification for Data-Only messages
+                if (title && body) {
+                    self.registration.showNotification(title, {
+                        body: body,
+                        icon: '/pwa-192x192.png',
+                        badge: '/pwa-192x192.png',
+                        data: payload.data, // Persist data for click handler
+                        tag: 'attendance-reminder',
+                        renotify: true
+                    });
+                }
             });
         } else {
             console.error('[SW] Config fetch failed:', response.status);

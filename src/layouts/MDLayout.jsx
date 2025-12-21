@@ -13,7 +13,7 @@ export default function MDLayout() {
         { name: 'Dashboard', href: '/md/dashboard', icon: LayoutDashboard, activeIcon: LayoutDashboard },
         { name: 'Approvals', href: '/md/approvals', icon: CheckSquare, activeIcon: CheckSquare },
         { name: 'Team', href: '/md/employees', icon: Users, activeIcon: Users },
-        { name: 'Reports', href: '/md/reports', icon: FileBarChart, activeIcon: FileBarChart },
+        { name: 'Reports', href: '/md/export', icon: FileBarChart, activeIcon: FileBarChart },
     ]
 
     const handleNavClick = (href) => {
@@ -29,7 +29,7 @@ export default function MDLayout() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 flex flex-col lg:flex-row font-sans">
+        <div className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300 flex flex-col lg:flex-row font-sans">
 
             {/* --- Desktop Sidebar (Hidden on Mobile) --- */}
             <aside className="hidden lg:flex flex-col w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 fixed inset-y-0 z-50 transition-colors duration-300">
@@ -48,8 +48,8 @@ export default function MDLayout() {
                                 key={item.name}
                                 onClick={() => handleNavClick(item.href)}
                                 className={`flex items-center gap-3 w-full p-3 rounded-xl transition-all duration-200 text-sm font-medium ${isActive
-                                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 shadow-sm shadow-blue-100 dark:shadow-none'
-                                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+                                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 shadow-sm shadow-blue-100 dark:shadow-none'
+                                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
                                     }`}
                             >
                                 <Icon className={`w-5 h-5 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
@@ -79,7 +79,7 @@ export default function MDLayout() {
 
             {/* --- Main Content Area --- */}
             {/* Added lg:ml-64 to push content when sidebar is visible */}
-            <main className="flex-1 pb-24 lg:pb-0 lg:ml-64 min-w-0">
+            <main className="flex-1 lg:ml-64 min-w-0 h-full overflow-y-auto pb-24 lg:pb-0">
                 <div className="max-w-6xl mx-auto w-full h-full p-4 lg:p-8">
                     <Outlet />
                 </div>

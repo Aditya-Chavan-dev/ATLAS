@@ -229,7 +229,7 @@ export default function MDDashboard() {
                 <div className="space-y-6">
 
                     {/* Pending Approvals Widget */}
-                    <Card className="p-0 overflow-hidden border border-slate-200 dark:border-slate-800">
+                    <Card className="p-0 overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                             <h3 className="font-semibold text-slate-900 dark:text-white">Pending Requests</h3>
                             {pendingRequests.length > 0 && (
@@ -267,7 +267,7 @@ export default function MDDashboard() {
                     </Card>
 
                     {/* Quick Access */}
-                    <Card className="p-5 border border-slate-200 dark:border-slate-800">
+                    <Card className="p-5 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                         <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Quick Access</h3>
                         <div className="space-y-3">
                             <Link to="/md/profiles" className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-all group bg-white dark:bg-slate-900 shadow-sm hover:shadow-md">
@@ -308,7 +308,7 @@ const StatsCard = ({ title, value, icon: Icon, color, trend }) => {
     }
 
     return (
-        <Card className="p-5 flex flex-col justify-between h-full hover:shadow-md hover:-translate-y-1 transition-all duration-300 border border-slate-200 dark:border-slate-800">
+        <Card className="p-5 flex flex-col justify-between h-full hover:shadow-md hover:-translate-y-1 transition-all duration-300 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
             <div className="flex justify-between items-start mb-2">
                 <div className={clsx("p-3 rounded-2xl", colorClasses[color])}>
                     <Icon size={22} />

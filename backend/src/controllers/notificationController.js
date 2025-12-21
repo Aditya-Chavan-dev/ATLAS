@@ -81,12 +81,11 @@ exports.broadcastAttendance = async (req, res) => {
 
         // 4. Construct Immutable Message
         // Spec Section 2.2: Fixed Content
+        // CHANGED: Use Data-Only payload to ensure SW can handle 'notificationclick' with full data context.
         const messagePayload = {
-            notification: {
-                title: 'Attendance Reminder',
-                body: 'Please mark your attendance for today'
-            },
             data: {
+                title: 'Attendance Reminder',
+                body: 'Please mark your attendance for today',
                 // Critical for deep linking
                 action: 'MARK_ATTENDANCE',
                 broadcastId: broadcastId,
