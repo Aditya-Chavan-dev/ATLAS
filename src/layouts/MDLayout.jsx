@@ -87,7 +87,7 @@ export default function MDLayout() {
             </main>
 
             {/* --- Mobile Bottom Navigation (Hidden on Desktop) --- */}
-            <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-[safe-area-inset-bottom-plus-4rem] pb-[safe-area-inset-bottom] bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 rounded-t-3xl flex justify-around items-center z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] px-2">
+            <nav className="lg:hidden fixed bottom-6 left-4 right-4 h-16 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl flex justify-around items-center z-50 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
                 {navigation.map((item) => {
                     const isActive = location.pathname.startsWith(item.href)
                     const Icon = item.icon
