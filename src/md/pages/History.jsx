@@ -130,9 +130,9 @@ export default function MDHistory() {
                     <p className="text-sm text-slate-500 font-medium">{format(parseISO(selectedMonth + '-01'), 'MMMM yyyy')}</p>
                 </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="flex items-center gap-3 w-full md:w-auto items-start">
                     {/* Search */}
-                    <div className="relative flex-1 md:w-64">
+                    <div className="relative flex-1 md:w-64 self-center">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
@@ -143,22 +143,25 @@ export default function MDHistory() {
                         />
                     </div>
 
-                    {/* Month */}
-                    <input
-                        type="month"
-                        value={selectedMonth}
-                        onChange={e => setSelectedMonth(e.target.value)}
-                        className="py-2 px-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-sm font-medium border-none outline-none dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                    />
+                    {/* Right Column: Month & Download */}
+                    <div className="flex flex-col gap-2 min-w-[160px]">
+                        {/* Month */}
+                        <input
+                            type="month"
+                            value={selectedMonth}
+                            onChange={e => setSelectedMonth(e.target.value)}
+                            className="w-full py-2 px-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-sm font-medium border-none outline-none dark:text-white cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                        />
 
-                    {/* Export */}
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 dark:shadow-none font-medium text-sm"
-                    >
-                        <Download className="w-4 h-4" />
-                        Download Report
-                    </button>
+                        {/* Export */}
+                        <button
+                            onClick={handleExport}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 dark:shadow-none font-medium text-xs"
+                        >
+                            <Download className="w-3 h-3" />
+                            Download Report
+                        </button>
+                    </div>
                 </div>
             </div>
 
