@@ -19,6 +19,17 @@ import MDToast from '../components/MDToast'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 
+// Utility
+const getAvatarColor = (name) => {
+    const colors = ['bg-red-500', 'bg-green-500', 'bg-blue-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500'];
+    let hash = 0;
+    if (!name) return colors[0];
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+}
+
 export default function MDDashboard() {
     const { theme, toggleTheme } = useTheme()
     const { currentUser } = useAuth()
@@ -51,7 +62,16 @@ export default function MDDashboard() {
             // Process Users
             const userList = Object.entries(data)
                 .map(([id, val]) => ({ id, ...val }))
-                .filter(u => u.profile?.role !== 'admin' && u.profile?.role !== 'md')
+                .filter(u => {
+                    const profile = u.profile || u;
+                    // Strict Filter: Must have email AND phone
+                    return (
+                        profile.role !== 'admin' &&
+                        profile.role !== 'md' &&
+                        profile.email &&
+                        profile.phone
+                    );
+                })
 
             // Calculate Stats & Feed
             let newStats = { total: userList.length, present: 0, onLeave: 0, onSite: 0, absent: 0 }
@@ -95,6 +115,9 @@ export default function MDDashboard() {
 
         return () => unsubscribe()
     }, [])
+
+
+
 
     const handleSendReminderClick = () => {
         setIsReminderModalOpen(true)
