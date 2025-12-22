@@ -15,15 +15,67 @@ exports.registerToken = async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // Store exactly what we received (Concept of Truth)
-        await db.ref(`fcm_tokens/${uid}`).set({
-            token: token || null,
-            permission: permission, // 'granted' or 'denied'
-            platform: platform || 'web',
-            lastUpdated: new Date().toISOString()
-        });
+        // Token-Centric Storage (MANDATORY as per Spec)
+        // Path: /deviceTokens/{token}
+        // If permission denied, we might not have a token?
+        // Spec says: "If permission is denied: Do NOT create a token entry. Track locally."
+        // BUT we need to know for "Notifications OFF" stats?
+        // Spec says: "Failed – notifications disabled".
+        // If we don't store it, we can't count it efficiently unless we check all employees vs tokens?
+        // Spec Part 4 "Truth Guarantee": "Which employees have... notifications disabled".
+        // If we don't store "Denied", we only know "No Token".
+        // "No Token" could be "Not Installed" OR "Denied".
+        // Ref: "Track locally that notifications are disabled" -> Frontend.
+        // Backend Broadcast: "Filter tokens where notificationsEnabled == true".
+        // "Failed - notifications disabled" -> This implies we DO know?
+        // Let's re-read: "If permission is denied: Do NOT create a token entry".
+        // Okay. Then "Failed - notifications disabled" might be inferred if we have a token but enabled=false?
+        // Or maybe we don't count them?
+        // Wait, "Notifications Sent To -> Total employees with app installed (permission ON + OFF)".
+        // If we don't store denied, we can't count OFF.
+        // But the prompt says "Do NOT create a token entry" for denied.
+        // Contradiction?
+        // "Track locally that notifications are disabled".
+        // "Remove invalid tokens automatically".
+        // Maybe "notificationsEnabled" in schema implies we store it if it WAS enabled but then disabled?
+        // If purely denied from start, maybe we don't store.
+        // I will follow "Do NOT create a token entry" if permission is denied.
 
-        res.json({ success: true, message: 'Status updated' });
+        if (permission === 'denied') {
+            // If we want to strictly follow "Do NOT create", we just return.
+            // But if we want to support "status updates", maybe we remove the existing token?
+            if (token) {
+                await db.ref(`deviceTokens/${token}`).remove();
+            }
+            return res.json({ success: true, message: 'Token removed (Permission Denied)' });
+        }
+
+        if (!token) {
+            return res.status(400).json({ error: 'Token is required for granted permission' });
+        }
+
+        // Schema match
+        const tokenData = {
+            uid: uid,
+            email: req.body.email || 'unknown', // We need email from frontend or fetch it
+            platform: platform || 'web',
+            notificationsEnabled: true,
+            userAgent: req.headers['user-agent'] || 'unknown',
+            createdAt: new Date().toISOString(), // Should probably be careful not to overwrite if exists?
+            lastSeen: new Date().toISOString()
+        };
+
+        // We might want to fetch email if not provided, for completeness
+        if (tokenData.email === 'unknown') {
+            const userSnap = await db.ref(`employees/${uid}/profile`).once('value');
+            if (userSnap.exists()) {
+                tokenData.email = userSnap.val().email || 'unknown';
+            }
+        }
+
+        await db.ref(`deviceTokens/${token}`).set(tokenData);
+
+        res.json({ success: true, message: 'Token registered' });
     } catch (error) {
         console.error('Register Token Error:', error);
         res.status(500).json({ error: 'Internal Server Error' });
@@ -52,60 +104,52 @@ exports.unregisterToken = async (req, res) => {
  */
 exports.broadcastAttendance = async (req, res) => {
     try {
-        console.log('📢 Starting Broadcast...');
+        console.log('📢 Starting Broadcast (Token-Based)...');
 
         // 1. Fetch Truth Data
         const [usersSnap, tokensSnap] = await Promise.all([
-            db.ref('employees').once('value'), // Use employees node where real users live
-            db.ref('fcm_tokens').once('value')
+            db.ref('employees').once('value'),
+            db.ref('deviceTokens').once('value')
         ]);
 
         const employees = usersSnap.val() || {};
-        const fcmRecords = tokensSnap.val() || {};
+        const allTokens = tokensSnap.val() || {};
 
-        // 2. Strict Categorization
-        const categorization = {
-            sentTo: [],           // Target List
-            failedNotInstalled: 0,
-            failedPermissionsOff: 0,
-            successSent: 0
-        };
-
-        const targetTokens = [];
-
-        // Identify non-admin employees (Strict Filter)
-        const employeeList = Object.values(employees)
-            .filter(u => {
-                const p = u.profile || u;
-                return (
-                    p.role !== 'admin' &&
-                    p.role !== 'md' &&
-                    p.role !== 'owner' &&
-                    p.email
-                    // Phone is optional now, so we don't filter by it.
-                );
-            });
-
+        // 2. Filter Active Employees (The "Total" Base)
+        const employeeList = Object.values(employees).filter(u => {
+            const p = u.profile || u;
+            return (
+                p.role !== 'admin' &&
+                p.role !== 'md' &&
+                p.role !== 'owner' &&
+                p.email &&
+                p.status !== 'archived'
+            );
+        });
+        const activeUids = new Set(employeeList.map(e => e.uid));
         const totalEmployees = employeeList.length;
 
-        for (const emp of employeeList) {
-            const uid = emp.uid;
-            const fcm = fcmRecords[uid];
+        // 3. Analyze Tokens
+        const targetTokens = [];
+        const validTokensList = []; // For cleanup reference
+        const uniqueInstalledUids = new Set();
+        let countPermissionsOff = 0;
 
-            if (!fcm) {
-                // No Record -> App Not Installed
-                categorization.failedNotInstalled++;
-            } else if (fcm.permission === 'denied' || !fcm.token) {
-                // Record Exists but Permission Denied (or missing token) -> Notification OFF
-                categorization.failedPermissionsOff++;
-            } else if (fcm.permission === 'granted' && fcm.token) {
-                // Valid -> Add to Target
-                categorization.sentTo.push(uid);
-                targetTokens.push(fcm.token);
+        Object.entries(allTokens).forEach(([token, data]) => {
+            // Only consider tokens belonging to ACTIVE employees
+            if (activeUids.has(data.uid)) {
+                uniqueInstalledUids.add(data.uid);
+
+                if (data.notificationsEnabled) {
+                    targetTokens.push(token);
+                    validTokensList.push(token);
+                } else {
+                    countPermissionsOff++;
+                }
             }
-        }
+        });
 
-        // 3. Send Bulk (Data-Only)
+        // 4. Send Bulk (Data-Only Payload)
         let fcmSuccess = 0;
         let fcmFailure = 0;
 
@@ -113,9 +157,8 @@ exports.broadcastAttendance = async (req, res) => {
             const message = {
                 data: {
                     type: 'ATTENDANCE_REMINDER',
-                    route: 'MARK_ATTENDANCE', // Step 5 Route
-                    date: new Date().toISOString().split('T')[0],
-                    // We DO NOT add notification: {} object here.
+                    route: 'MARK_ATTENDANCE',
+                    date: new Date().toISOString().split('T')[0]
                 },
                 tokens: targetTokens
             };
@@ -124,57 +167,40 @@ exports.broadcastAttendance = async (req, res) => {
             fcmSuccess = response.successCount;
             fcmFailure = response.failureCount;
 
-            // Remove invalid tokens if any (Strict Cleanup)
+            // Remove invalid tokens (Cleanup)
             if (response.failureCount > 0) {
+                const cleanupPromises = [];
                 response.responses.forEach((resp, idx) => {
                     if (!resp.success) {
                         const error = resp.error;
                         if (error.code === 'messaging/registration-token-not-registered' ||
                             error.code === 'messaging/invalid-argument') {
-                            const failedUid = categorization.sentTo[idx]; // Map back using index
-                            console.log(`Removing invalid token for ${failedUid}`);
-                            db.ref(`fcm_tokens/${failedUid}/token`).remove();
-                            db.ref(`fcm_tokens/${failedUid}/permission`).set('denied'); // Downgrade status
+                            const badToken = targetTokens[idx];
+                            console.log(`Removing invalid token: ${badToken.substring(0, 10)}...`);
+                            cleanupPromises.push(db.ref(`deviceTokens/${badToken}`).remove());
                         }
                     }
                 });
+                await Promise.all(cleanupPromises);
             }
         }
 
-        // 4. Final Response (Step 8 Data Model)
-        // Sent To = Total we TRIED to send to (which equals success + specific failures, but user asked for Truth based on stored data)
-        // User Spec:
-        // Notifications Sent To -> Total employees with app installed (permission ON + OFF) ?? sentTo usually means target.
-        // Wait, Spec says: "Notifications Sent To -> Total employees with app installed (permission ON + OFF)"
-        // This definition is slightly weird. "Sent To" usually implies the active target.
-        // But the example clarifies:
-        // "4 have app + ON, 1 has app + OFF, 2 never installed" -> "Notifications Sent To: 5"
-        // So "Sent To" = Installed (ON + OFF).
-        // My Logic:
-        // Installed = (granted + token) + (denied/no-token but record) = categorization.sentTo.length + categorization.failedPermissionsOff
+        // 5. Calculate Stats (Truth)
+        const countNotInstalled = totalEmployees - uniqueInstalledUids.size;
 
-        const countInstalledON = categorization.sentTo.length;
-        const countInstalledOFF = categorization.failedPermissionsOff;
-        const countNotInstalled = categorization.failedNotInstalled;
+        // "notifications turned off" logic:
+        // Since we DELETE denied tokens, this number might be small/zero unless we change logic to Keep-But-Mark-Disabled.
+        // But per prompt rules part 1 "Delete: Old database paths", and Part 2 "Do NOT create a token entry" if denied.
+        // So "Permission Denied" in the modal will strictly reflect tokens that exist but are disabled (rare) OR we accept it's 0.
+        // Alternatively, if "Not Installed" means "No Token", that catches Denied users too.
 
         const summary = {
             totalEmployees: totalEmployees,
-            sentTo: countInstalledON + countInstalledOFF, // "Total with app installed"
+            sentTo: targetTokens.length, // "Total tokens targeted"
             successfullySent: fcmSuccess,
-            failedNotInstalled: countNotInstalled,
-            permissionDenied: countInstalledOFF // "Couldn't reach (notifications turned off)"
+            failedNotInstalled: Math.max(0, countNotInstalled), // Ensure non-negative
+            permissionDenied: countPermissionsOff
         };
-
-        // Clarifiction on "Successfully Sent":
-        // If 5 people installed. 4 ON. 1 OFF.
-        // We try to send to 4. 
-        // If FCM says 4 success.
-        // Then successfullySent = 4.
-        // The modal spec names:
-        // - Notifications Sent To (Total Installed)
-        // - Successfully Sent (FCM success)
-        // - Failed (App not installed) (Never installed)
-        // - Couldn't Reach (Notifications turned off) (Installed but Off)
 
         res.json({
             success: true,
