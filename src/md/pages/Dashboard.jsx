@@ -51,7 +51,7 @@ export default function MDDashboard() {
             // Process Users
             const userList = Object.entries(data)
                 .map(([id, val]) => ({ id, ...val }))
-                .filter(u => u.role !== 'admin' && u.role !== 'md')
+                .filter(u => u.profile?.role !== 'admin' && u.profile?.role !== 'md')
 
             // Calculate Stats & Feed
             let newStats = { total: userList.length, present: 0, onLeave: 0, onSite: 0, absent: 0 }
@@ -65,12 +65,12 @@ export default function MDDashboard() {
                     // Feed Item
                     feed.push({
                         id: user.id,
-                        name: user.name,
-                        email: user.email,
+                        name: user.profile?.name,
+                        email: user.profile?.email,
                         timestamp: todayRecord.timestamp,
                         status: todayRecord.status,
                         location: todayRecord.location || 'Office',
-                        avatarColor: getAvatarColor(user.name)
+                        avatarColor: getAvatarColor(user.profile?.name)
                     })
 
                     // Stats

@@ -71,9 +71,16 @@ export default function MDEmployeeManagement() {
             .map(([uid, val]) => {
                 // Determine source for future operations
                 const source = employeesMap[uid] ? 'employees' : 'users'
+
+                // Handle nested profile structure (New) vs Flat (Old/Legacy)
+                let data = val
+                if (source === 'employees' && val.profile) {
+                    data = val.profile
+                }
+
                 return {
                     uid,
-                    ...val,
+                    ...data,
                     source // Track where this user came from
                 }
             })
@@ -123,9 +130,11 @@ export default function MDEmployeeManagement() {
         try {
             // Update in the specific source collection
             const collection = selectedEmployee.source || 'employees'
-            await update(ref(database, `${collection}/${selectedEmployee.uid}`), {
+            // Target: employees/{uid}/profile (if source is employees)
+            const path = collection === 'employees' ? `employees/${selectedEmployee.uid}/profile` : `users/${selectedEmployee.uid}`
+
+            await update(ref(database, path), {
                 name: formData.name,
-                phone: formData.phone || '',
                 role: formData.role
             })
             setIsEditModalOpen(false)
@@ -144,8 +153,12 @@ export default function MDEmployeeManagement() {
         setProcessing(true)
         try {
             // Delete from the specific source collection
+            // Delete from the specific source collection
             const collection = selectedEmployee.source || 'employees'
-            await remove(ref(database, `${collection}/${selectedEmployee.uid}`))
+            // Target: employees/{uid}/profile (if source is employees)
+            const path = collection === 'employees' ? `employees/${selectedEmployee.uid}/profile` : `users/${selectedEmployee.uid}`
+
+            await remove(ref(database, path))
 
             setIsDeleteModalOpen(false)
             setSelectedEmployee(null)

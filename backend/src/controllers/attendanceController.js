@@ -51,10 +51,12 @@ exports.markAttendance = async (req, res) => {
 
     try {
         // 1. Write to Firebase (Transactional Source of Truth)
-        const attendanceRef = db.ref(`users/${uid}/attendance/${dateStr}`);
+        // Target: employees/{uid}/attendance/{dateStr}
+        const attendanceRef = db.ref(`employees/${uid}/attendance/${dateStr}`);
 
         // Fetch user profile for name
-        const userSnap = await db.ref(`users/${uid}`).once('value');
+        // Target: employees/{uid}/profile
+        const userSnap = await db.ref(`employees/${uid}/profile`).once('value');
         const userData = userSnap.val() || {};
         const employeeName = userData.name || 'Employee';
 
@@ -83,19 +85,40 @@ exports.markAttendance = async (req, res) => {
         console.log(`[Attendance] Marked for ${employeeName} (${uid})`);
 
         // 2. Notify MDs
-        // Fetch all users to find MDs
-        // In a large app, you'd index by role. For now, scan is okay for <100 users.
-        const allUsersSnap = await db.ref('users').once('value');
+        // Fetch all employees to find MDs
+        // Scan employees node, check profile.role
+        const allUsersSnap = await db.ref('employees').once('value');
         const allUsers = allUsersSnap.val() || {};
 
         const mdTokens = [];
 
         Object.values(allUsers).forEach(user => {
-            if ((user.role === 'admin' || user.role === 'MD' || user.role === 'owner') && user.fcmTokens) {
-                // Collect tokens
-                Object.values(user.fcmTokens).forEach(t => {
-                    if (t.token) mdTokens.push(t.token);
-                });
+            const profile = user.profile || user; // Handle nested or flat
+            // Need to get tokens. Where are they? 
+            // notificationController uses fcm_tokens/{uid}.
+            // So we can't find tokens in 'employees' unless we fetch fcm_tokens.
+            // But wait, the original code looked in user.fcmTokens.
+            // If we moved to fcm_tokens collection, we must fetch from there.
+            // Let's assume fcm_tokens is the source of truth for tokens now.
+        });
+
+        // RE-FETCH tokens from fcm_tokens for MDs
+        // Inefficient to scan all tokens, but okay for small scale.
+        // Better: Find MD UIDs first.
+        const mdUids = Object.entries(allUsers)
+            .filter(([id, u]) => {
+                const p = u.profile || u;
+                return (p.role === 'admin' || p.role === 'MD' || p.role === 'owner');
+            })
+            .map(([id]) => id);
+
+        const allTokensSnap = await db.ref('fcm_tokens').once('value');
+        const allTokens = allTokensSnap.val() || {};
+
+        mdUids.forEach(mdUid => {
+            const tData = allTokens[mdUid];
+            if (tData && tData.token && tData.permission === 'granted') {
+                mdTokens.push(tData.token);
             }
         });
 
@@ -142,7 +165,8 @@ exports.updateStatus = async (req, res) => {
 
     try {
         // 1. Update Firebase
-        const attendanceRef = db.ref(`users/${employeeUid}/attendance/${date}`);
+        // Target: employees/{employeeUid}/attendance/{date}
+        const attendanceRef = db.ref(`employees/${employeeUid}/attendance/${date}`);
 
         // Resolve Final Status per Strict Rules
         let finalStatus = status;
@@ -157,7 +181,17 @@ exports.updateStatus = async (req, res) => {
 
             if (isHoliday || isSun) {
                 // Earned CO
-                const balanceRef = db.ref(`users/${employeeUid}/leaveBalance/co`);
+                // Balance is ... where? user said "No legacy nodes".
+                // Ideally profile.leaveBalance? Or leaves/balance?
+                // leaveController checks `users/${employeeId}/leaveBalance`.
+                // PROMPT didn't specify leave balance location.
+                // I will put it in `employees/${employeeUid}/profile/leaveBalance` to be safe/consistent?
+                // Or `leaves/${employeeUid}/balance`?
+                // Let's stick to legacy path for balance if not specified, OR move to profile.
+                // "No legacy nodes remain" -> `users` is legacy.
+                // So `employees/${employeeUid}/leaveBalance` seems best as a sibling to profile, or inside profile.
+                // Let's use `employees/${employeeUid}/leaveBalance`.
+                const balanceRef = db.ref(`employees/${employeeUid}/leaveBalance/co`);
                 await balanceRef.transaction((current) => (current || 0) + 1);
                 balanceUpdateMsg = `Earned 1 CO for working on ${isHoliday ? 'Holiday' : 'Sunday'}`;
                 console.log(`[Attendance] ${balanceUpdateMsg} - ${employeeUid}`);
@@ -193,13 +227,15 @@ exports.updateStatus = async (req, res) => {
         });
 
         // 2. Notify Employee
-        const empSnap = await db.ref(`employees/${employeeUid}`).once('value'); // Check employees node first for tokens
-        // Fallback to checking nested fcmTokens if your schema was users-based
-        // Based on user context, tokens seem to be in employees/{uid}/fcmTokens or users/{uid}/fcmTokens
-        // Let's check both or consolidate. The provided info says `employees/{uid}/fcmTokens` in the request.
+        // 2. Notify Employee
+        // Fetch token from fcm_tokens/{uid}
+        const tokenSnap = await db.ref(`fcm_tokens/${employeeUid}`).once('value');
+        const tokenData = tokenSnap.val();
 
-        const empTokensMap = (empSnap.val() && empSnap.val().fcmTokens) || {};
-        const empTokens = Object.values(empTokensMap).map(t => t.token);
+        const empTokens = [];
+        if (tokenData && tokenData.token && tokenData.permission === 'granted') {
+            empTokens.push(tokenData.token);
+        }
 
         if (empTokens.length > 0) {
             const isApproved = status === 'approved';

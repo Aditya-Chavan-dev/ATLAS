@@ -50,7 +50,7 @@ exports.createEmployee = async (req, res) => {
             createdBy: 'MD_ADMIN_API'
         };
 
-        const employeesRef = db.ref(`employees/${user.uid}`);
+        const employeesRef = db.ref(`employees/${user.uid}/profile`);
         await employeesRef.set(profileData);
         console.log(`[DB] Record created at employees/${user.uid}`);
 

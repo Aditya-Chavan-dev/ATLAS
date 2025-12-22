@@ -63,7 +63,8 @@ export const AuthProvider = ({ children }) => {
         if (!user?.uid) return
 
         const normalizedEmail = user.email?.toLowerCase()
-        const userRef = ref(database, `employees/${user.uid}`)
+        // Target: /employees/{uid}/profile
+        const userRef = ref(database, `employees/${user.uid}/profile`)
 
         const handleProfileSnapshot = (snapshot) => {
             if (snapshot.exists()) {
@@ -104,7 +105,11 @@ export const AuthProvider = ({ children }) => {
                         photoURL: user.photoURL || profileData.photoURL || '',
                         role: profileData.role || ROLES.EMPLOYEE
                     }
-                    await set(ref(database, `employees/${user.uid}`), updatedProfile)
+                    await set(ref(database, `employees/${user.uid}/profile`), updatedProfile)
+                    // If migration happened, we might want to clean up the flat keys if any, but let's stick to setting profile
+                    // await remove(ref(database, `employees/${oldUid}`)) // This removes the OLD placeholder. 
+                    // But wait, the placeholder might have been 'flat'. 
+                    // We should remove the old referencing node.
                     await remove(ref(database, `employees/${oldUid}`))
                     console.log('♻️ Auto-migrated placeholder record back to user UID:', normalizedEmail)
                 } catch (error) {
@@ -149,7 +154,7 @@ export const AuthProvider = ({ children }) => {
                 if (user) {
                     try {
                         const dbRef = ref(database)
-                        const userSnapshot = await get(child(dbRef, `employees/${user.uid}`))
+                        const userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))
 
                         if (userSnapshot.exists()) {
                             let profileData = userSnapshot.val()
@@ -159,8 +164,9 @@ export const AuthProvider = ({ children }) => {
                                 if (profileData.role !== ROLES.MD) {
                                     console.log('🔄 Auth listener: Updating role to MD for', user.email)
                                     profileData.role = ROLES.MD
+                                    profileData.role = ROLES.MD
                                     // Update in database
-                                    await set(ref(database, `employees/${user.uid}`), {
+                                    await set(ref(database, `employees/${user.uid}/profile`), {
                                         ...profileData,
                                         role: ROLES.MD
                                     })
@@ -182,7 +188,7 @@ export const AuthProvider = ({ children }) => {
                                     role: ROLES.MD,
                                     phone: ''
                                 }
-                                await set(ref(database, `employees/${user.uid}`), mdProfile)
+                                await set(ref(database, `employees/${user.uid}/profile`), mdProfile)
                                 setUserRole(ROLES.MD)
                                 setUserProfile(mdProfile)
                                 startRealtimeListeners(user)
@@ -231,7 +237,7 @@ export const AuthProvider = ({ children }) => {
 
                 // Create/update owner profile
                 const dbRef = ref(database)
-                let userSnapshot = await get(child(dbRef, `employees/${user.uid}`))
+                let userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))
 
                 if (userSnapshot.exists()) {
                     profileData = userSnapshot.val()
@@ -246,7 +252,7 @@ export const AuthProvider = ({ children }) => {
                         phone: ''
                     }
                 }
-                await set(ref(database, `employees/${user.uid}`), profileData)
+                await set(ref(database, `employees/${user.uid}/profile`), profileData)
             }
             // 1. Check MD allowlist next - this takes PRIORITY over employee
             else if (isMD(email)) {
@@ -255,7 +261,7 @@ export const AuthProvider = ({ children }) => {
 
                 // Check if MD has a profile in database
                 const dbRef = ref(database)
-                let userSnapshot = await get(child(dbRef, `employees/${user.uid}`))
+                let userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))
 
                 if (userSnapshot.exists()) {
                     profileData = userSnapshot.val()
@@ -264,7 +270,7 @@ export const AuthProvider = ({ children }) => {
                         console.log('🔄 Updating database role from', profileData.role, 'to MD')
                         profileData.role = ROLES.MD
                         // Update in database
-                        await set(ref(database, `employees/${user.uid}`), {
+                        await set(ref(database, `employees/${user.uid}/profile`), {
                             ...profileData,
                             role: ROLES.MD
                         })
@@ -279,13 +285,13 @@ export const AuthProvider = ({ children }) => {
                         role: ROLES.MD,
                         phone: ''
                     }
-                    await set(ref(database, `employees/${user.uid}`), profileData)
+                    await set(ref(database, `employees/${user.uid}/profile`), profileData)
                     console.log('✅ Created MD profile in database')
                 }
             } else {
                 // 2. Check Firebase DB for employee
                 const dbRef = ref(database)
-                let userSnapshot = await get(child(dbRef, `employees/${user.uid}`))
+                let userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))
 
                 if (userSnapshot.exists()) {
                     // Existing employee with correct UID
@@ -317,7 +323,7 @@ export const AuthProvider = ({ children }) => {
                         }
 
                         // Save to new location (real UID)
-                        await set(ref(database, `employees/${user.uid}`), updatedProfile)
+                        await set(ref(database, `employees/${user.uid}/profile`), updatedProfile)
 
                         // Delete old placeholder record
                         await remove(ref(database, `employees/${oldUid}`))
