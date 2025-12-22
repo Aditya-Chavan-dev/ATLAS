@@ -31,7 +31,7 @@ export default function MDHistory() {
     const [searchTerm, setSearchTerm] = useState('')
 
     useEffect(() => {
-        const usersRef = ref(database, 'users')
+        const usersRef = ref(database, 'employees')
         const unsubscribe = onValue(usersRef, (snapshot) => {
             if (snapshot.exists()) {
                 const allUsers = Object.values(snapshot.val()).filter(u => u.role !== 'admin' && u.role !== 'owner')

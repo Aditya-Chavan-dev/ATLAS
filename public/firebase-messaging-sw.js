@@ -1,5 +1,5 @@
 // Firebase Messaging Service Worker
-// Spec Section 9.3: Background handler registered
+// STRICT MODE: Data-Only Payloads ONLY.
 
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
@@ -19,24 +19,28 @@ const initFirebase = async () => {
             firebase.initializeApp(config);
             messaging = firebase.messaging();
 
+            // Background Message Handler
             messaging.onBackgroundMessage((payload) => {
-                console.log('[SW] Background Message:', payload);
-                const { title, body, ...restData } = payload.data || {};
+                console.log('[SW] Background Message Received:', payload);
 
-                // Explicitly show notification for Data-Only messages
-                if (title && body) {
-                    self.registration.showNotification(title, {
-                        body: body,
-                        icon: '/pwa-192x192.png',
-                        badge: '/pwa-192x192.png',
-                        data: payload.data, // Persist data for click handler
-                        tag: 'attendance-reminder',
-                        renotify: true
-                    });
-                }
+                // STRICT: We expect Data-Only payloads.
+                // { "type": "ATTENDANCE_REMINDER", "route": "...", "date": "..." }
+
+                const data = payload.data || {};
+
+                // FIXED CONTENT (Step 4)
+                const title = "Attendance Reminder";
+                const body = "Mark your attendance for today";
+
+                self.registration.showNotification(title, {
+                    body: body,
+                    icon: '/pwa-192x192.png',
+                    badge: '/pwa-192x192.png',
+                    data: data, // Persist data for click
+                    tag: 'attendance-reminder', // Replace existing
+                    renotify: true
+                });
             });
-        } else {
-            console.error('[SW] Config fetch failed:', response.status);
         }
     } catch (e) {
         console.error('[SW] Init failed', e);
@@ -47,31 +51,25 @@ self.addEventListener('push', (event) => {
     event.waitUntil(initFirebase());
 });
 
-// Spec 8.2: On tap -> App opens -> Redirects
+// Click Handler (Step 6)
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
-    // Deep Linking based on 'action' in data payload
-    // Spec 6.2 Data Model implies payload has data.action
-    const action = event.notification.data?.action;
-    let targetUrl = '/dashboard';
-
-    if (action === 'MARK_ATTENDANCE') {
-        targetUrl = '/dashboard?action=mark';
-    }
-
+    // Navigation Logic
+    // "User is navigated directly to the Mark Attendance screen"
+    const targetUrl = '/dashboard?action=mark'; // Assuming this triggers the modal or view
     const fullUrl = new URL(targetUrl, self.location.origin).href;
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-            // 1. Try to focus existing tab
+            // 1. Focus existing key tab
             for (let i = 0; i < windowClients.length; i++) {
                 const client = windowClients[i];
                 if (client.url.includes(self.location.origin) && 'focus' in client) {
                     return client.focus().then(c => c.navigate(fullUrl));
                 }
             }
-            // 2. Open new window
+            // 2. Open new
             if (clients.openWindow) {
                 return clients.openWindow(fullUrl);
             }

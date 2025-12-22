@@ -1,60 +1,79 @@
-// Firebase Cloud Messaging (Strict Client Service)
-// Spec Section 9: Permissions & Token Management
+// Firebase Cloud Messaging (FCM) Service
+// Strict Implementation: Data-Only Payloads, Explicit Status Tracking
 
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import app from "../firebase/config";
-import ApiService from "./api"; // Your Axios wrapper
+import ApiService from "./api"; // Wrapper for backend calls
 
-// Initialize Messaging
 const messaging = getMessaging(app);
-
-// VAPID Key from environment
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
+/**
+ * Request Notification Permission & Sync Status
+ * MUST be called after login.
+ */
 export const requestNotificationPermission = async (uid) => {
     if (!('Notification' in window)) {
-        return null;
+        console.warn('This browser does not support desktop notification');
+        return;
     }
 
     try {
         const permission = await Notification.requestPermission();
 
         if (permission === 'granted') {
+            // 1. Get Token
             const token = await getToken(messaging, { vapidKey: VAPID_KEY });
 
             if (token) {
-                // Register with Backend
-                await ApiService.post('/api/fcm/register', { uid, token });
-                return token;
+                // 2. Send to Backend: INSTALLED + ON
+                await ApiService.post('/api/fcm/register', {
+                    uid,
+                    token,
+                    platform: 'web',
+                    permission: 'granted',
+                    timestamp: new Date().toISOString()
+                });
+                console.log('[FCM] Token Registered:', token);
             }
+        } else {
+            // 3. Send to Backend: INSTALLED + OFF (Explicit Denial)
+            await ApiService.post('/api/fcm/status', {
+                uid,
+                platform: 'web',
+                permission: 'denied',
+                timestamp: new Date().toISOString()
+            });
+            console.log('[FCM] Permission Denied. Logged to backend.');
         }
+
     } catch (error) {
-        console.error('Error requesting notification permission:', error);
-    }
-    return null;
-};
-
-export const removeNotificationToken = async (uid) => {
-    try {
-        const token = await getToken(messaging, { vapidKey: VAPID_KEY }).catch(() => null);
-        if (token && uid) {
-            await ApiService.post('/api/fcm/unregister', { uid, token });
-        }
-    } catch (err) {
-        console.error('Unregister failed', err);
+        console.error('[FCM] Permission/Token Error:', error);
     }
 };
 
+/**
+ * Handle Foreground Messages
+ * Displays a manual notification because we use Data-Only payloads.
+ */
 export const setupForegroundListener = () => {
     return onMessage(messaging, (payload) => {
-        console.log('[FCM] Foreground:', payload);
+        console.log('[FCM] Foreground Message Received:', payload);
 
-        const { title, body } = payload.notification || {};
-        if (title && Notification.permission === 'granted') {
+        // Data-Only Payload Handling
+        // Payload comes in 'data' key (e.g. payload.data.type, payload.data.route)
+        // We construct the notification manually.
+        const { type, route, date } = payload.data || {};
+
+        // HARDCODED CONTENT as per Step 4
+        const title = "Attendance Reminder";
+        const body = "Mark your attendance for today"; // Fixed text
+
+        if (Notification.permission === 'granted') {
             new Notification(title, {
                 body: body,
                 icon: '/pwa-192x192.png',
-                data: payload.data
+                data: payload.data // Pass original data for click handling if needed
             });
         }
     });

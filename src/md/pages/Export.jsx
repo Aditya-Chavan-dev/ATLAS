@@ -25,7 +25,7 @@ export default function MDExport() {
 
         try {
             // 1. Fetch Users (Source of Truth)
-            const usersRef = ref(database, 'users')
+            const usersRef = ref(database, 'employees')
             const snapshot = await get(usersRef)
 
             if (!snapshot.exists()) {
@@ -186,8 +186,8 @@ export default function MDExport() {
                                 exit={{ opacity: 0, y: -10 }}
                             >
                                 <Card className={`p-6 border-l-4 shadow-sm ${status.type === 'success'
-                                        ? 'border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10'
-                                        : 'border-l-red-500 bg-red-50/50 dark:bg-red-900/10'
+                                    ? 'border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10'
+                                    : 'border-l-red-500 bg-red-50/50 dark:bg-red-900/10'
                                     }`}>
                                     <div className="flex items-start gap-3">
                                         {status.type === 'success' ? (

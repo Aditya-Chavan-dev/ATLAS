@@ -1,14 +1,18 @@
+import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { BarChart3, Clock, CheckSquare, Users, FileText, LogOut, Sun, Moon } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import Modal from '../components/ui/Modal'
+import Button from '../components/ui/Button'
 
 export default function MDLayout() {
     const navigate = useNavigate()
     const location = useLocation()
     const { logout } = useAuth()
     const { theme, toggleTheme } = useTheme()
+    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
 
     const navigation = [
         { name: 'Dashboard', href: '/md/dashboard', icon: BarChart3 },
@@ -23,11 +27,14 @@ export default function MDLayout() {
         navigate(href)
     }
 
-    const handleLogout = async () => {
-        if (confirm('Are you sure you want to logout?')) {
-            await logout()
-            navigate('/login')
-        }
+    const handleLogoutClick = () => {
+        setIsLogoutModalOpen(true)
+    }
+
+    const confirmLogout = async () => {
+        await logout()
+        setIsLogoutModalOpen(false)
+        navigate('/login')
     }
 
     return (
@@ -69,7 +76,7 @@ export default function MDLayout() {
                         {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
                     </button>
                     <button
-                        onClick={handleLogout}
+                        onClick={handleLogoutClick}
                         className="flex items-center gap-3 w-full p-3 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors text-sm font-medium"
                     >
                         <LogOut className="w-5 h-5" />
@@ -122,6 +129,24 @@ export default function MDLayout() {
                     })}
                 </div>
             </nav>
+
+            {/* Logout Confirmation Modal */}
+            <Modal
+                isOpen={isLogoutModalOpen}
+                onClose={() => setIsLogoutModalOpen(false)}
+                title="Sign Out"
+                size="sm"
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={() => setIsLogoutModalOpen(false)}>Cancel</Button>
+                        <Button variant="danger-solid" onClick={confirmLogout} icon={LogOut}>Sign Out</Button>
+                    </>
+                }
+            >
+                <p className="text-slate-600 dark:text-slate-300">
+                    Are you sure you want to sign out of the console?
+                </p>
+            </Modal>
         </div>
     )
 }

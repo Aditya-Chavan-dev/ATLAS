@@ -2,69 +2,75 @@
     "rules": {
         ".read": false,
         ".write": false,
-        "demo": {
-            "sources": {
-                ".read": "auth != null && auth.token.email == 'adityagchavan3@gmail.com'",
-                ".write": "auth != null && auth.token.email == 'adityagchavan3@gmail.com'",
-                "$sourceId": {
-                    ".read": "auth != null"
-                }
-            },
-            "sessions": {
-                ".read": "auth != null && auth.token.email == 'adityagchavan3@gmail.com'",
-                ".write": "auth != null",
-                "$sessionId": {
-                    ".read": "auth != null",
-                    ".write": "auth != null"
-                }
-            }
-        },
-        "ownerFcmTokens": {
-            ".read": false,
-            ".write": false
-        },
-        "users": {
+        // Helper to check roles based on the 'employees' node
+        // A user is consistent if their auth.uid matches the node, or if they are an admin requesting data
+        "employees": {
             ".read": "auth != null",
-            ".write": "auth != null",
             ".indexOn": [
-                "email"
+                "email",
+                "phone"
             ],
             "$uid": {
-                ".read": "auth != null",
-                ".write": "auth != null"
+                // 1. User can read their own profile
+                // 2. MD or Owner can read any profile
+                ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('role').val() === 'md' || root.child('employees').child(auth.uid).child('role').val() === 'owner')",
+                // 1. Only MD or Owner can create/update profiles
+                // 2. User can ONLY update specific fields (like photoURL) if we allowed it, but currently restricted to admins
+                ".write": "auth != null && (root.child('employees').child(auth.uid).child('role').val() === 'md' || root.child('employees').child(auth.uid).child('role').val() === 'owner')"
             }
         },
         "attendance": {
-            ".read": "auth != null",
-            ".indexOn": [
+            ".read": "auth != null && (
+        query.orderByChild == 'employeeId' && query.equalTo == auth.uid || 
+        root.child('employees').child(auth.uid).child('role').val() === 'md' || 
+        root.child('employees').child(auth.uid).child('role').val() === 'owner'
+      )",".indexOn": [
                 "employeeId",
                 "date"
             ],
             "$attendanceId": {
-                ".write": "auth != null"
+                // Allow write if:
+                // 1. Use is MD/Owner
+                // 2. OR user is writing their OWN attendance (employeeId matches auth.uid)
+                ".write": "auth != null && (
+          root.child('employees').child(auth.uid).child('role').val() === 'md' || 
+          root.child('employees').child(auth.uid).child('role').val() === 'owner' ||
+          newData.child('employeeId').val() === auth.uid
+        )",".read": "auth != null && (
+          data.child('employeeId').val() === auth.uid ||
+          root.child('employees').child(auth.uid).child('role').val() === 'md' || 
+          root.child('employees').child(auth.uid).child('role').val() === 'owner'
+        )"
             }
         },
         "leaves": {
-            ".read": "auth != null",
-            ".write": "auth != null",
             ".indexOn": [
                 "employeeId"
-            ]
-        },
-        "leaveHistory": {
+            ],
             ".read": "auth != null",
-            ".write": "auth != null"
+            "$leaveId": {
+                ".read": "auth != null && (data.child('employeeId').val() === auth.uid || root.child('employees').child(auth.uid).child('role').val() === 'md' || root.child('employees').child(auth.uid).child('role').val() === 'owner')",
+                ".write": "auth != null && (
+            (newData.exists() && newData.child('employeeId').val() === auth.uid) || 
+            root.child('employees').child(auth.uid).child('role').val() === 'md' || 
+            root.child('employees').child(auth.uid).child('role').val() === 'owner'
+         )"
+            }
         },
         "audit": {
-            ".read": "auth != null",
+            // Only MD/Owner can read audit logs
+            ".read": "auth != null && (root.child('employees').child(auth.uid).child('role').val() === 'md' || root.child('employees').child(auth.uid).child('role').val() === 'owner')",
+            // Anyone can WRITE to audit (to log their own actions), but not delete/overwrite others easily (could refine this, but basic write is needed)
             ".write": "auth != null"
         },
-        "employees": {
+        // Legacy/Other nodes
+        "users": {
+            ".read": false,
+            ".write": false
+        }, // Deprecated
+        "demo": {
             ".read": "auth != null",
-            ".write": "auth != null",
-            ".indexOn": [
-                "email"
-            ]
+            ".write": "auth != null"
         }
     }
 }

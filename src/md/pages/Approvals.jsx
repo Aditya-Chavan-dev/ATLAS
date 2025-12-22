@@ -32,7 +32,8 @@ export default function MDApprovals() {
     // Data Fetching
     useEffect(() => {
         // ... (No changes to useEffect content, but keeping context small)
-        const usersRef = ref(database, 'users')
+        // ... (No changes to useEffect content, but keeping context small)
+        const usersRef = ref(database, 'employees')
         const leavesRef = ref(database, 'leaves')
         // ...
 

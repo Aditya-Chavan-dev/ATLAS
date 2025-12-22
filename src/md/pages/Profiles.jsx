@@ -15,7 +15,7 @@ export default function MDProfiles() {
     const [isMobileListOpen, setIsMobileListOpen] = useState(true) // For mobile nav
 
     useEffect(() => {
-        const usersRef = ref(database, 'users')
+        const usersRef = ref(database, 'employees')
         const unsubscribe = onValue(usersRef, (snapshot) => {
             const data = snapshot.val()
             if (data) {

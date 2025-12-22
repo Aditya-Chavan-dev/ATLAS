@@ -30,7 +30,7 @@ export default function MDEmployeeManagement() {
 
     // Form/Selection State
     const [selectedEmployee, setSelectedEmployee] = useState(null)
-    const [formData, setFormData] = useState({ name: '', email: '', role: 'employee' })
+    const [formData, setFormData] = useState({ name: '', email: '', role: 'employee', phone: '' })
     const [processing, setProcessing] = useState(false)
 
     // Fetch Data
@@ -39,10 +39,12 @@ export default function MDEmployeeManagement() {
         const unsubscribe = onValue(usersRef, (snapshot) => {
             const data = snapshot.val()
             if (data) {
-                const userList = Object.entries(data).map(([uid, val]) => ({
-                    uid,
-                    ...val
-                }))
+                const userList = Object.entries(data)
+                    .map(([uid, val]) => ({
+                        uid,
+                        ...val
+                    }))
+                    .filter(user => user.role !== 'owner') // Exclude Owner
                 setEmployees(userList)
             } else {
                 setEmployees([])
@@ -58,16 +60,18 @@ export default function MDEmployeeManagement() {
         setProcessing(true)
         try {
             const placeholderUid = `emp_${Date.now()}`
+            // Using 'employees' node to be consistent with AuthContext and History
             await set(ref(database, `employees/${placeholderUid}`), {
                 name: formData.name,
                 email: formData.email,
+                phone: formData.phone || '',
                 role: formData.role,
                 createdAt: new Date().toISOString(),
                 createdBy: currentUser.email || 'MD',
                 isPlaceholder: true
             })
             setIsAddModalOpen(false)
-            setFormData({ name: '', email: '', role: 'employee' })
+            setFormData({ name: '', email: '', role: 'employee', phone: '' })
             setToast({ type: 'success', message: "Member added successfully" })
         } catch (error) {
             console.error(error)
@@ -84,6 +88,7 @@ export default function MDEmployeeManagement() {
         try {
             await update(ref(database, `employees/${selectedEmployee.uid}`), {
                 name: formData.name,
+                phone: formData.phone || '',
                 role: formData.role
             })
             setIsEditModalOpen(false)
@@ -115,7 +120,7 @@ export default function MDEmployeeManagement() {
 
     const openEdit = (emp) => {
         setSelectedEmployee(emp)
-        setFormData({ name: emp.name, email: emp.email, role: emp.role })
+        setFormData({ name: emp.name, email: emp.email, role: emp.role, phone: emp.phone || '' })
         setIsEditModalOpen(true)
     }
 
@@ -173,6 +178,11 @@ export default function MDEmployeeManagement() {
                                     <p className="text-sm text-slate-500 truncate flex items-center gap-1" title={emp.email}>
                                         {emp.email}
                                     </p>
+                                    {emp.phone && (
+                                        <p className="text-xs text-slate-400 mt-0.5 truncate">
+                                            {emp.phone}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
@@ -231,6 +241,13 @@ export default function MDEmployeeManagement() {
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     />
+                    <Input
+                        label="Phone Number"
+                        type="tel"
+                        placeholder="e.g. +919999999999"
+                        value={formData.phone || ''}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    />
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 ml-1">Role</label>
                         <select
@@ -262,6 +279,12 @@ export default function MDEmployeeManagement() {
                         label="Full Name"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    />
+                    <Input
+                        label="Phone Number"
+                        type="tel"
+                        value={formData.phone || ''}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     />
                     <div className="opacity-50 cursor-not-allowed">
                         <Input

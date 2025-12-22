@@ -74,7 +74,7 @@ function AppContent() {
     useEffect(() => {
         if (!currentUser) return;
 
-        // Auto-Register Token (Idempotent)
+        // Auto-Register Token or Sync Denial Status
         requestNotificationPermission(currentUser.uid);
 
         // Foreground Listener

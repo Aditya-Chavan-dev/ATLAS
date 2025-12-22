@@ -1,211 +1,177 @@
-const { db } = require('../config/firebase'); // RTDB Instance
-const { getMessaging } = require('firebase-admin/messaging');
+// Notification Controller
+// STRICT implementation of Step 7 (Backend Behavior)
 
-const messaging = getMessaging();
+const { db, messaging } = require('../config/firebase');
 
 /**
- * STRICT BROADCAST IMPLEMENTATION (Consolidated to 'users' node)
- * Spec Section 7.3
+ * Register Token or Status
+ * Handles Step 6: "Send token to backend with... Permission status"
  */
-exports.broadcastAttendance = async (req, res) => {
-    // 0. Security Barrier (Middleware should usually handle this, but we enforce here for safety)
-    const { requesterUid } = req.body;
-
-    const broadcastId = db.ref('audit/broadcasts').push().key; // Generate ID upfront
-    const timestamp = Date.now();
-
-    console.log(`[BROADCAST] Start: ${broadcastId} by ${requesterUid}`);
-
+exports.registerToken = async (req, res) => {
     try {
-        // 1. Validate Requester (MD Check)
-        // Standardize on 'users' node
-        const requesterSnap = await db.ref(`users/${requesterUid}`).once('value');
-        const requester = requesterSnap.val();
+        const { uid, token, platform, permission } = req.body;
 
-        if (requester) console.log(`[BROADCAST] Found User in users. Role: '${requester.role}'`);
-
-        const role = requester?.role?.toLowerCase() || '';
-
-        // Strict Role Check: MD or Owner
-        if (!requester || (role !== 'md' && role !== 'owner')) {
-            console.warn(`[BROADCAST] Security Violation: User ${requesterUid} (Role: ${requester?.role}) attempted broadcast.`);
-            return res.status(403).json({ error: 'Unauthorized: MD Role Required' });
+        if (!uid || !permission) {
+            return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // 2. Fetch Audience (Active Employees Only)
-        // Switch to query 'users' to match Dashboard logic
-        const usersSnap = await db.ref('users').once('value');
-        const users = usersSnap.val() || {};
+        // Store exactly what we received (Concept of Truth)
+        await db.ref(`fcm_tokens/${uid}`).set({
+            token: token || null,
+            permission: permission, // 'granted' or 'denied'
+            platform: platform || 'web',
+            lastUpdated: new Date().toISOString()
+        });
 
-        let eligibleTokens = [];
-        const tokenOwnerMap = {}; // Map token -> { uid, tokenKey } for pruning
+        res.json({ success: true, message: 'Status updated' });
+    } catch (error) {
+        console.error('Register Token Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
 
-        Object.entries(users).forEach(([uid, user]) => {
-            // Strict Eligibility Check
+/**
+ * Unregister Token (Optional, for logout)
+ */
+exports.unregisterToken = async (req, res) => {
+    try {
+        const { uid } = req.body;
+        if (uid) {
+            // We just remove the record, returning to "App Not Installed" state?
+            // Or just remove token? "App Not Installed" means no record.
+            await db.ref(`fcm_tokens/${uid}`).remove();
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Error unregistering' });
+    }
+};
 
-            // Exclude Privileged Roles
-            const uRole = (user.role || '').toLowerCase();
-            if (uRole === 'md' || uRole === 'owner' || uRole === 'admin') return;
+/**
+ * Broadcast Logc (Step 7)
+ */
+exports.broadcastAttendance = async (req, res) => {
+    try {
+        console.log('📢 Starting Broadcast...');
 
-            // Exclude Inactive
-            if (user.isActive === false || user.status === 'archived') return;
+        // 1. Fetch Truth Data
+        const [usersSnap, tokensSnap] = await Promise.all([
+            db.ref('employees').once('value'), // Use employees node where real users live
+            db.ref('fcm_tokens').once('value')
+        ]);
 
-            // Check for tokens
-            if (user.fcmTokens) {
-                Object.entries(user.fcmTokens).forEach(([key, tokenData]) => {
-                    const token = tokenData.token;
-                    // Basic sanity check
-                    if (typeof token === 'string' && token.length > 20) {
-                        eligibleTokens.push(token);
-                        tokenOwnerMap[token] = { uid, key };
+        const employees = usersSnap.val() || {};
+        const fcmRecords = tokensSnap.val() || {};
+
+        // 2. Strict Categorization
+        const categorization = {
+            sentTo: [],           // Target List
+            failedNotInstalled: 0,
+            failedPermissionsOff: 0,
+            successSent: 0
+        };
+
+        const targetTokens = [];
+
+        // Identify non-admin employees
+        const employeeList = Object.values(employees).filter(u => u.role !== 'admin' && u.role !== 'owner');
+        const totalEmployees = employeeList.length;
+
+        for (const emp of employeeList) {
+            const uid = emp.uid;
+            const fcm = fcmRecords[uid];
+
+            if (!fcm) {
+                // No Record -> App Not Installed
+                categorization.failedNotInstalled++;
+            } else if (fcm.permission === 'denied' || !fcm.token) {
+                // Record Exists but Permission Denied (or missing token) -> Notification OFF
+                categorization.failedPermissionsOff++;
+            } else if (fcm.permission === 'granted' && fcm.token) {
+                // Valid -> Add to Target
+                categorization.sentTo.push(uid);
+                targetTokens.push(fcm.token);
+            }
+        }
+
+        // 3. Send Bulk (Data-Only)
+        let fcmSuccess = 0;
+        let fcmFailure = 0;
+
+        if (targetTokens.length > 0) {
+            const message = {
+                data: {
+                    type: 'ATTENDANCE_REMINDER',
+                    route: 'MARK_ATTENDANCE', // Step 5 Route
+                    date: new Date().toISOString().split('T')[0],
+                    // We DO NOT add notification: {} object here.
+                },
+                tokens: targetTokens
+            };
+
+            const response = await messaging.sendEachForMulticast(message);
+            fcmSuccess = response.successCount;
+            fcmFailure = response.failureCount;
+
+            // Remove invalid tokens if any (Strict Cleanup)
+            if (response.failureCount > 0) {
+                response.responses.forEach((resp, idx) => {
+                    if (!resp.success) {
+                        const error = resp.error;
+                        if (error.code === 'messaging/registration-token-not-registered' ||
+                            error.code === 'messaging/invalid-argument') {
+                            const failedUid = categorization.sentTo[idx]; // Map back using index
+                            console.log(`Removing invalid token for ${failedUid}`);
+                            db.ref(`fcm_tokens/${failedUid}/token`).remove();
+                            db.ref(`fcm_tokens/${failedUid}/permission`).set('denied'); // Downgrade status
+                        }
                     }
                 });
             }
-        });
-
-        // Deduplicate
-        eligibleTokens = [...new Set(eligibleTokens)];
-
-        // 3. Zero-Target Handling
-        if (eligibleTokens.length === 0) {
-            await db.ref(`audit/broadcasts/${broadcastId}`).set({
-                broadcastId,
-                type: 'attendance_reminder',
-                initiatedBy: requesterUid,
-                initiatedAt: timestamp,
-                status: 'ABORTED_NO_AUDIENCE',
-                metrics: { totalTarget: 0 }
-            });
-            return res.json({ success: true, sent: 0, message: 'No eligible active employees with tokens found.' });
         }
 
-        // 4. Construct Immutable Message
-        // Spec Section 2.2: Fixed Content
-        // CHANGED: Use Data-Only payload to ensure SW can handle 'notificationclick' with full data context.
-        const messagePayload = {
-            data: {
-                title: 'Attendance Reminder',
-                body: 'Please mark your attendance for today',
-                // Critical for deep linking
-                action: 'MARK_ATTENDANCE',
-                broadcastId: broadcastId,
-                timestamp: String(timestamp)
-            },
-            tokens: eligibleTokens
+        // 4. Final Response (Step 8 Data Model)
+        // Sent To = Total we TRIED to send to (which equals success + specific failures, but user asked for Truth based on stored data)
+        // User Spec:
+        // Notifications Sent To -> Total employees with app installed (permission ON + OFF) ?? sentTo usually means target.
+        // Wait, Spec says: "Notifications Sent To -> Total employees with app installed (permission ON + OFF)"
+        // This definition is slightly weird. "Sent To" usually implies the active target.
+        // But the example clarifies:
+        // "4 have app + ON, 1 has app + OFF, 2 never installed" -> "Notifications Sent To: 5"
+        // So "Sent To" = Installed (ON + OFF).
+        // My Logic:
+        // Installed = (granted + token) + (denied/no-token but record) = categorization.sentTo.length + categorization.failedPermissionsOff
+
+        const countInstalledON = categorization.sentTo.length;
+        const countInstalledOFF = categorization.failedPermissionsOff;
+        const countNotInstalled = categorization.failedNotInstalled;
+
+        const summary = {
+            totalEmployees: totalEmployees,
+            sentTo: countInstalledON + countInstalledOFF, // "Total with app installed"
+            successfullySent: fcmSuccess,
+            failedNotInstalled: countNotInstalled,
+            permissionDenied: countInstalledOFF // "Couldn't reach (notifications turned off)"
         };
 
-        // 5. Execution (Batching handled by SDK sendEachForMulticast)
-        const response = await messaging.sendEachForMulticast(messagePayload);
+        // Clarifiction on "Successfully Sent":
+        // If 5 people installed. 4 ON. 1 OFF.
+        // We try to send to 4. 
+        // If FCM says 4 success.
+        // Then successfullySent = 4.
+        // The modal spec names:
+        // - Notifications Sent To (Total Installed)
+        // - Successfully Sent (FCM success)
+        // - Failed (App not installed) (Never installed)
+        // - Couldn't Reach (Notifications turned off) (Installed but Off)
 
-        // 6. Outcome Analysis & Token Hygiene (Self-Healing)
-        let pruned = 0;
-        const prunePromises = [];
-
-        response.responses.forEach((resp, idx) => {
-            if (!resp.success) {
-                const errorCode = resp.error.code;
-                const badToken = eligibleTokens[idx];
-                const owner = tokenOwnerMap[badToken];
-
-                if (errorCode === 'messaging/invalid-registration-token' ||
-                    errorCode === 'messaging/registration-token-not-registered') {
-                    if (owner) {
-                        // Immediate Prune
-                        prunePromises.push(
-                            db.ref(`users/${owner.uid}/fcmTokens/${owner.key}`).remove()
-                        );
-                        pruned++;
-                    }
-                }
-            }
-        });
-
-        await Promise.all(prunePromises);
-
-        // 7. Authoritative Audit Record
-        const auditRecord = {
-            broadcastId,
-            type: 'attendance_reminder',
-            initiatedBy: requesterUid,
-            initiatedByName: requester.name || 'Unknown MD',
-            initiatedAt: timestamp,
-            status: response.failureCount > 0 ? 'PARTIAL' : 'COMPLETED',
-            message: {
-                title: 'Attendance Reminder',
-                body: 'Please mark your attendance for today'
-            },
-            metrics: {
-                targetDeviceCount: eligibleTokens.length,
-                successCount: response.successCount,
-                failureCount: response.failureCount,
-                prunedCount: pruned
-            },
-            completedAt: Date.now()
-        };
-
-        await db.ref(`audit/broadcasts/${broadcastId}`).set(auditRecord);
-
-        console.log(`[BROADCAST] Done. Success: ${response.successCount}, Fail: ${response.failureCount}, Pruned: ${pruned}`);
-
-        // 8. Reply to Client
         res.json({
             success: true,
-            broadcastId,
-            sent: response.successCount,
-            failures: response.failureCount,
-            pruned: pruned
+            summary: summary
         });
 
     } catch (error) {
-        console.error('[BROADCAST] Critical Failure:', error);
-
-        // Log failure outcome
-        await db.ref(`audit/broadcasts/${broadcastId}`).update({
-            status: 'CRITICAL_FAILURE',
-            error: error.message,
-            failedAt: Date.now()
-        });
-
-        res.status(500).json({ error: 'Broadcast System Failure', details: error.message });
-    }
-};
-
-/**
- * TOKEN REGISTRATION APIs
- * Spec Section 7.2
- */
-const crypto = require('crypto');
-const hashToken = (t) => crypto.createHash('sha256').update(t).digest('hex');
-
-exports.registerToken = async (req, res) => {
-    const { uid, token } = req.body;
-    if (!uid || !token) return res.status(400).json({ error: 'Missing Data' });
-
-    try {
-        const hash = hashToken(token);
-        // Store under users/{uid}/fcmTokens/{hash} to match Dashboard data source
-        await db.ref(`users/${uid}/fcmTokens/${hash}`).set({
-            token,
-            lastSeen: Date.now(),
-            userAgent: req.headers['user-agent'] || 'unknown'
-        });
-
-        res.json({ success: true });
-    } catch (e) {
-        console.error('[FCM] Register Fail:', e);
-        res.status(500).json({ error: 'Storage Error' });
-    }
-};
-
-exports.unregisterToken = async (req, res) => {
-    const { uid, token } = req.body;
-    if (!uid || !token) return res.status(400).json({ error: 'Missing Data' });
-
-    try {
-        const hash = hashToken(token);
-        await db.ref(`users/${uid}/fcmTokens/${hash}`).remove();
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: 'Storage Error' });
+        console.error('Broadcast Error:', error);
+        res.status(500).json({ error: error.message });
     }
 };

@@ -4,7 +4,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getRouteForRole } from '../config/roleConfig'
+import { getRouteForRole, ALLOWED_PHONE_NUMBER } from '../config/roleConfig'
 import { usePWAInstall } from '../hooks/usePWAInstall'
 import './Login.css'
 import RefinedModal from '../components/ui/RefinedModal'
@@ -12,7 +12,7 @@ import RefinedModal from '../components/ui/RefinedModal'
 // Firebase Phone Auth imports
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth'
 import { auth, database } from '../firebase/config'
-import { ref, get, child } from 'firebase/database'
+import { ref, get, child, query, orderByChild, equalTo, set, remove } from 'firebase/database'
 
 function Login() {
     const { loginWithGoogle, currentUser, userProfile, loading } = useAuth()
@@ -72,6 +72,13 @@ function Login() {
 
         setIsPhoneLoading(true)
         setError('')
+
+        // Restriction Check
+        if (ALLOWED_PHONE_NUMBER && phoneNumber !== ALLOWED_PHONE_NUMBER) {
+            setIsPhoneLoading(false)
+            setError('Phone login is restricted. Please use Google Login.')
+            return
+        }
 
         try {
             setupRecaptcha()
@@ -147,16 +154,49 @@ function Login() {
             const userSnapshot = await get(child(dbRef, `employees/${user.uid}`))
 
             if (!userSnapshot.exists()) {
-                // User not registered - sign out and show error
-                await auth.signOut()
-                setError('You are not authorized to access this system. Please contact your administrator.')
-                setShowOtpInput(false)
-                setOtp(['', '', '', '', '', ''])
-                return
-            }
+                // User not registered directly - CHECK FOR MIGRATION (Pre-added by MD)
+                console.log('🔍 Checking for pre-added employee record by phone...')
+                const employeesRef = ref(database, 'employees')
+                // Query by 'phone' field matching the authenticated phone number
+                const phoneQuery = query(employeesRef, orderByChild('phone'), equalTo(user.phoneNumber))
+                const phoneSnapshot = await get(phoneQuery)
 
-            // User exists - navigation handled by useEffect
-            showMessage('Success', 'Login successful!', 'success')
+                if (phoneSnapshot.exists()) {
+                    // Found pre-added record! Migrate logic.
+                    const data = phoneSnapshot.val()
+                    const oldUid = Object.keys(data)[0] // Get the placeholder UID
+                    const profileData = data[oldUid]
+
+                    console.log('♻️ Found pre-added record. Migrating to real UID...', oldUid)
+
+                    // Update profile with real UID and phone
+                    const updatedProfile = {
+                        ...profileData,
+                        uid: user.uid,
+                        phone: user.phoneNumber,
+                        // Ensure other fields are preserved
+                    }
+
+                    // Save to new location (real UID)
+                    await set(ref(database, `employees/${user.uid}`), updatedProfile)
+
+                    // Delete old placeholder record
+                    await remove(ref(database, `employees/${oldUid}`))
+
+                    console.log('✅ Migration complete. Login successful.')
+                    showMessage('Success', 'Account verified and linked successfully!', 'success')
+                } else {
+                    // Strictly not found
+                    await auth.signOut()
+                    setError('You are not authorized to access this system. Please ask your Manager to add your phone number to the system.')
+                    setShowOtpInput(false)
+                    setOtp(['', '', '', '', '', ''])
+                    return
+                }
+            } else {
+                // User exists - navigation handled by useEffect
+                showMessage('Success', 'Login successful!', 'success')
+            }
         } catch (err) {
             console.error('Error verifying OTP:', err)
             setError('Invalid OTP. Please try again.')

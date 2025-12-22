@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import {
     Users, UserCheck, UserMinus, MapPin,
     Bell, Sun, Moon, Phone, Mail, ArrowRight,
-    CheckCircle, Clock
+    CheckCircle, Clock, Send
 } from 'lucide-react'
 import ApiService from '../../services/api'
 import { format } from 'date-fns'
@@ -16,6 +16,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 // UI Components
 import MDToast from '../components/MDToast'
+import Modal from '../../components/ui/Modal'
+import Button from '../../components/ui/Button'
 
 export default function MDDashboard() {
     const { theme, toggleTheme } = useTheme()
@@ -34,10 +36,13 @@ export default function MDDashboard() {
     const [sendingReminder, setSendingReminder] = useState(false)
     const [toast, setToast] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [isReminderModalOpen, setIsReminderModalOpen] = useState(false)
+    const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false)
+    const [summaryData, setSummaryData] = useState(null)
 
     // Realtime Data Sync
     useEffect(() => {
-        const usersRef = ref(database, 'users')
+        const usersRef = ref(database, 'employees')
         const todayStr = new Date().toISOString().split('T')[0]
 
         const unsubscribe = onValue(usersRef, (snapshot) => {
@@ -71,15 +76,8 @@ export default function MDDashboard() {
                     // Stats
                     const s = todayRecord.status
                     if (s === 'Present' || s === 'Late') newStats.present++
-                    if (s === 'site') newStats.onSite++ // 'site' is the status code? Check logic. Usually 'Present' with location 'Site'.
-                    // Actually previous logic used getStatus helper. Let's simplify:
-                    if (todayRecord.location === 'Site') newStats.onSite++ // If distinct from present count? 
-                    // Let's adhere to previous strict logic if possible, or spec logic.
-                    // Spec: "Present Today" (Green), "On Leave" (Amber), "On Site" (Indigo).
+                    if (s === 'site' || todayRecord.location === 'Site') newStats.onSite++
 
-                    if (['Present', 'Late'].includes(s) && todayRecord.location !== 'Site') {
-                        // Counted in Present
-                    }
                     if (['leave', 'half-day'].includes(s)) newStats.onLeave++
                 } else {
                     newStats.absent++
@@ -98,18 +96,26 @@ export default function MDDashboard() {
         return () => unsubscribe()
     }, [])
 
-    const handleSendReminder = async () => {
-        if (!confirm('Send "Attendance Reminder" to all absent staff?')) return
+    const handleSendReminderClick = () => {
+        setIsReminderModalOpen(true)
+    }
+
+    const confirmSendReminder = async () => {
         setSendingReminder(true)
         try {
             const data = await ApiService.post('/api/fcm/broadcast', { requesterUid: currentUser?.uid })
             if (data.success) {
-                setToast({ type: 'success', message: `Reminder Sent! Delivered: ${data.sent}` })
+                // Step 8: Show Summary Modal
+                setSummaryData(data.summary)
+                setIsReminderModalOpen(false)
+                setIsSummaryModalOpen(true)
             } else {
                 throw new Error(data.error)
             }
         } catch (error) {
             setToast({ type: 'error', message: error.message })
+            // Keep modal open on error? Or close? Let's keep it open to retry or see error?
+            // Usually toast shows error.
         } finally {
             setSendingReminder(false)
         }
@@ -157,7 +163,7 @@ export default function MDDashboard() {
 
             {/* 2. Top Deck - Metrics Grid */}
             <motion.div
-                className="grid grid-cols-2 gap-3"
+                className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4"
                 variants={containerVariants}
             >
                 {/* User Count */}
@@ -206,23 +212,100 @@ export default function MDDashboard() {
             </motion.div>
 
             {/* 3. Quick Action - Send Reminder */}
-            <motion.button
-                variants={itemVariants}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleSendReminder}
-                disabled={sendingReminder}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-                {sendingReminder ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
+            <div className="flex justify-center lg:justify-start">
+                <motion.button
+                    variants={itemVariants}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleSendReminderClick}
+                    className="w-full lg:w-auto lg:px-8 py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all"
+                >
+                    <Bell size={20} />
+                    <span>Send Attendance Reminder</span>
+                </motion.button>
+            </div>
+
+            {/* Confirmation Modal */}
+            <Modal
+                isOpen={isReminderModalOpen}
+                onClose={() => setIsReminderModalOpen(false)}
+                title="Send Reminder?"
+                footer={
                     <>
-                        <Bell size={20} />
-                        <span>Send Attendance Reminder</span>
+                        <Button variant="ghost" onClick={() => setIsReminderModalOpen(false)}>Cancel</Button>
+                        <Button
+                            onClick={confirmSendReminder}
+                            loading={sendingReminder}
+                            icon={Send}
+                        >
+                            Send Broadcast
+                        </Button>
                     </>
+                }
+            >
+                <div className="space-y-3">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-lg flex gap-3">
+                        <Bell className="shrink-0 w-5 h-5" />
+                        <p className="text-sm">This will trigger a push notification to all employees who have not marked attendance today.</p>
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-300">
+                        Total Absentees: <b className="text-slate-900 dark:text-white">{stats.absent}</b>
+                    </p>
+                </div>
+            </Modal>
+
+            {/* Step 8: Delivery Summary Modal (Strict Truth Data) */}
+            <Modal
+                isOpen={isSummaryModalOpen}
+                onClose={() => setIsSummaryModalOpen(false)}
+                title="Broadcast Report"
+                footer={
+                    <Button variant="primary" onClick={() => setIsSummaryModalOpen(false)}>
+                        Close Report
+                    </Button>
+                }
+            >
+                {summaryData && (
+                    <div className="space-y-4">
+                        <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Delivery Metrics</h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-slate-600 dark:text-slate-300">Total Employees</span>
+                                    <span className="font-bold text-slate-900 dark:text-white">{summaryData.totalEmployees}</span>
+                                </div>
+                                <div className="h-px bg-slate-200 dark:bg-slate-800" />
+                                <div className="flex justify-between items-center">
+                                    <span className="text-blue-600 font-medium">Notifications Sent To</span>
+                                    <span className="font-bold text-blue-600">{summaryData.sentTo}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 -mt-2">Employees with App Installed (Permission ON or OFF)</p>
+
+                                <div className="bg-emerald-50 dark:bg-emerald-900/10 p-2 rounded-lg flex justify-between items-center mt-2">
+                                    <div className="flex items-center gap-2">
+                                        <CheckCircle size={16} className="text-emerald-600" />
+                                        <span className="text-emerald-700 dark:text-emerald-400 font-medium text-sm">Successfully Sent</span>
+                                    </div>
+                                    <span className="font-bold text-emerald-700 dark:text-emerald-400">{summaryData.successfullySent}</span>
+                                </div>
+
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-500">Failed (App not installed)</span>
+                                    <span className="font-mono text-slate-700 dark:text-slate-300">{summaryData.failedNotInstalled}</span>
+                                </div>
+
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-amber-600 dark:text-amber-500">Couldn't Reach (Notifications OFF)</span>
+                                    <span className="font-mono font-bold text-amber-600 dark:text-amber-500">{summaryData.permissionDenied}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p className="text-xs text-center text-slate-400">
+                            Metrics are based on verified device tokens and permission states.
+                        </p>
+                    </div>
                 )}
-            </motion.button>
+            </Modal>
 
             {/* 4. Live Feed Section */}
             <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">

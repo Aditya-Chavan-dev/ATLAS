@@ -17,6 +17,11 @@ export const ROLES = {
     EMPLOYEE: 'employee',
 };
 
+// Phone Authentication Restriction
+// Only this number can use phone login (format: 9999999999)
+// Set to '' to disable restriction (allow all) or a specific 10-digit number
+export const ALLOWED_PHONE_NUMBER = import.meta.env.VITE_ALLOWED_PHONE_NUMBER || '';
+
 export const ROLE_ROUTES = {
     [ROLES.OWNER]: '/metrics',
     [ROLES.MD]: '/md/dashboard',
