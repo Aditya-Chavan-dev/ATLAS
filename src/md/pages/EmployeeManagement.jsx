@@ -84,7 +84,7 @@ export default function MDEmployeeManagement() {
                     source // Track where this user came from
                 }
             })
-            .filter(user => user.name && user.email) // Show only valid profiles
+            .filter(user => user.name && user.email && user.status !== 'archived') // Show only valid & active profiles
 
         setEmployees(list)
         setLoading(false)
@@ -152,20 +152,15 @@ export default function MDEmployeeManagement() {
         if (!selectedEmployee) return
         setProcessing(true)
         try {
-            // Delete from the specific source collection
-            // Delete from the specific source collection
-            const collection = selectedEmployee.source || 'employees'
-            // Target: employees/{uid}/profile (if source is employees)
-            const path = collection === 'employees' ? `employees/${selectedEmployee.uid}/profile` : `users/${selectedEmployee.uid}`
-
-            await remove(ref(database, path))
+            // Revoke Access via Backend (Soft Delete)
+            await ApiService.post('/api/auth/archive-employee', { uid: selectedEmployee.uid })
 
             setIsDeleteModalOpen(false)
             setSelectedEmployee(null)
-            setToast({ type: 'success', message: "Member deleted successfully" })
+            setToast({ type: 'success', message: "Member access revoked (Data archived)" })
         } catch (error) {
             console.error(error)
-            setToast({ type: 'error', message: "Failed to delete member" })
+            setToast({ type: 'error', message: "Failed to archive member" })
         } finally {
             setProcessing(false)
         }
@@ -354,24 +349,27 @@ export default function MDEmployeeManagement() {
                 </div>
             </Modal>
 
-            {/* Delete Confirmation Modal */}
             <Modal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
-                title="Remove Member?"
+                title="Revoke Access?"
                 footer={
                     <>
                         <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>Cancel</Button>
-                        <Button variant="danger-solid" onClick={handleDelete} loading={processing}>Delete Member</Button>
+                        <Button variant="danger-solid" onClick={handleDelete} loading={processing}>Revoke Access</Button>
                     </>
                 }
             >
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded-lg flex gap-3 mb-4">
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 rounded-lg flex gap-3 mb-4">
                     <Shield className="shrink-0 w-5 h-5" />
-                    <p className="text-sm">This action operates on the database directly. If the user has already signed in, their authentication record might remain until manually cleared from Firebase Auth Console.</p>
+                    <p className="text-sm">
+                        <b>Access Revocation Policy:</b> The user's account will be disabled immediately, preventing any further login.
+                        <br /><br />
+                        Note: Historic attendance data will be <b>retained for 30 days</b> for audit purposes before permanent deletion.
+                    </p>
                 </div>
                 <p className="text-slate-600 dark:text-slate-300">
-                    Are you sure you want to remove <b className="text-slate-900 dark:text-white">{selectedEmployee?.name}</b>? This action cannot be undone.
+                    Are you sure you want to revoke access for <b className="text-slate-900 dark:text-white">{selectedEmployee?.name}</b>?
                 </p>
             </Modal>
 
