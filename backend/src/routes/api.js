@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const notificationController = require('../controllers/notificationController');
 const authController = require('../controllers/authController');
+const migrationController = require('../controllers/migrationController');
 
 // Health Check
 router.get('/', (req, res) => {
@@ -39,5 +40,8 @@ router.get('/dashboard/stats', dashboardController.getDashboardStats);
 
 // Auth Routes (Admin Only)
 router.post('/auth/create-employee', authController.createEmployee);
+
+// System Routes
+router.post('/system/migrate', migrationController.runMigration);
 
 module.exports = router;

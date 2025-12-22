@@ -31,7 +31,7 @@ export default function MDEmployeeManagement() {
 
     // Form/Selection State
     const [selectedEmployee, setSelectedEmployee] = useState(null)
-    const [formData, setFormData] = useState({ name: '', email: '', role: 'employee', phone: '' })
+    const [formData, setFormData] = useState({ name: '', email: '', role: 'employee' })
     const [processing, setProcessing] = useState(false)
 
     // Data State for Dual Source
@@ -93,7 +93,6 @@ export default function MDEmployeeManagement() {
             const payload = {
                 name: formData.name,
                 email: formData.email,
-                phone: formData.phone || '', // Check format in backend if needed
                 role: formData.role
             }
 
@@ -106,7 +105,8 @@ export default function MDEmployeeManagement() {
                 throw new Error(response.error || 'Creation failed')
             }
             setIsAddModalOpen(false)
-            setFormData({ name: '', email: '', role: 'employee', phone: '' })
+            setIsAddModalOpen(false)
+            setFormData({ name: '', email: '', role: 'employee' })
             setToast({ type: 'success', message: "Member added successfully" })
         } catch (error) {
             console.error(error)
@@ -280,13 +280,6 @@ export default function MDEmployeeManagement() {
                         placeholder="e.g. john@example.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    />
-                    <Input
-                        label="Phone Number"
-                        type="tel"
-                        placeholder="e.g. +919999999999"
-                        value={formData.phone || ''}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     />
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 ml-1">Role</label>
