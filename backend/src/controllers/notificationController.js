@@ -104,52 +104,29 @@ exports.unregisterToken = async (req, res) => {
  */
 exports.broadcastAttendance = async (req, res) => {
     try {
-        console.log('📢 Starting Broadcast (Token-Based)...');
+        console.log('📢 Starting Broadcast (Token-Based - Global)...');
 
-        // 1. Fetch Truth Data
-        const [usersSnap, tokensSnap] = await Promise.all([
-            db.ref('employees').once('value'),
-            db.ref('deviceTokens').once('value')
-        ]);
-
-        const employees = usersSnap.val() || {};
+        // 1. Fetch Tokens directly (Source of Truth)
+        const tokensSnap = await db.ref('deviceTokens').once('value');
         const allTokens = tokensSnap.val() || {};
 
-        // 2. Filter Active Employees (The "Total" Base)
-        const employeeList = Object.values(employees).filter(u => {
-            const p = u.profile || u;
-            return (
-                p.role !== 'admin' &&
-                p.role !== 'md' &&
-                p.role !== 'owner' &&
-                p.email &&
-                p.status !== 'archived'
-            );
-        });
-        const activeUids = new Set(employeeList.map(e => e.uid));
-        const totalEmployees = employeeList.length;
-
-        // 3. Analyze Tokens
+        // 2. Select Targets (Simple Filter: Is Enabled?)
         const targetTokens = [];
-        const validTokensList = []; // For cleanup reference
-        const uniqueInstalledUids = new Set();
         let countPermissionsOff = 0;
+        let totalRegistered = 0;
 
         Object.entries(allTokens).forEach(([token, data]) => {
-            // Only consider tokens belonging to ACTIVE employees
-            if (activeUids.has(data.uid)) {
-                uniqueInstalledUids.add(data.uid);
-
-                if (data.notificationsEnabled) {
-                    targetTokens.push(token);
-                    validTokensList.push(token);
-                } else {
-                    countPermissionsOff++;
-                }
+            totalRegistered++;
+            if (data.notificationsEnabled) {
+                targetTokens.push(token);
+            } else {
+                countPermissionsOff++;
             }
         });
 
-        // 4. Send Bulk (Data-Only Payload)
+        console.log(`[Broadcast] Found ${targetTokens.length} targets out of ${totalRegistered} tokens.`);
+
+        // 3. Send Bulk (Data-Only Payload)
         let fcmSuccess = 0;
         let fcmFailure = 0;
 
@@ -185,20 +162,13 @@ exports.broadcastAttendance = async (req, res) => {
             }
         }
 
-        // 5. Calculate Stats (Truth)
-        const countNotInstalled = totalEmployees - uniqueInstalledUids.size;
-
-        // "notifications turned off" logic:
-        // Since we DELETE denied tokens, this number might be small/zero unless we change logic to Keep-But-Mark-Disabled.
-        // But per prompt rules part 1 "Delete: Old database paths", and Part 2 "Do NOT create a token entry" if denied.
-        // So "Permission Denied" in the modal will strictly reflect tokens that exist but are disabled (rare) OR we accept it's 0.
-        // Alternatively, if "Not Installed" means "No Token", that catches Denied users too.
-
+        // 4. Stats
+        // We report based on DEVICES now, as requested.
         const summary = {
-            totalEmployees: totalEmployees,
-            sentTo: targetTokens.length, // "Total tokens targeted"
+            totalEmployees: totalRegistered, // Changed semantics: Total Registered Devices
+            sentTo: targetTokens.length,
             successfullySent: fcmSuccess,
-            failedNotInstalled: Math.max(0, countNotInstalled), // Ensure non-negative
+            failedNotInstalled: 0, // N/A for token-only Logic
             permissionDenied: countPermissionsOff
         };
 
