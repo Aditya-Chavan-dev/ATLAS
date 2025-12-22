@@ -84,7 +84,7 @@ export default function MDEmployeeManagement() {
                     source // Track where this user came from
                 }
             })
-            .filter(user => true) // Show all
+            .filter(user => user.name && user.email) // Show only valid profiles
 
         setEmployees(list)
         setLoading(false)
