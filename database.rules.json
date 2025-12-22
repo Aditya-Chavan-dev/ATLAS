@@ -24,15 +24,14 @@
         query.orderByChild == 'employeeId' && query.equalTo == auth.uid || 
         root.child('employees').child(auth.uid).child('role').val() === 'md' || 
         root.child('employees').child(auth.uid).child('role').val() === 'owner'
-      )",".indexOn": [
-                "employeeId",
-                "date"
-            ],
-            "$attendanceId": {
-                // Allow write if:
-                // 1. Use is MD/Owner
-                // 2. OR user is writing their OWN attendance (employeeId matches auth.uid)
-                ".write": "auth != null && (
+      )",".indexOn": ["employeeId",
+            "date"
+        ],
+        "$attendanceId": {
+            // Allow write if:
+            // 1. Use is MD/Owner
+            // 2. OR user is writing their OWN attendance (employeeId matches auth.uid)
+            ".write": "auth != null && (
           root.child('employees').child(auth.uid).child('role').val() === 'md' || 
           root.child('employees').child(auth.uid).child('role').val() === 'owner' ||
           newData.child('employeeId').val() === auth.uid
@@ -41,36 +40,36 @@
           root.child('employees').child(auth.uid).child('role').val() === 'md' || 
           root.child('employees').child(auth.uid).child('role').val() === 'owner'
         )"
-            }
-        },
-        "leaves": {
-            ".indexOn": [
-                "employeeId"
-            ],
-            ".read": "auth != null",
-            "$leaveId": {
-                ".read": "auth != null && (data.child('employeeId').val() === auth.uid || root.child('employees').child(auth.uid).child('role').val() === 'md' || root.child('employees').child(auth.uid).child('role').val() === 'owner')",
-                ".write": "auth != null && (
+        }
+    },
+    "leaves": {
+        ".indexOn": [
+            "employeeId"
+        ],
+        ".read": "auth != null",
+        "$leaveId": {
+            ".read": "auth != null && (data.child('employeeId').val() === auth.uid || root.child('employees').child(auth.uid).child('role').val() === 'md' || root.child('employees').child(auth.uid).child('role').val() === 'owner')",
+            ".write": "auth != null && (
             (newData.exists() && newData.child('employeeId').val() === auth.uid) || 
             root.child('employees').child(auth.uid).child('role').val() === 'md' || 
             root.child('employees').child(auth.uid).child('role').val() === 'owner'
          )"
-            }
-        },
-        "audit": {
-            // Only MD/Owner can read audit logs
-            ".read": "auth != null && (root.child('employees').child(auth.uid).child('role').val() === 'md' || root.child('employees').child(auth.uid).child('role').val() === 'owner')",
-            // Anyone can WRITE to audit (to log their own actions), but not delete/overwrite others easily (could refine this, but basic write is needed)
-            ".write": "auth != null"
-        },
-        // Legacy/Other nodes
-        "users": {
-            ".read": false,
-            ".write": false
-        }, // Deprecated
-        "demo": {
-            ".read": "auth != null",
-            ".write": "auth != null"
         }
+    },
+    "audit": {
+        // Only MD/Owner can read audit logs
+        ".read": "auth != null && (root.child('employees').child(auth.uid).child('role').val() === 'md' || root.child('employees').child(auth.uid).child('role').val() === 'owner')",
+        // Anyone can WRITE to audit (to log their own actions), but not delete/overwrite others easily (could refine this, but basic write is needed)
+        ".write": "auth != null"
+    },
+    // Legacy/Other nodes
+    "users": {
+        ".read": false,
+        ".write": false
+    }, // Deprecated
+    "demo": {
+        ".read": "auth != null",
+        ".write": "auth != null"
     }
+}
 }

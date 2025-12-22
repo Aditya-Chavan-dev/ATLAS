@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const notificationController = require('../controllers/notificationController');
+const authController = require('../controllers/authController');
 
 // Health Check
 router.get('/', (req, res) => {
@@ -33,5 +34,8 @@ router.post('/leave/cancel', leaveController.cancelLeave);
 // Dashboard Routes
 const dashboardController = require('../controllers/dashboardController');
 router.get('/dashboard/stats', dashboardController.getDashboardStats);
+
+// Auth Routes (Admin Only)
+router.post('/auth/create-employee', authController.createEmployee);
 
 module.exports = router;

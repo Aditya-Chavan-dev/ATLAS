@@ -14,6 +14,7 @@ import Input from '../../components/ui/Input'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import MDToast from '../components/MDToast'
+import ApiService from '../../services/api'
 
 export default function MDEmployeeManagement() {
     const { currentUser } = useAuth()
@@ -33,43 +34,77 @@ export default function MDEmployeeManagement() {
     const [formData, setFormData] = useState({ name: '', email: '', role: 'employee', phone: '' })
     const [processing, setProcessing] = useState(false)
 
-    // Fetch Data
+    // Data State for Dual Source
+    const [employeesMap, setEmployeesMap] = useState({})
+    const [usersMap, setUsersMap] = useState({})
+
+    // Fetch Data from BOTH collections
     useEffect(() => {
-        const usersRef = ref(database, 'employees')
-        const unsubscribe = onValue(usersRef, (snapshot) => {
-            const data = snapshot.val()
-            if (data) {
-                const userList = Object.entries(data)
-                    .map(([uid, val]) => ({
-                        uid,
-                        ...val
-                    }))
-                    .filter(user => user.role !== 'owner') // Exclude Owner
-                setEmployees(userList)
-            } else {
-                setEmployees([])
-            }
-            setLoading(false)
+        setLoading(true)
+
+        const employeesRef = ref(database, 'employees')
+        const usersRef = ref(database, 'users')
+
+        const unsubEmployees = onValue(employeesRef, (snapshot) => {
+            const val = snapshot.val() || {}
+            setEmployeesMap(val)
         })
-        return () => unsubscribe()
+
+        const unsubUsers = onValue(usersRef, (snapshot) => {
+            const val = snapshot.val() || {}
+            setUsersMap(val)
+        })
+
+        return () => {
+            unsubEmployees()
+            unsubUsers()
+        }
     }, [])
+
+    // Merge & Deduplicate
+    useEffect(() => {
+        // Priority: Employees > Users
+        // If a UID exists in both, 'employees' data wins (it's the newer schema)
+        const merged = { ...usersMap, ...employeesMap }
+
+        const list = Object.entries(merged)
+            .map(([uid, val]) => {
+                // Determine source for future operations
+                const source = employeesMap[uid] ? 'employees' : 'users'
+                return {
+                    uid,
+                    ...val,
+                    source // Track where this user came from
+                }
+            })
+            .filter(user => true) // Show all
+
+        setEmployees(list)
+        setLoading(false)
+    }, [employeesMap, usersMap])
 
     // Handlers
     const handleAdd = async (e) => {
         e.preventDefault()
         setProcessing(true)
         try {
-            const placeholderUid = `emp_${Date.now()}`
-            // Using 'employees' node to be consistent with AuthContext and History
-            await set(ref(database, `employees/${placeholderUid}`), {
+            // STEP 5: Use Backend to Create Auth + DB Record
+            // "MD adds employee -> Firebase Auth user is created -> Application DB record is created"
+            const payload = {
                 name: formData.name,
                 email: formData.email,
-                phone: formData.phone || '',
-                role: formData.role,
-                createdAt: new Date().toISOString(),
-                createdBy: currentUser.email || 'MD',
-                isPlaceholder: true
-            })
+                phone: formData.phone || '', // Check format in backend if needed
+                role: formData.role
+            }
+
+            const response = await ApiService.post('/api/auth/create-employee', payload)
+
+            if (response.success) {
+                // Success
+                console.log('User created:', response.user)
+            } else {
+                throw new Error(response.error || 'Creation failed')
+            }
             setIsAddModalOpen(false)
             setFormData({ name: '', email: '', role: 'employee', phone: '' })
             setToast({ type: 'success', message: "Member added successfully" })
@@ -86,7 +121,9 @@ export default function MDEmployeeManagement() {
         if (!selectedEmployee) return
         setProcessing(true)
         try {
-            await update(ref(database, `employees/${selectedEmployee.uid}`), {
+            // Update in the specific source collection
+            const collection = selectedEmployee.source || 'employees'
+            await update(ref(database, `${collection}/${selectedEmployee.uid}`), {
                 name: formData.name,
                 phone: formData.phone || '',
                 role: formData.role
@@ -106,7 +143,10 @@ export default function MDEmployeeManagement() {
         if (!selectedEmployee) return
         setProcessing(true)
         try {
-            await remove(ref(database, `employees/${selectedEmployee.uid}`))
+            // Delete from the specific source collection
+            const collection = selectedEmployee.source || 'employees'
+            await remove(ref(database, `${collection}/${selectedEmployee.uid}`))
+
             setIsDeleteModalOpen(false)
             setSelectedEmployee(null)
             setToast({ type: 'success', message: "Member deleted successfully" })

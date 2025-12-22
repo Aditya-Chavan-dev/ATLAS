@@ -127,6 +127,12 @@ export default function MDLayout() {
                             </button>
                         )
                     })}
+                    <button
+                        onClick={handleLogoutClick}
+                        className="relative p-3 rounded-xl transition-all duration-300 ease-spring text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                        <LogOut className="w-6 h-6" />
+                    </button>
                 </div>
             </nav>
 
