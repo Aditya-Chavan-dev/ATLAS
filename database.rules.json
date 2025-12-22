@@ -40,9 +40,11 @@
             ".read": "auth != null",
             ".write": "auth != null"
         },
-        "fcm_tokens": {
-            ".read": "auth != null",
-            ".write": "auth != null"
+        "deviceTokens": {
+            "$token": {
+                ".read": "auth != null && ((data.child('uid').val() === auth.uid) || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
+                ".write": "auth != null && (newData.child('uid').val() === auth.uid)"
+            }
         }
     }
 }
