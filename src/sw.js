@@ -40,19 +40,33 @@ self.addEventListener('push', async (event) => {
     await initializeFirebaseMessaging();
 
     if (firebase.messaging.isSupported()) {
-        // The background message handler will be triggered if defined, 
-        // but we can also handle it here directly
-        const data = event.data?.json() || {};
-        const notification = data.notification || {};
+        const payload = event.data?.json() || {};
+        // STRICT: Data-Only Payload Handling
+        const { type, route, date } = payload.data || {};
 
-        const title = notification.title || 'ATLAS Notification';
+        console.log('[Unified SW] Payload:', payload);
+
+        let title = 'ATLAS Notification';
+        let body = 'You have a new message';
+
+        // Custom Logic for Attendance Reminder
+        if (type === 'ATTENDANCE_REMINDER') {
+            title = "Attendance Reminder";
+            body = "Mark your attendance for today";
+        } else if (payload.notification) {
+            // Fallback for console tests
+            title = payload.notification.title;
+            body = payload.notification.body;
+        }
+
         const options = {
-            body: notification.body || 'You have a new notification',
+            body: body,
             icon: '/pwa-192x192.png',
             badge: '/pwa-192x192.png',
-            tag: data.data?.tag || 'atlas-notification',
-            data: data.data || {},
-            vibrate: [200, 100, 200]
+            tag: 'attendance-reminder',
+            data: payload.data || {}, // Persist for click handler
+            vibrate: [200, 100, 200],
+            renotify: true
         };
 
         event.waitUntil(
