@@ -10,47 +10,37 @@
                 "role"
             ],
             "$uid": {
-                // Profile: /employees/{uid}/profile
                 "profile": {
-                    ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'MD' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'OWNER')",
-                    ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'MD' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'OWNER')"
+                    ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
+                    ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
                 },
-                // Attendance: /employees/{uid}/attendance/{date}
                 "attendance": {
-                    ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'MD' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'OWNER')",
+                    ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
                     "$date": {
-                        // Employee can write ONLY if creating (append-only logic handled by validating !data.exists() or just basic ownership?)
-                        // "Employees cannot edit or delete attendance once marked." -> Write if !data.exists() OR if MD.
-                        ".write": "auth != null && (
-                    (!data.exists() && $uid === auth.uid) || 
-                    root.child('employees').child(auth.uid).child('profile').child('role').val() === 'MD' || 
-                    root.child('employees').child(auth.uid).child('profile').child('role').val() === 'OWNER'
-                 )"
+                        ".write": "auth != null && ( (!data.exists() && $uid === auth.uid) || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' )"
                     }
                 },
-                // Allow reading the node itself for listing (MD needs to list employees)
-                ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'MD' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'OWNER' || $uid === auth.uid)",
-                // Write handled by subnodes or specific strict rules
-                ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'MD' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'OWNER')"
+                ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' || $uid === auth.uid)",
+                ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
             }
         },
-        // Legacy Nodes - Blocked or Read-Only for Migration?
-        // User requested "No legacy nodes remain post-migration".
-        // We can hide them or leave them read-false.
         "users": {
-            ".read": false,
-            ".write": false
+            ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
+            ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
         },
         "attendance": {
-            ".read": false,
-            ".write": false
+            ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
+            ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
         },
-        // Global leaves (if kept global)
         "leaves": {
             ".read": "auth != null",
             ".write": "auth != null"
         },
         "audit": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+        },
+        "fcm_tokens": {
             ".read": "auth != null",
             ".write": "auth != null"
         }
