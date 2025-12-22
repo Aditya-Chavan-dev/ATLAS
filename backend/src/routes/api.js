@@ -16,6 +16,8 @@ router.get('/', (req, res) => {
 // FCM Routes
 router.post('/fcm/register', notificationController.registerToken);
 router.post('/fcm/unregister', notificationController.unregisterToken);
+// Map status updates (e.g. denied) to same handler or specific status handler if exists
+router.post('/fcm/status', notificationController.registerToken); // Reusing register logic for status update
 router.post('/fcm/broadcast', notificationController.broadcastAttendance);
 
 // Attendance Routes (Transactional Notification)
