@@ -81,8 +81,8 @@ exports.broadcastAttendance = async (req, res) => {
                     p.role !== 'admin' &&
                     p.role !== 'md' &&
                     p.role !== 'owner' &&
-                    p.email &&
-                    p.phone // Must be valid active employee
+                    p.email
+                    // Phone is optional now, so we don't filter by it.
                 );
             });
 
