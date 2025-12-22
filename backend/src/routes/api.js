@@ -40,6 +40,7 @@ router.get('/dashboard/stats', dashboardController.getDashboardStats);
 
 // Auth Routes (Admin Only)
 router.post('/auth/create-employee', authController.createEmployee);
+router.post('/auth/archive-employee', authController.archiveEmployee);
 
 // System Routes
 router.post('/system/migrate', migrationController.runMigration);

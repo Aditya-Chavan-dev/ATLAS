@@ -64,3 +64,55 @@ exports.createEmployee = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+/**
+ * Archive Employee (Soft Delete)
+ * - Disable in Auth (Revoke Access)
+ * - Mark as 'archived' in DB
+ * - Retain data for manual/auto cleanup
+ */
+exports.archiveEmployee = async (req, res) => {
+    try {
+        const { uid } = req.body;
+
+        if (!uid) {
+            return res.status(400).json({ error: 'UID is required.' });
+        }
+
+        console.log(`[Auth] Archiving user: ${uid}`);
+
+        // 1. Disable in Firebase Auth (Prevents Login / Token Refresh)
+        try {
+            await admin.auth().updateUser(uid, {
+                disabled: true
+            });
+            console.log(`[Auth] User disabled: ${uid}`);
+        } catch (error) {
+            console.warn(`[Auth] Failed to disable auth (User might be deleted already): ${error.message}`);
+            // Continue to ensure DB is updated
+        }
+
+        // 2. Update DB Record
+        const updates = {
+            active: false,
+            status: 'archived',
+            archivedAt: new Date().toISOString(),
+            // Ensure role doesn't allow access if rules change
+            role: 'archived_employee'
+        };
+
+        const empRef = db.ref(`employees/${uid}/profile`);
+        await empRef.update(updates);
+        console.log(`[DB] Record archived at employees/${uid}`);
+
+        // 3. (Optional) Remove from Legacy 'users' node if it exists to clean up lists immediately
+        const legacyRef = db.ref(`users/${uid}`);
+        await legacyRef.remove();
+
+        res.json({ success: true, message: 'Employee archived successfully.' });
+
+    } catch (error) {
+        console.error('[Auth] Archive Failed:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
