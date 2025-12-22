@@ -330,98 +330,18 @@ export default function MDDashboard() {
                 )}
             </Modal>
 
-            {/* 4. Live Feed Section */}
-            <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Live Attendance</h3>
-                </div>
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    <AnimatePresence initial={false}>
-                        {liveFeed.length === 0 ? (
-                            <div className="py-8 text-center">
-                                <UserCheck className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
-                                <p className="text-sm text-slate-500">No Check-ins yet</p>
-                            </div>
-                        ) : (
-                            liveFeed.map((item) => (
-                                <motion.div
-                                    key={item.id}
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    className="px-4 py-3 flex items-center justify-between"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold ${item.avatarColor}`}>
-                                            {item.name?.[0] || 'U'}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-slate-900 dark:text-white">{item.name}</p>
-                                            <p className="text-xs text-slate-500">
-                                                {format(new Date(item.timestamp), 'h:mm a')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <span className={clsx(
-                                        "text-xs px-2.5 py-1 rounded-full font-medium",
-                                        item.status === 'Present' ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400" :
-                                            "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
-                                    )}>
-                                        {item.status === 'Present' && item.location === 'Site' ? 'On Site' : item.status}
-                                    </span>
-                                </motion.div>
-                            ))
-                        )}
-                    </AnimatePresence>
+
+
+            {/* Today's Summary */}
+            <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-4 h-fit max-w-sm mt-6">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Today's Summary</h3>
+                <div className="space-y-3">
+                    <SummaryRow label="Attendance Rate" value={`${stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}%`} isCritical={stats.present === 0} />
+                    <SummaryRow label="Present" value={`${stats.present} / ${stats.total}`} color="text-emerald-500" />
+                    <SummaryRow label="Absent" value={`${stats.total - stats.present - stats.onLeave}`} color="text-red-500" />
+                    <SummaryRow label="On Leave" value={stats.onLeave} color="text-amber-500" />
                 </div>
             </motion.div>
-
-            {/* 5. Team Roster (Summary) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Roster List */}
-                <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
-                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Team Roster</h3>
-                        <span className="text-xs text-slate-500">{employees.length} Members</span>
-                    </div>
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[300px] overflow-y-auto">
-                        {employees.slice(0, 10).map((emp) => {
-                            const todayRec = emp.attendance?.[new Date().toISOString().split('T')[0]]
-                            const isOnline = !!todayRec // Simple proxy for "Online"
-                            return (
-                                <div key={emp.id} className="px-4 py-3 flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${getAvatarColor(emp.name)}`}>
-                                            {emp.name?.[0] || 'U'}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-slate-900 dark:text-white line-clamp-1">{emp.name}</p>
-                                            <p className="text-[10px] text-slate-500 line-clamp-1">{emp.email}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                    <div className="bg-slate-50 dark:bg-slate-950 px-4 py-2 text-center text-xs text-blue-600 cursor-pointer font-medium border-t border-slate-100 dark:border-slate-800">
-                        View All Members
-                    </div>
-                </motion.div>
-
-                {/* Today's Summary */}
-                <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-4 h-fit">
-                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">Today's Summary</h3>
-                    <div className="space-y-3">
-                        <SummaryRow label="Attendance Rate" value={`${stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}%`} isCritical={stats.present === 0} />
-                        <SummaryRow label="Present" value={`${stats.present} / ${stats.total}`} color="text-emerald-500" />
-                        <SummaryRow label="Absent" value={`${stats.total - stats.present - stats.onLeave}`} color="text-red-500" />
-                        <SummaryRow label="On Leave" value={stats.onLeave} color="text-amber-500" />
-                    </div>
-                </motion.div>
-            </div>
 
         </motion.div>
     )

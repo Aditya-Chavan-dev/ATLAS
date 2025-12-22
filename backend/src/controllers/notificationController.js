@@ -73,8 +73,19 @@ exports.broadcastAttendance = async (req, res) => {
 
         const targetTokens = [];
 
-        // Identify non-admin employees
-        const employeeList = Object.values(employees).filter(u => u.role !== 'admin' && u.role !== 'owner');
+        // Identify non-admin employees (Strict Filter)
+        const employeeList = Object.values(employees)
+            .filter(u => {
+                const p = u.profile || u;
+                return (
+                    p.role !== 'admin' &&
+                    p.role !== 'md' &&
+                    p.role !== 'owner' &&
+                    p.email &&
+                    p.phone // Must be valid active employee
+                );
+            });
+
         const totalEmployees = employeeList.length;
 
         for (const emp of employeeList) {
