@@ -37,14 +37,9 @@ export const requestNotificationPermission = async (uid) => {
                 console.log('[FCM] Token Registered:', token);
             }
         } else {
-            // 3. Send to Backend: INSTALLED + OFF (Explicit Denial)
-            await ApiService.post('/api/fcm/status', {
-                uid,
-                platform: 'web',
-                permission: 'denied',
-                timestamp: new Date().toISOString()
-            });
-            console.log('[FCM] Permission Denied. Logged to backend.');
+            // 3. Permission Denied (Step 2.1: Do NOT create a token entry)
+            // We track locally or just do nothing.
+            console.log('[FCM] Permission Denied. No token registered.');
         }
 
     } catch (error) {
