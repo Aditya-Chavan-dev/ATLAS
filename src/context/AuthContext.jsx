@@ -217,6 +217,10 @@ export const AuthProvider = ({ children }) => {
     // Google Sign In
     const loginWithGoogle = async () => {
         try {
+            // ✅ CRITICAL: Force LOCAL persistence before sign-in flow starts
+            // This ensures the session token is stored permanently across refreshes
+            await setPersistence(auth, browserLocalPersistence);
+
             const provider = new GoogleAuthProvider()
             // Force account selection on every login
             provider.setCustomParameters({
