@@ -79,7 +79,20 @@ function AppContent() {
 
         // Foreground Listener
         const unsubscribe = setupForegroundListener();
-        return () => unsubscribe && unsubscribe();
+
+        // 🔊 DEBUG: Global Alert for receipt proof
+        const handleFcmMessage = (event) => {
+            const payload = event.detail;
+            const title = payload.notification?.title || "Attendance Reminder";
+            console.log('[App] Visual Alert Triggered:', title);
+            alert(`🔔 ${title}\n\n${payload.notification?.body || "Check your attendance."}`);
+        };
+        window.addEventListener('FCM_MESSAGE_RECEIVED', handleFcmMessage);
+
+        return () => {
+            unsubscribe && unsubscribe();
+            window.removeEventListener('FCM_MESSAGE_RECEIVED', handleFcmMessage);
+        };
     }, [currentUser]);
 
     // Show loading while checking auth

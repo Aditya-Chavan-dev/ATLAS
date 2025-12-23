@@ -79,9 +79,13 @@ export const setupForegroundListener = () => {
         // We construct the notification manually.
         const { type, route, date } = payload.data || {};
 
+        // Dispatch Event for UI (Debugging & In-App Alerts)
+        const event = new CustomEvent('FCM_MESSAGE_RECEIVED', { detail: payload });
+        window.dispatchEvent(event);
+
         // HARDCODED CONTENT as per Step 4
-        const title = "Attendance Reminder";
-        const body = "Mark your attendance for today"; // Fixed text
+        const title = payload.notification?.title || "Attendance Reminder";
+        const body = payload.notification?.body || "Mark your attendance for today";
 
         if (Notification.permission === 'granted') {
             new Notification(title, {
