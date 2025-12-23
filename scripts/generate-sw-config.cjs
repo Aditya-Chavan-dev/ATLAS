@@ -27,6 +27,7 @@ if (!fs.existsSync(configPath)) {
 const config = {
     apiKey: process.env.VITE_FIREBASE_API_KEY,
     authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+    databaseURL: process.env.VITE_FIREBASE_DATABASE_URL,
     projectId: process.env.VITE_FIREBASE_PROJECT_ID,
     storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
     messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
@@ -41,3 +42,36 @@ try {
     console.error('❌ Error generating firebase-config.json:', error);
     process.exit(1);
 }
+
+// Inject Firebase config into service worker
+const swTemplatePath = path.join(__dirname, '../public/firebase-messaging-sw.js');
+if (fs.existsSync(swTemplatePath)) {
+    try {
+        let swContent = fs.readFileSync(swTemplatePath, 'utf8');
+
+        // Replace placeholders with actual values
+        swContent = swContent
+            .replace('"__FIREBASE_API_KEY__"', JSON.stringify(config.apiKey))
+            .replace('"__FIREBASE_AUTH_DOMAIN__"', JSON.stringify(config.authDomain))
+            .replace('"__FIREBASE_DATABASE_URL__"', JSON.stringify(config.databaseURL))
+            .replace('"__FIREBASE_PROJECT_ID__"', JSON.stringify(config.projectId))
+            .replace('"__FIREBASE_STORAGE_BUCKET__"', JSON.stringify(config.storageBucket))
+            .replace('"__FIREBASE_MESSAGING_SENDER_ID__"', JSON.stringify(config.messagingSenderId))
+            .replace('"__FIREBASE_APP_ID__"', JSON.stringify(config.appId));
+
+        // Write to dist folder (will be created during build)
+        const distSwPath = path.join(__dirname, '../dist/firebase-messaging-sw.js');
+        const distDir = path.dirname(distSwPath);
+
+        if (!fs.existsSync(distDir)) {
+            fs.mkdirSync(distDir, { recursive: true });
+        }
+
+        fs.writeFileSync(distSwPath, swContent);
+        console.log('✅ Injected Firebase config into firebase-messaging-sw.js');
+    } catch (error) {
+        console.error('❌ Error injecting config into service worker:', error);
+        // Don't exit - service worker is optional for some builds
+    }
+}
+
