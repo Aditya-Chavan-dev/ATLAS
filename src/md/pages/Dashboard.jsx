@@ -406,6 +406,50 @@ export default function MDDashboard() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* ✅ Detailed Lists */}
+                        {summaryData.details && (
+                            <div className="grid grid-cols-1 gap-2">
+                                {/* Sent List */}
+                                <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg p-3 border border-emerald-100 dark:border-emerald-900/20">
+                                    <h4 className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase mb-2">
+                                        ✅ Sent Successfully ({summaryData.details.sent.length})
+                                    </h4>
+                                    <div className="max-h-24 overflow-y-auto space-y-1">
+                                        {summaryData.details.sent.length > 0 ? (
+                                            summaryData.details.sent.map((email, i) => (
+                                                <div key={i} className="text-xs text-slate-600 dark:text-slate-300 truncate font-mono">
+                                                    {email}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <span className="text-xs text-slate-400 italic">None</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Not Sent List */}
+                                <div className="bg-red-50/50 dark:bg-red-900/10 rounded-lg p-3 border border-red-100 dark:border-red-900/20">
+                                    <h4 className="text-xs font-bold text-red-700 dark:text-red-400 uppercase mb-2">
+                                        ❌ Not Sent ({summaryData.details.notSent.length})
+                                    </h4>
+                                    <div className="max-h-24 overflow-y-auto space-y-1">
+                                        {summaryData.details.notSent.length > 0 ? (
+                                            summaryData.details.notSent.map((email, i) => (
+                                                <div key={i} className="text-xs text-slate-600 dark:text-slate-300 truncate font-mono">
+                                                    {email}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <span className="text-xs text-slate-400 italic">None</span>
+                                        )}
+                                    </div>
+                                    <p className="text-[10px] text-red-500 mt-2">
+                                        Includes: App not installed, Permission denied, or Technical failure.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                         <p className="text-xs text-center text-slate-400">
                             Metrics are based on verified device tokens and permission states.
                         </p>

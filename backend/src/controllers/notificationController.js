@@ -110,13 +110,17 @@ exports.broadcastAttendance = async (req, res) => {
         const tokensSnap = await db.ref('deviceTokens').once('value');
         const allTokens = tokensSnap.val() || {};
 
-        // 2. Select Targets (Simple Filter: Is Enabled?)
+        // 2. Select Targets & Map Emails
         const targetTokens = [];
+        const tokenToEmail = {}; // Map token -> email for tracking
         let countPermissionsOff = 0;
         let totalRegistered = 0;
 
         Object.entries(allTokens).forEach(([token, data]) => {
             totalRegistered++;
+            const email = data.email || 'unknown';
+            tokenToEmail[token] = email;
+
             if (data.notificationsEnabled) {
                 targetTokens.push(token);
             } else {
@@ -129,6 +133,7 @@ exports.broadcastAttendance = async (req, res) => {
         // 3. Send Bulk (Data-Only Payload)
         let fcmSuccess = 0;
         let fcmFailure = 0;
+        const sentEmailsSet = new Set();
 
         if (targetTokens.length > 0) {
             const message = {
@@ -144,45 +149,65 @@ exports.broadcastAttendance = async (req, res) => {
             fcmSuccess = response.successCount;
             fcmFailure = response.failureCount;
 
-            // Remove invalid tokens (Cleanup)
-            if (response.failureCount > 0) {
-                const cleanupPromises = [];
-                response.responses.forEach((resp, idx) => {
-                    if (!resp.success) {
-                        const error = resp.error;
-                        if (error.code === 'messaging/registration-token-not-registered' ||
-                            error.code === 'messaging/invalid-argument') {
-                            const badToken = targetTokens[idx];
-                            console.log(`Removing invalid token: ${badToken.substring(0, 10)}...`);
-                            cleanupPromises.push(db.ref(`deviceTokens/${badToken}`).remove());
-                        }
+            // Track Success & Cleanup Failure
+            response.responses.forEach((resp, idx) => {
+                const token = targetTokens[idx];
+                if (resp.success) {
+                    const email = tokenToEmail[token];
+                    if (email && email !== 'unknown') {
+                        sentEmailsSet.add(email);
                     }
-                });
-                await Promise.all(cleanupPromises);
-            }
+                } else {
+                    // Cleanup invalid tokens
+                    const error = resp.error;
+                    if (error && (error.code === 'messaging/registration-token-not-registered' ||
+                        error.code === 'messaging/invalid-argument')) {
+                        console.log(`Removing invalid token: ${token.substring(0, 10)}...`);
+                        db.ref(`deviceTokens/${token}`).remove().catch(console.error);
+                    }
+                }
+            });
         }
 
-        // 4. Stats - Count ACTUAL EMPLOYEES from database
-        // Fetch all employees to get accurate count
+        // 4. Stats - Count & List Employees
         const employeesSnap = await db.ref('employees').once('value');
         const allEmployees = employeesSnap.val() || {};
 
-        // Count employees (exclude MD, case-insensitive)
         let actualEmployeeCount = 0;
+        const notSentList = [];
+        const sentList = Array.from(sentEmailsSet);
+
+        // Analyze ALL employees to find who was missed
         Object.values(allEmployees).forEach(emp => {
+            // Unify profile/root structure (Robust check)
             const profile = emp.profile || emp;
-            const role = (profile.role || '').toLowerCase();
-            if (role !== 'md' && profile.email) {
+            // Robust merging for email if missing in profile but in root (like frontend fix)
+            const email = profile.email || emp.email;
+
+            const role = (profile.role || emp.role || '').toLowerCase();
+
+            // Filter: Valid Employee? (Not MD, Has Email)
+            if (role !== 'md' && email) {
                 actualEmployeeCount++;
+
+                // key check: Was it sent?
+                if (!sentEmailsSet.has(email)) {
+                    notSentList.push(email);
+                }
             }
         });
 
         const summary = {
-            totalEmployees: actualEmployeeCount, // ✅ ACTUAL employee count from database
-            sentTo: targetTokens.length, // Devices that received notification
+            totalEmployees: actualEmployeeCount,
+            sentTo: targetTokens.length,
             successfullySent: fcmSuccess,
-            failedNotInstalled: actualEmployeeCount - totalRegistered, // Employees without app
-            permissionDenied: countPermissionsOff
+            failedNotInstalled: actualEmployeeCount - totalRegistered,
+            permissionDenied: countPermissionsOff,
+            // New Detail Fields
+            details: {
+                sent: sentList,
+                notSent: notSentList
+            }
         };
 
         console.log('[Broadcast] Summary:', summary);
@@ -191,7 +216,6 @@ exports.broadcastAttendance = async (req, res) => {
             success: true,
             summary: summary
         });
-
     } catch (error) {
         console.error('Broadcast Error:', error);
         res.status(500).json({ error: error.message });
