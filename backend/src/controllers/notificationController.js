@@ -89,7 +89,18 @@ exports.broadcastAttendance = async (req, res) => {
         console.log('📢 Starting Broadcast (Token-Based - Global) [OPTIMIZED]...');
 
         // 1. Fetch Tokens from Cache (Instant)
-        const allTokens = await CacheService.getTokens();
+        let allTokens = await CacheService.getTokens();
+
+        // ⚠️ SAFETY FALLBACK: If cache is empty, fetch from DB directly
+        // This handles cold starts where warmUp() might not have finished or failed
+        if (!allTokens || Object.keys(allTokens).length === 0) {
+            console.warn('⚠️ [Broadcast] Cache is empty! Falling back to direct DB fetch...');
+            const tokensSnap = await db.ref('deviceTokens').once('value');
+            allTokens = tokensSnap.val() || {};
+            console.log(`✅ [Broadcast] DB Fallback retrieved ${Object.keys(allTokens).length} tokens.`);
+        } else {
+            console.log(`⚡ [Broadcast] Using Cached Tokens: ${Object.keys(allTokens).length}`);
+        }
 
         // 2. Select Targets & Map Emails (In Memory)
         const targetTokens = [];
