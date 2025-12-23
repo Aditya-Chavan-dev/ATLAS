@@ -162,15 +162,30 @@ exports.broadcastAttendance = async (req, res) => {
             }
         }
 
-        // 4. Stats
-        // We report based on DEVICES now, as requested.
+        // 4. Stats - Count ACTUAL EMPLOYEES from database
+        // Fetch all employees to get accurate count
+        const employeesSnap = await db.ref('employees').once('value');
+        const allEmployees = employeesSnap.val() || {};
+
+        // Count employees (exclude MD, case-insensitive)
+        let actualEmployeeCount = 0;
+        Object.values(allEmployees).forEach(emp => {
+            const profile = emp.profile || emp;
+            const role = (profile.role || '').toLowerCase();
+            if (role !== 'md' && profile.email) {
+                actualEmployeeCount++;
+            }
+        });
+
         const summary = {
-            totalEmployees: totalRegistered, // Changed semantics: Total Registered Devices
-            sentTo: targetTokens.length,
+            totalEmployees: actualEmployeeCount, // ✅ ACTUAL employee count from database
+            sentTo: targetTokens.length, // Devices that received notification
             successfullySent: fcmSuccess,
-            failedNotInstalled: 0, // N/A for token-only Logic
+            failedNotInstalled: actualEmployeeCount - totalRegistered, // Employees without app
             permissionDenied: countPermissionsOff
         };
+
+        console.log('[Broadcast] Summary:', summary);
 
         res.json({
             success: true,
