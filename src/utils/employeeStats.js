@@ -1,158 +1,149 @@
 /**
- * ATLAS Centralized Employee Counting Logic
- * Strict adherence to System Refactor Protocol
+ * ATLAS Centralized Employee Counting Logic ("The Brain")
+ * STRICT SSOT IMPLEMENTATION - DO NOT MODIFY WITHOUT APPROVAL
+ * 
+ * Responsibilities:
+ * 1. Defines "Who is an employee" (isValidEmployee)
+ * 2. Calculates authoritative counts (getEmployeeStats)
+ * 3. Sanitizes input data before UI consumption
  */
 
-import { ROLES } from '../config/roleConfig'; // "md", "employee"
+// 1. Authorization Constants
+const VALID_ROLES = ['employee']; // MD is excluded from "Employee Counts"
 
-// 1. Role Normalization
-export const normalizeRole = (role) => {
-    return role?.trim().toLowerCase() || null;
-};
+// 2. Normalization Helpers
+export const normalizeRole = (role) => role?.trim().toLowerCase() || null;
 
-// 2. Attendance Status Normalization
 export const normalizeAttendanceStatus = (status) => {
     const s = status?.toLowerCase().trim();
     if (!s) return null;
-
-    if (s === 'present' || s === 'late') return 'present';
-    if (s === 'onsite' || s === 'on_site' || s === 'site') return 'onsite'; // Mapped 'site' too for legacy safety? Prompt said "onsite / on_site". I will stick to prompt but add 'site' if common.
-    // Prompt table: "onsite / on_site" -> "onsite". "leave / on_leave" -> "onLeave".
-    // I will add 'site' as defensive alias.
-    if (s === 'onsite' || s === 'on_site' || s === 'site') return 'onsite';
-    if (s === 'leave' || s === 'on_leave' || s === 'half-day') return 'onLeave'; // 'half-day' is legacy? I'll treat as leave.
-
-    return null; // Invalid or ignored
+    if (['present', 'late'].includes(s)) return 'present';
+    if (['onsite', 'on_site', 'site'].includes(s)) return 'onsite';
+    if (['leave', 'on_leave', 'half-day'].includes(s)) return 'onLeave';
+    return null; // Invalid/Unknown status is IGNORED for stats (treated as Absent)
 };
 
 /**
- * Analyzes a user record against strict validity rules.
- * Returns classification result.
+ * CORE VALIDATION LOGIC
+ * Determines if a record represents a valid, active employee.
+ * 
+ * @param {Object} profile - The user profile object
+ * @returns {Object} { valid: boolean, reason: string|null }
  */
-const analyzeUser = (user, uid) => {
-    if (!user) return { valid: false, reason: 'NULL_RECORD' };
+export const isValidEmployee = (profile) => {
+    if (!profile) return { valid: false, reason: 'MISSING_PROFILE' };
 
-    // Canonical Source: /employees/{uid}/profile
-    const profile = user.profile;
-    if (!profile) return { valid: false, reason: 'MISSING_PROFILE', rawProfile: null };
+    // 1. Role Check
+    const role = normalizeRole(profile.role);
+    if (!role) return { valid: false, reason: 'MISSING_ROLE' };
 
-    // Role Validation
-    // "profile.role" is required.
-    const rawRole = profile.role;
-    const role = normalizeRole(rawRole);
+    // MD is NOT an "Employee" for counting purposes
+    if (role === 'md') return { valid: false, reason: 'ROLE_IS_MD' };
 
-    if (!role) return { valid: false, reason: 'MISSING_ROLE', rawProfile: profile };
-    if (role !== 'employee' && role !== 'md') return { valid: false, reason: 'INVALID_ROLE', rawProfile: profile };
+    // Strict Role Validation
+    if (!VALID_ROLES.includes(role)) return { valid: false, reason: `INVALID_ROLE_${role.toUpperCase()}` };
 
-    // MD Exclusion
-    if (role === 'md') return { valid: false, reason: 'ROLE_IS_MD', rawProfile: profile };
+    // 2. Identity Check
+    if (!profile.name?.trim()) return { valid: false, reason: 'MISSING_NAME' };
+    if (!profile.email?.trim()) return { valid: false, reason: 'MISSING_EMAIL' };
 
-    // Required Fields Validation (name, email)
-    if (!profile.name) return { valid: false, reason: 'MISSING_NAME', rawProfile: profile };
-    if (!profile.email) return { valid: false, reason: 'MISSING_EMAIL', rawProfile: profile };
-
-    // Valid Employee
-    return { valid: true, role, profile };
+    // 3. Success
+    return { valid: true, reason: null };
 };
 
 /**
- * Main Stats Function
- * @param {Object} employeesSnapshotVal - Raw /employees data
+ * MAIN STATS CALCULATOR
+ * The only source of truth for dashboard numbers.
+ * 
+ * @param {Object} employeesSnapshotVal - Raw /employees data from Firebase
  * @param {String} todayISO - YYYY-MM-DD
  */
 export const getEmployeeStats = (employeesSnapshotVal, todayISO) => {
-    const rawIds = employeesSnapshotVal ? Object.keys(employeesSnapshotVal) : [];
-    const rawCount = rawIds.length;
-
-    const validEmployees = [];
-    const feed = []; // Diagnostics for excluded
-    const liveFeed = []; // UI Feed for Dashboard
-
-    const stats = {
-        totalEmployees: 0,
-        present: 0,
-        absent: 0,
-        onsite: 0,
-        onLeave: 0
+    // 1. Initialize result structure
+    const result = {
+        rawCount: 0,
+        validEmployees: [],
+        stats: {
+            totalEmployees: 0,
+            present: 0,
+            absent: 0,
+            onsite: 0,
+            onLeave: 0
+        },
+        diagnostics: {
+            ignoredProfiles: [],
+            reasonCounts: {}
+        },
+        liveFeed: [] // For Dashboard Stream
     };
 
-    if (!employeesSnapshotVal) {
-        console.warn('[DATA WARNING] Empty employees snapshot provided to stats utility');
-        return { stats, validEmployees, feed, rawCount: 0, liveFeed: [] };
-    }
+    if (!employeesSnapshotVal) return result;
 
+    const rawIds = Object.keys(employeesSnapshotVal);
+    result.rawCount = rawIds.length;
+
+    // 2. Iterate and Validate
     rawIds.forEach(uid => {
         const userNode = employeesSnapshotVal[uid];
-        const analysis = analyzeUser(userNode, uid);
+        const profile = userNode?.profile;
 
-        if (analysis.valid) {
-            // Merge profile for consumption
-            // Ensures downstream UI has flat access to name/email/role
+        // AUTH CHECK
+        const { valid, reason } = isValidEmployee(profile);
+
+        if (valid) {
+            // --- VALID EMPLOYEE ---
+            result.stats.totalEmployees++;
+
+            // Merge Data for UI Consumption (Flattening)
             const mergedUser = {
                 id: uid,
-                ...userNode, // Keep root data (like attendance)
-                ...analysis.profile, // Profile wins
-                role: analysis.role // Normalized role
+                uid: uid, // Support both access patterns
+                ...profile, // Profile is source of true identity
+                phone: profile.phone || '', // Safe default
+                source: 'employees' // Metadata
             };
+            result.validEmployees.push(mergedUser);
 
-            validEmployees.push(mergedUser);
-            stats.totalEmployees++;
-
-            // Attendance Logic
-            // "todayRecord = attendance[todayDate]" -> userNode.attendance?.[todayISO]
+            // Attendance Check (Does not affect existence)
             const attendanceMap = userNode.attendance || {};
             const todayRecord = attendanceMap[todayISO];
 
             if (todayRecord) {
-                const canonicalStatus = normalizeAttendanceStatus(todayRecord.status);
+                const status = normalizeAttendanceStatus(todayRecord.status);
 
-                if (canonicalStatus === 'present') stats.present++;
-                else if (canonicalStatus === 'onsite') stats.onsite++;
-                else if (canonicalStatus === 'onLeave') stats.onLeave++;
+                if (status === 'present') result.stats.present++;
+                else if (status === 'onsite') result.stats.onsite++;
+                else if (status === 'onLeave') result.stats.onLeave++;
                 else {
-                    // Status exists but didn't map to counting bucket?
-                    // "Invalid or missing -> ignored"
-                    // Should we count as absent?
-                    // If they punched in but status is weird, they aren't absent.
-                    // But if they aren't present/onsite/leave...
-                    // Default to absent if status is unknown?
-                    // User Request: "If missing -> absent".
-                    // Code: "Invalid or missing -> ignored".
-                    // I'll ignore for stats but maybe log?
-                    stats.absent++; // Fallback? No, strict "missing record" = absent. invalid record = ??
-                    // I will leave it as "not counted in categories" but user exists.
-                    // Wait, totalEmployees = present + absent + ...
-                    // If I don't increment absent, sums won't match.
-                    // I will treat invalid status as absent for safety or log it.
-                    // Constraint 10: "Show safe defaults... Do NOT crash".
+                    // Unknown status -> count as absent/no-status
+                    result.stats.absent++;
                 }
 
                 // Add to Live Feed
-                liveFeed.push({
+                result.liveFeed.push({
                     id: uid,
                     name: mergedUser.name,
                     email: mergedUser.email,
                     timestamp: todayRecord.timestamp,
-                    status: todayRecord.status, // Show raw status in feed? Or canonical? UI usually handles raw. 
+                    status: todayRecord.status, // Raw status for UI display
                     location: todayRecord.location || 'Office'
                 });
 
             } else {
-                stats.absent++;
+                // No record -> Absent
+                result.stats.absent++;
             }
 
         } else {
-            // Excluded
-            feed.push({
-                uid,
-                reason: analysis.reason,
-                rawProfile: analysis.rawProfile
-            });
+            // --- IGNORED RECORD ---
+            result.diagnostics.ignoredProfiles.push({ uid, reason });
+            result.diagnostics.reasonCounts[reason] = (result.diagnostics.reasonCounts[reason] || 0) + 1;
         }
     });
 
-    // Sort Live Feed
-    liveFeed.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // Sort Streams
+    result.liveFeed.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    result.validEmployees.sort((a, b) => a.name.localeCompare(b.name));
 
-    return { stats, validEmployees, feed, liveFeed, rawCount };
+    return result;
 };

@@ -28,7 +28,7 @@ export default function MDProfiles() {
                 return nameA.localeCompare(nameB);
             })
 
-            console.log('[Profiles] Loaded employees:', validEmployees.length)
+            console.log(`[Profiles] Loaded employees: ${validEmployees.length}`)
 
             setEmployees(validEmployees)
             if (validEmployees.length > 0 && !selectedEmployeeId) {

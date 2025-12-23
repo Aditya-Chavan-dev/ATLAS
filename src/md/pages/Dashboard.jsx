@@ -63,17 +63,18 @@ export default function MDDashboard() {
             const data = snapshot.val() || {}
 
             // 🔍 CENTRALIZED STATS CALCULATION
+            // Pure SSOT: We pass raw data in, we get authoritative Truth out.
             const report = getEmployeeStats(data, todayStr)
 
-            // 🔍 MANDATORY LOGS (Exact Format)
+            // 🔍 MANDATORY LOGS (Architecture Lock Requirement)
             console.log(`[Dashboard] Raw employees fetched: ${report.rawCount}`)
-            console.log(`[Dashboard] Valid employees after role filter: ${report.stats.totalEmployees}`)
+            console.log(`[Dashboard] Valid employees: ${report.stats.totalEmployees}`)
             console.log(`[Dashboard] Attendance records for today (${todayStr}): ${report.liveFeed.length}`)
-            console.log(`[Dashboard] Counts computed at: ${new Date().toISOString()}`)
+            console.log(`[Dashboard] Stats computed at: ${new Date().toISOString()}`)
 
             // Log Diagnostics for excluded users
-            if (report.feed.length > 0) {
-                console.warn('[Dashboard] Excluded Users Diagnostics:', report.feed)
+            if (report.diagnostics.ignoredProfiles.length > 0) {
+                console.warn('[Dashboard] Ignored Profiles Diagnostics:', report.diagnostics)
             }
 
             // Update State (Map utility keys to component keys)
@@ -90,7 +91,7 @@ export default function MDDashboard() {
 
             // 0/0 State Warning
             if (report.stats.totalEmployees === 0 && report.rawCount > 0) {
-                console.error('[Dashboard] 🚨 CRITICAL BUG: 0/0 STATE DETECTED! Use diagnostics feed.')
+                console.error('[Dashboard] 🚨 CRITICAL BUG: 0/0 STATE DETECTED! Check Diagnostics.')
             }
         })
 

@@ -44,10 +44,9 @@ export default function MDEmployeeManagement() {
         const unsubscribe = onValue(employeesRef, (snapshot) => {
             const data = snapshot.val() || {}
             // Use Centralized Utility
-            // Date is not needed for list listing, passing empty string
-            const { validEmployees } = getEmployeeStats(data, '')
+            const { validEmployees } = getEmployeeStats(data, '') // No date needed for management list
 
-            console.log('[EmployeeManagement] Loaded employees:', validEmployees.length)
+            console.log(`[EmployeeManagement] Loaded employees: ${validEmployees.length}`)
             setEmployees(validEmployees)
             setLoading(false)
         })
@@ -93,10 +92,9 @@ export default function MDEmployeeManagement() {
         if (!selectedEmployee) return
         setProcessing(true)
         try {
-            // Update in the specific source collection
-            const collection = selectedEmployee.source || 'employees'
-            // Target: employees/{uid}/profile (if source is employees)
-            const path = collection === 'employees' ? `employees/${selectedEmployee.uid}/profile` : `users/${selectedEmployee.uid}`
+            // Update in the sole authoritative source
+            // Target: employees/{uid}/profile
+            const path = `employees/${selectedEmployee.uid}/profile`
 
             await update(ref(database, path), {
                 name: formData.name,
