@@ -152,10 +152,6 @@ export const AuthProvider = ({ children }) => {
                 stopRealtimeListeners()
 
                 if (user) {
-                    // ⚡ OPTIMIZATION: Wake up backend immediately on login
-                    const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend-gncd.onrender.com'
-                    fetch(`${API_URL}/health`).catch(err => console.log('Backend wake-up ping failed (expected if sleeping)', err))
-
                     try {
                         const dbRef = ref(database)
                         const userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))

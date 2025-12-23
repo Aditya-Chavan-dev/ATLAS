@@ -20,7 +20,6 @@ router.post('/fcm/unregister', notificationController.unregisterToken);
 // Map status updates (e.g. denied) to same handler or specific status handler if exists
 router.post('/fcm/status', notificationController.registerToken); // Reusing register logic for status update
 router.post('/fcm/broadcast', notificationController.broadcastAttendance);
-router.post('/fcm/test', notificationController.sendTestNotification); // Debug Route
 
 // Attendance Routes (Transactional Notification)
 const attendanceController = require('../controllers/attendanceController');
