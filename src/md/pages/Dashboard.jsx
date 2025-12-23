@@ -60,8 +60,20 @@ export default function MDDashboard() {
         const unsubscribe = onValue(usersRef, (snapshot) => {
             const data = snapshot.val() || {}
 
+            // 🔍 TIMING: When does async resolve?
+            console.log('[Dashboard] ⏰ Data fetch completed at:', new Date().toISOString())
+
             // 🔍 DEFENSIVE LOGGING: Raw data
             console.log('[Dashboard] Raw employees data:', Object.keys(data).length, 'records')
+
+            // 🔍 DETAILED ROLE ANALYSIS
+            const roleDistribution = {}
+            Object.entries(data).forEach(([id, val]) => {
+                const profile = val.profile || val;
+                const role = profile.role || 'UNDEFINED';
+                roleDistribution[role] = (roleDistribution[role] || 0) + 1;
+            })
+            console.log('[Dashboard] Exact role values in DB (case-sensitive):', roleDistribution)
 
             // Process Users - ROLE-AWARE FILTERING
             const userList = Object.entries(data)
@@ -69,20 +81,30 @@ export default function MDDashboard() {
                 .filter(u => {
                     const profile = u.profile || u;
 
-                    // 🔍 DEFENSIVE LOGGING: Role check
-                    if (!profile.role) {
-                        console.warn('[Dashboard] User without role:', id, profile.email)
-                    }
-
-                    // ✅ STRICT ROLE FILTERING: Only count EMPLOYEES
-                    // Exclude: MD, OWNER, ADMIN (if exists), and undefined roles
+                    // 🔍 DIAGNOSTIC: Log each user's filtering decision
                     const isEmployee = profile.role === ROLES.EMPLOYEE;
                     const hasEmail = !!profile.email;
+                    const passed = isEmployee && hasEmail;
 
-                    // ❌ REMOVED: profile.phone requirement (was excluding employees)
-                    // ✅ ONLY REQUIRE: role === 'employee' AND email exists
+                    console.log('[Dashboard] User filter:', {
+                        id: u.id,
+                        email: profile.email,
+                        role: profile.role,
+                        roleExpected: ROLES.EMPLOYEE,
+                        roleMatch: isEmployee,
+                        hasEmail: hasEmail,
+                        PASSED: passed
+                    })
 
-                    return isEmployee && hasEmail;
+                    if (!profile.role) {
+                        console.warn('[Dashboard] ⚠️ User without role:', u.id, profile.email)
+                    }
+
+                    if (profile.role && !isEmployee) {
+                        console.log('[Dashboard] ❌ User excluded (role mismatch):', profile.email, 'has role:', profile.role, 'expected:', ROLES.EMPLOYEE)
+                    }
+
+                    return passed;
                 })
 
             // 🔍 DEFENSIVE LOGGING: Filtered results
@@ -96,6 +118,15 @@ export default function MDDashboard() {
             // Calculate Stats & Feed
             let newStats = { total: userList.length, present: 0, onLeave: 0, onSite: 0, absent: 0 }
             let feed = []
+
+            // 🔍 COUNT ATTENDANCE RECORDS FOR TODAY
+            let attendanceRecordsToday = 0
+            userList.forEach(user => {
+                if (user.attendance?.[todayStr]) {
+                    attendanceRecordsToday++
+                }
+            })
+            console.log('[Dashboard] Attendance records for today (' + todayStr + '):', attendanceRecordsToday)
 
             userList.forEach(user => {
                 const todayRecord = user.attendance?.[todayStr]
@@ -125,7 +156,29 @@ export default function MDDashboard() {
             })
 
             // 🔍 DEFENSIVE LOGGING: Final stats
+            console.log('[Dashboard] ⏰ Counts computed at:', new Date().toISOString())
             console.log('[Dashboard] Computed stats:', newStats)
+
+            // 🚨 CRITICAL: Detect 0/0 state (ALWAYS A BUG)
+            if (newStats.total === 0 && Object.keys(data).length > 0) {
+                console.error('[Dashboard] 🚨 CRITICAL BUG: 0/0 STATE DETECTED!')
+                console.error('[Dashboard] Raw data exists but filtered to 0')
+                console.error('[Dashboard] This means ALL users were filtered out')
+                console.error('[Dashboard] Check role values and filtering logic above')
+            }
+
+            // 🔍 VALIDATION: Ensure counts make sense
+            const totalCounted = newStats.present + newStats.onLeave + newStats.absent
+            if (totalCounted !== newStats.total) {
+                console.warn('[Dashboard] ⚠️ Count mismatch:', {
+                    total: newStats.total,
+                    present: newStats.present,
+                    onLeave: newStats.onLeave,
+                    absent: newStats.absent,
+                    sum: totalCounted,
+                    difference: newStats.total - totalCounted
+                })
+            }
 
             // Sort Feed by latest
             feed.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
