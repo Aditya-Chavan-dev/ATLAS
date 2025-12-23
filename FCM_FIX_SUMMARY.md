@@ -138,7 +138,7 @@ cat src/sw.js | grep apiKey
 
 **Output:**
 ```javascript
-apiKey: "AIzaSyBqA2rYsF7lEDJ0wxd5Zzd48CAkF4k0Hpg",  // ✅ Real value injected
+apiKey: "XXXXX...XXXXX",  // ✅ Real value injected (hidden for security)
 ```
 
 ---
