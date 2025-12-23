@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ROLES } from '../../config/roleConfig'
+import { getEmployeeStats } from '../../utils/employeeStats'
 
 // UI Components
 import Button from '../../components/ui/Button'
@@ -35,82 +36,24 @@ export default function MDEmployeeManagement() {
     const [formData, setFormData] = useState({ name: '', email: '', role: 'employee' })
     const [processing, setProcessing] = useState(false)
 
-    // Data State for Dual Source
-    const [employeesMap, setEmployeesMap] = useState({})
-    const [usersMap, setUsersMap] = useState({})
-
-    // Fetch Data from BOTH collections
+    // Fetch Data (Canonical Source Only)
     useEffect(() => {
         setLoading(true)
-
         const employeesRef = ref(database, 'employees')
-        const usersRef = ref(database, 'users')
 
-        const unsubEmployees = onValue(employeesRef, (snapshot) => {
-            const val = snapshot.val() || {}
-            setEmployeesMap(val)
+        const unsubscribe = onValue(employeesRef, (snapshot) => {
+            const data = snapshot.val() || {}
+            // Use Centralized Utility
+            // Date is not needed for list listing, passing empty string
+            const { validEmployees } = getEmployeeStats(data, '')
+
+            console.log('[EmployeeManagement] Loaded employees:', validEmployees.length)
+            setEmployees(validEmployees)
+            setLoading(false)
         })
 
-        const unsubUsers = onValue(usersRef, (snapshot) => {
-            const val = snapshot.val() || {}
-            setUsersMap(val)
-        })
-
-        return () => {
-            unsubEmployees()
-            unsubUsers()
-        }
+        return () => unsubscribe()
     }, [])
-
-    // Merge & Deduplicate
-    useEffect(() => {
-        // Priority: Employees > Users
-        // If a UID exists in both, 'employees' data wins (it's the newer schema)
-        const merged = { ...usersMap, ...employeesMap }
-
-        // 🔍 DEFENSIVE LOGGING: Dual source merge
-        console.log('[EmployeeManagement] Data sources:', {
-            users: Object.keys(usersMap).length,
-            employees: Object.keys(employeesMap).length,
-            merged: Object.keys(merged).length
-        })
-
-        const list = Object.entries(merged)
-            .map(([uid, val]) => {
-                // Determine source for future operations
-                const source = employeesMap[uid] ? 'employees' : 'users'
-
-                // Handle nested profile structure (New) vs Flat (Old/Legacy)
-                let data = val
-                if (source === 'employees' && val.profile) {
-                    // Merge root and profile to preserve root fields (like email) if missing in profile
-                    data = { ...val, ...val.profile }
-                }
-
-                return {
-                    uid,
-                    ...data,
-                    source // Track where this user came from
-                }
-            })
-            .filter(user => {
-                // ✅ CRITICAL FIX: Case-insensitive role comparison
-                // Show ALL users EXCEPT MD and archived
-                const userRole = (user.role || '').toLowerCase();
-                const mdRole = ROLES.MD.toLowerCase();
-                const isNotMD = userRole !== mdRole;
-                const isActive = user.status !== 'archived';
-                const hasEmail = !!user.email;
-
-                return isNotMD && hasEmail && isActive;
-            })
-
-        // 🔍 DEFENSIVE LOGGING: Final count
-        console.log('[EmployeeManagement] Filtered employees:', list.length)
-
-        setEmployees(list)
-        setLoading(false)
-    }, [employeesMap, usersMap])
 
     // Handlers
     const handleAdd = async (e) => {

@@ -14,6 +14,8 @@ import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ROLES } from '../../config/roleConfig'
+import { getEmployeeStats } from '../../utils/employeeStats'
+import { getTodayISO } from '../../utils/date'
 
 // UI Components
 import MDToast from '../components/MDToast'
@@ -55,144 +57,41 @@ export default function MDDashboard() {
     // Realtime Data Sync
     useEffect(() => {
         const usersRef = ref(database, 'employees')
-        const todayStr = new Date().toISOString().split('T')[0]
+        const todayStr = getTodayISO()
 
         const unsubscribe = onValue(usersRef, (snapshot) => {
             const data = snapshot.val() || {}
 
-            // 🔍 TIMING: When does async resolve?
-            console.log('[Dashboard] ⏰ Data fetch completed at:', new Date().toISOString())
+            // 🔍 CENTRALIZED STATS CALCULATION
+            const report = getEmployeeStats(data, todayStr)
 
-            // 🔍 DEFENSIVE LOGGING: Raw data
-            console.log('[Dashboard] Raw employees data:', Object.keys(data).length, 'records')
+            // 🔍 MANDATORY LOGS (Exact Format)
+            console.log(`[Dashboard] Raw employees fetched: ${report.rawCount}`)
+            console.log(`[Dashboard] Valid employees after role filter: ${report.stats.totalEmployees}`)
+            console.log(`[Dashboard] Attendance records for today (${todayStr}): ${report.liveFeed.length}`)
+            console.log(`[Dashboard] Counts computed at: ${new Date().toISOString()}`)
 
-            // 🔍 DETAILED ROLE ANALYSIS
-            const roleDistribution = {}
-            Object.entries(data).forEach(([id, val]) => {
-                const profile = val.profile || val;
-                const role = profile.role || 'UNDEFINED';
-                roleDistribution[role] = (roleDistribution[role] || 0) + 1;
-            })
-            console.log('[Dashboard] Exact role values in DB (case-sensitive):', roleDistribution)
-
-            // Process Users - ROLE-AWARE FILTERING
-            const userList = Object.entries(data)
-                .map(([id, val]) => ({ id, ...val }))
-                .filter(u => {
-                    const profile = u.profile || u;
-
-                    // 🔍 CRITICAL FIX: Case-insensitive role comparison
-                    const userRole = (profile.role || '').toLowerCase();
-                    const mdRole = ROLES.MD.toLowerCase(); // 'md'
-
-                    // ✅ Show ALL authenticated users EXCEPT MD
-                    // This ensures ALL employees added via Team Management are counted
-                    const isNotMD = userRole !== mdRole;
-                    // Strict: Must have email (check both profile and root)
-                    const passed = isNotMD && !!(profile.email || u.email);
-
-                    console.log('[Dashboard] User filter:', {
-                        id: u.id,
-                        email: profile.email || u.email,
-                        roleRaw: profile.role,
-                        roleLowercase: userRole,
-                        mdRole: mdRole,
-                        isNotMD: isNotMD,
-                        hasEmail: !!(profile.email || u.email),
-                        PASSED: passed
-                    })
-
-                    if (!profile.role) {
-                        console.warn('[Dashboard] ⚠️ User without role:', u.id, profile.email)
-                    }
-
-                    if (!passed && profile.email) {
-                        console.log('[Dashboard] ❌ User excluded:', profile.email, 'role:', profile.role)
-                    }
-
-                    return passed;
-                })
-
-            // 🔍 DEFENSIVE LOGGING: Filtered results
-            console.log('[Dashboard] Filtered employees:', userList.length)
-            console.log('[Dashboard] Role distribution:', {
-                total: Object.keys(data).length,
-                employees: userList.length,
-                excluded: Object.keys(data).length - userList.length
-            })
-
-            // Calculate Stats & Feed
-            let newStats = { total: userList.length, present: 0, onLeave: 0, onSite: 0, absent: 0 }
-            let feed = []
-
-            // 🔍 COUNT ATTENDANCE RECORDS FOR TODAY
-            let attendanceRecordsToday = 0
-            userList.forEach(user => {
-                if (user.attendance?.[todayStr]) {
-                    attendanceRecordsToday++
-                }
-            })
-            console.log('[Dashboard] Attendance records for today (' + todayStr + '):', attendanceRecordsToday)
-
-            userList.forEach(user => {
-                const todayRecord = user.attendance?.[todayStr]
-                let status = 'Absent'
-
-                if (todayRecord) {
-                    // Feed Item
-                    feed.push({
-                        id: user.id,
-                        name: user.profile?.name,
-                        email: user.profile?.email,
-                        timestamp: todayRecord.timestamp,
-                        status: todayRecord.status,
-                        location: todayRecord.location || 'Office',
-                        avatarColor: getAvatarColor(user.profile?.name)
-                    })
-
-                    // Stats - DYNAMIC COMPUTATION
-                    const s = todayRecord.status
-                    if (s === 'Present' || s === 'Late') newStats.present++
-                    if (s === 'site' || todayRecord.location === 'Site') newStats.onSite++
-
-                    if (['leave', 'half-day'].includes(s)) newStats.onLeave++
-                } else {
-                    newStats.absent++
-                }
-            })
-
-            // 🔍 DEFENSIVE LOGGING: Final stats
-            console.log('[Dashboard] ⏰ Counts computed at:', new Date().toISOString())
-            console.log('[Dashboard] Computed stats:', newStats)
-
-            // 🚨 CRITICAL: Detect 0/0 state (ALWAYS A BUG)
-            if (newStats.total === 0 && Object.keys(data).length > 0) {
-                console.error('[Dashboard] 🚨 CRITICAL BUG: 0/0 STATE DETECTED!')
-                console.error('[Dashboard] Raw data exists but filtered to 0')
-                console.error('[Dashboard] This means ALL users were filtered out')
-                console.error('[Dashboard] Check role values and filtering logic above')
+            // Log Diagnostics for excluded users
+            if (report.feed.length > 0) {
+                console.warn('[Dashboard] Excluded Users Diagnostics:', report.feed)
             }
 
-            // 🔍 VALIDATION: Ensure counts make sense
-            const totalCounted = newStats.present + newStats.onLeave + newStats.absent
-            if (totalCounted !== newStats.total) {
-                console.warn('[Dashboard] ⚠️ Count mismatch:', {
-                    total: newStats.total,
-                    present: newStats.present,
-                    onLeave: newStats.onLeave,
-                    absent: newStats.absent,
-                    sum: totalCounted,
-                    difference: newStats.total - totalCounted
-                })
-            }
-
-            // Sort Feed by latest
-            feed.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-
-            setEmployees(userList)
-            setStats(newStats)
-            setLiveFeed(feed.slice(0, 5)) // Top 5
+            // Update State (Map utility keys to component keys)
+            setEmployees(report.validEmployees)
+            setStats({
+                total: report.stats.totalEmployees,
+                present: report.stats.present,
+                onLeave: report.stats.onLeave,
+                onSite: report.stats.onsite, // Mapping onsite -> onSite
+                absent: report.stats.absent
+            })
+            setLiveFeed(report.liveFeed.slice(0, 5))
             setLoading(false)
+
+            // 0/0 State Warning
+            if (report.stats.totalEmployees === 0 && report.rawCount > 0) {
+                console.error('[Dashboard] 🚨 CRITICAL BUG: 0/0 STATE DETECTED! Use diagnostics feed.')
+            }
         })
 
         return () => unsubscribe()

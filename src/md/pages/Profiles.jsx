@@ -3,7 +3,7 @@ import { ref, onValue } from 'firebase/database'
 import { database } from '../../firebase/config'
 import clsx from 'clsx'
 import { ArrowLeft } from 'lucide-react'
-import { ROLES } from '../../config/roleConfig'
+import { getEmployeeStats } from '../../utils/employeeStats'
 
 // Sub-components
 import ProfileList from '../components/ProfileList'
@@ -14,43 +14,27 @@ export default function MDProfiles() {
     const [selectedEmployeeId, setSelectedEmployeeId] = useState(null)
     const [loading, setLoading] = useState(true)
     const [isMobileListOpen, setIsMobileListOpen] = useState(true) // For mobile nav
-
     useEffect(() => {
         const usersRef = ref(database, 'employees')
         const unsubscribe = onValue(usersRef, (snapshot) => {
-            const data = snapshot.val()
-            if (data) {
-                // 🔍 DEFENSIVE LOGGING
-                console.log('[Profiles] Raw data:', Object.keys(data).length, 'records')
+            const data = snapshot.val() || {}
+            // Use Centralized Utility
+            const { validEmployees } = getEmployeeStats(data, '')
 
-                const userList = Object.entries(data)
-                    .map(([uid, val]) => ({ uid, ...val }))
-                    .filter(u => {
-                        const profile = u.profile || u;
+            // Sort
+            validEmployees.sort((a, b) => {
+                const nameA = (a.name || '').toLowerCase();
+                const nameB = (b.name || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            })
 
-                        // ✅ CRITICAL FIX: Case-insensitive role comparison
-                        const userRole = (profile.role || '').toLowerCase();
-                        const mdRole = ROLES.MD.toLowerCase();
+            console.log('[Profiles] Loaded employees:', validEmployees.length)
 
-                        // Show ALL users EXCEPT MD
-                        return userRole !== mdRole;
-                    })
-                    .sort((a, b) => {
-                        const nameA = (a.profile?.name || a.name || '').toLowerCase();
-                        const nameB = (b.profile?.name || b.name || '').toLowerCase();
-                        return nameA.localeCompare(nameB);
-                    })
-
-                // 🔍 DEFENSIVE LOGGING
-                console.log('[Profiles] Filtered employees:', userList.length)
-
-                setEmployees(userList)
-                if (userList.length > 0 && !selectedEmployeeId) {
-                    // Auto-select first on desktop
-                    if (window.innerWidth >= 768) {
-                        setSelectedEmployeeId(userList[0].uid)
-                        setIsMobileListOpen(false)
-                    }
+            setEmployees(validEmployees)
+            if (validEmployees.length > 0 && !selectedEmployeeId) {
+                if (window.innerWidth >= 768) {
+                    setSelectedEmployeeId(validEmployees[0].id) // id from utility
+                    setIsMobileListOpen(false)
                 }
             }
             setLoading(false)
