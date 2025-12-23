@@ -192,7 +192,7 @@ export default function MDDashboard() {
                 {/* User Count */}
                 <MetricCard
                     variants={itemVariants}
-                    label="Total Staff"
+                    label="Total Employees"
                     value={stats.total}
                     icon={Users}
                     colorClass="text-blue-600"
@@ -297,6 +297,7 @@ export default function MDDashboard() {
                                     <span className="text-slate-600 dark:text-slate-300">Total Employees</span>
                                     <span className="font-bold text-slate-900 dark:text-white">{summaryData.totalEmployees}</span>
                                 </div>
+                                <p className="text-[10px] text-slate-400 -mt-1">Excluding MD and Admin</p>
                                 <div className="h-px bg-slate-200 dark:bg-slate-800" />
                                 <div className="flex justify-between items-center">
                                     <span className="text-blue-600 font-medium">Notifications Sent To</span>

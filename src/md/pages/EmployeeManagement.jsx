@@ -84,7 +84,14 @@ export default function MDEmployeeManagement() {
                     source // Track where this user came from
                 }
             })
-            .filter(user => user.name && user.email && user.status !== 'archived') // Show only valid & active profiles
+            .filter(user => {
+                // Exclude MD, admin, and archived users - only show employees
+                return user.name &&
+                    user.email &&
+                    user.status !== 'archived' &&
+                    user.role !== 'md' &&
+                    user.role !== 'admin';
+            })
 
         setEmployees(list)
         setLoading(false)

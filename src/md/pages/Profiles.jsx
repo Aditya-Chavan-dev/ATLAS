@@ -21,8 +21,16 @@ export default function MDProfiles() {
             if (data) {
                 const userList = Object.entries(data)
                     .map(([uid, val]) => ({ uid, ...val }))
-                    .filter(u => u.role !== 'admin') // Filter out admins if needed
-                    .sort((a, b) => a.name.localeCompare(b.name)) // Sort Alphabetically
+                    .filter(u => {
+                        const profile = u.profile || u;
+                        // Exclude MD and admin roles - only show employees
+                        return profile.role !== 'admin' && profile.role !== 'md';
+                    })
+                    .sort((a, b) => {
+                        const nameA = (a.profile?.name || a.name || '').toLowerCase();
+                        const nameB = (b.profile?.name || b.name || '').toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    })
 
                 setEmployees(userList)
                 if (userList.length > 0 && !selectedEmployeeId) {
