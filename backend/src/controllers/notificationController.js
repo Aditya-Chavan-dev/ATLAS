@@ -137,10 +137,16 @@ exports.broadcastAttendance = async (req, res) => {
 
         if (targetTokens.length > 0) {
             const message = {
+                // Explicit Notification Block (Ensures visibility)
+                notification: {
+                    title: 'Attendance Reminder',
+                    body: 'Mark your attendance for today'
+                },
+                // Data Block (For handlers)
                 data: {
                     type: 'ATTENDANCE_REMINDER',
                     route: 'MARK_ATTENDANCE',
-                    date: new Date().toISOString().split('T')[0]
+                    date: new Date().toISOString()
                 },
                 tokens: targetTokens
             };
