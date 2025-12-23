@@ -146,6 +146,11 @@ exports.broadcastAttendance = async (req, res) => {
                 webpush: {
                     fcm_options: {
                         link: 'https://atlas-011.web.app/dashboard'
+                    },
+                    notification: {
+                        tag: 'attendance_reminder',
+                        renotify: true, // 🔔 Force alert/vibrate even if replacing
+                        requireInteraction: true
                     }
                 },
                 // Data Block (For handlers)
