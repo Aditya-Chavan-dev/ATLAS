@@ -43,35 +43,42 @@ try {
     process.exit(1);
 }
 
-// Inject Firebase config into service worker
-const swTemplatePath = path.join(__dirname, '../public/firebase-messaging-sw.js');
-if (fs.existsSync(swTemplatePath)) {
+
+// ============================================================================
+// INJECT FIREBASE CONFIG INTO UNIFIED SERVICE WORKER
+// ============================================================================
+// The unified SW (src/sw.js) contains placeholders that need to be replaced
+// This happens BEFORE Vite processes the file
+const swSourcePath = path.join(__dirname, '../src/sw.js');
+
+if (fs.existsSync(swSourcePath)) {
     try {
-        let swContent = fs.readFileSync(swTemplatePath, 'utf8');
+        let swContent = fs.readFileSync(swSourcePath, 'utf8');
 
-        // Replace placeholders with actual values
-        swContent = swContent
-            .replace('"__FIREBASE_API_KEY__"', JSON.stringify(config.apiKey))
-            .replace('"__FIREBASE_AUTH_DOMAIN__"', JSON.stringify(config.authDomain))
-            .replace('"__FIREBASE_DATABASE_URL__"', JSON.stringify(config.databaseURL))
-            .replace('"__FIREBASE_PROJECT_ID__"', JSON.stringify(config.projectId))
-            .replace('"__FIREBASE_STORAGE_BUCKET__"', JSON.stringify(config.storageBucket))
-            .replace('"__FIREBASE_MESSAGING_SENDER_ID__"', JSON.stringify(config.messagingSenderId))
-            .replace('"__FIREBASE_APP_ID__"', JSON.stringify(config.appId));
+        // Check if placeholders exist (they should)
+        if (!swContent.includes('__FIREBASE_API_KEY__')) {
+            console.log('⚠️  Service worker already has config injected or no placeholders found');
+        } else {
+            // Replace ALL placeholders with actual values
+            swContent = swContent
+                .replace(/"__FIREBASE_API_KEY__"/g, JSON.stringify(config.apiKey))
+                .replace(/"__FIREBASE_AUTH_DOMAIN__"/g, JSON.stringify(config.authDomain))
+                .replace(/"__FIREBASE_DATABASE_URL__"/g, JSON.stringify(config.databaseURL))
+                .replace(/"__FIREBASE_PROJECT_ID__"/g, JSON.stringify(config.projectId))
+                .replace(/"__FIREBASE_STORAGE_BUCKET__"/g, JSON.stringify(config.storageBucket))
+                .replace(/"__FIREBASE_MESSAGING_SENDER_ID__"/g, JSON.stringify(config.messagingSenderId))
+                .replace(/"__FIREBASE_APP_ID__"/g, JSON.stringify(config.appId));
 
-        // Write to dist folder (will be created during build)
-        const distSwPath = path.join(__dirname, '../dist/firebase-messaging-sw.js');
-        const distDir = path.dirname(distSwPath);
-
-        if (!fs.existsSync(distDir)) {
-            fs.mkdirSync(distDir, { recursive: true });
+            // Write back to the SAME file (Vite will process it)
+            fs.writeFileSync(swSourcePath, swContent);
+            console.log('✅ Injected Firebase config into src/sw.js (unified service worker)');
         }
-
-        fs.writeFileSync(distSwPath, swContent);
-        console.log('✅ Injected Firebase config into firebase-messaging-sw.js');
     } catch (error) {
         console.error('❌ Error injecting config into service worker:', error);
-        // Don't exit - service worker is optional for some builds
+        // Don't exit - let build continue
     }
+} else {
+    console.error('⚠️  Service worker not found at src/sw.js');
 }
+
 
