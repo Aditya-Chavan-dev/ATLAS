@@ -7,6 +7,7 @@ import {
     Mail, Shield
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { ROLES } from '../../config/roleConfig'
 
 // UI Components
 import Button from '../../components/ui/Button'
@@ -67,6 +68,13 @@ export default function MDEmployeeManagement() {
         // If a UID exists in both, 'employees' data wins (it's the newer schema)
         const merged = { ...usersMap, ...employeesMap }
 
+        // 🔍 DEFENSIVE LOGGING: Dual source merge
+        console.log('[EmployeeManagement] Data sources:', {
+            users: Object.keys(usersMap).length,
+            employees: Object.keys(employeesMap).length,
+            merged: Object.keys(merged).length
+        })
+
         const list = Object.entries(merged)
             .map(([uid, val]) => {
                 // Determine source for future operations
@@ -85,13 +93,17 @@ export default function MDEmployeeManagement() {
                 }
             })
             .filter(user => {
-                // Exclude MD, admin, and archived users - only show employees
-                return user.name &&
-                    user.email &&
-                    user.status !== 'archived' &&
-                    user.role !== 'md' &&
-                    user.role !== 'admin';
+                // ✅ STRICT ROLE FILTERING: Only show EMPLOYEES
+                // Exclude: MD, OWNER, ADMIN, archived users
+                const isEmployee = user.role === ROLES.EMPLOYEE;
+                const hasRequiredData = user.name && user.email;
+                const isActive = user.status !== 'archived';
+
+                return isEmployee && hasRequiredData && isActive;
             })
+
+        // 🔍 DEFENSIVE LOGGING: Final count
+        console.log('[EmployeeManagement] Filtered employees:', list.length)
 
         setEmployees(list)
         setLoading(false)

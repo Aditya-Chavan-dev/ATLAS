@@ -13,6 +13,7 @@ import clsx from 'clsx'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import { motion, AnimatePresence } from 'framer-motion'
+import { ROLES } from '../../config/roleConfig'
 
 // UI Components
 import MDToast from '../components/MDToast'
@@ -59,19 +60,38 @@ export default function MDDashboard() {
         const unsubscribe = onValue(usersRef, (snapshot) => {
             const data = snapshot.val() || {}
 
-            // Process Users
+            // 🔍 DEFENSIVE LOGGING: Raw data
+            console.log('[Dashboard] Raw employees data:', Object.keys(data).length, 'records')
+
+            // Process Users - ROLE-AWARE FILTERING
             const userList = Object.entries(data)
                 .map(([id, val]) => ({ id, ...val }))
                 .filter(u => {
                     const profile = u.profile || u;
-                    // Strict Filter: Must have email AND phone
-                    return (
-                        profile.role !== 'admin' &&
-                        profile.role !== 'md' &&
-                        profile.email &&
-                        profile.phone
-                    );
+
+                    // 🔍 DEFENSIVE LOGGING: Role check
+                    if (!profile.role) {
+                        console.warn('[Dashboard] User without role:', id, profile.email)
+                    }
+
+                    // ✅ STRICT ROLE FILTERING: Only count EMPLOYEES
+                    // Exclude: MD, OWNER, ADMIN (if exists), and undefined roles
+                    const isEmployee = profile.role === ROLES.EMPLOYEE;
+                    const hasEmail = !!profile.email;
+
+                    // ❌ REMOVED: profile.phone requirement (was excluding employees)
+                    // ✅ ONLY REQUIRE: role === 'employee' AND email exists
+
+                    return isEmployee && hasEmail;
                 })
+
+            // 🔍 DEFENSIVE LOGGING: Filtered results
+            console.log('[Dashboard] Filtered employees:', userList.length)
+            console.log('[Dashboard] Role distribution:', {
+                total: Object.keys(data).length,
+                employees: userList.length,
+                excluded: Object.keys(data).length - userList.length
+            })
 
             // Calculate Stats & Feed
             let newStats = { total: userList.length, present: 0, onLeave: 0, onSite: 0, absent: 0 }
@@ -93,7 +113,7 @@ export default function MDDashboard() {
                         avatarColor: getAvatarColor(user.profile?.name)
                     })
 
-                    // Stats
+                    // Stats - DYNAMIC COMPUTATION
                     const s = todayRecord.status
                     if (s === 'Present' || s === 'Late') newStats.present++
                     if (s === 'site' || todayRecord.location === 'Site') newStats.onSite++
@@ -103,6 +123,9 @@ export default function MDDashboard() {
                     newStats.absent++
                 }
             })
+
+            // 🔍 DEFENSIVE LOGGING: Final stats
+            console.log('[Dashboard] Computed stats:', newStats)
 
             // Sort Feed by latest
             feed.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
