@@ -7,7 +7,7 @@ const { db, messaging } = require('../config/firebase');
  * Register Token or Status
  * Handles Step 6: "Send token to backend with... Permission status"
  */
-exports.registerToken = async (req, res) => {
+const registerToken = async (req, res) => {
     try {
         const { uid, token, platform, permission } = req.body;
 
@@ -85,7 +85,7 @@ exports.registerToken = async (req, res) => {
 /**
  * Unregister Token (Optional, for logout)
  */
-exports.unregisterToken = async (req, res) => {
+const unregisterToken = async (req, res) => {
     try {
         const { uid } = req.body;
         if (uid) {
@@ -102,7 +102,7 @@ exports.unregisterToken = async (req, res) => {
 /**
  * Broadcast Logc (Step 7)
  */
-exports.broadcastAttendance = async (req, res) => {
+const broadcastAttendance = async (req, res) => {
     try {
         console.log('📢 Starting Broadcast (Token-Based - Global)...');
 
@@ -238,4 +238,10 @@ exports.broadcastAttendance = async (req, res) => {
         console.error('Broadcast Error:', error);
         res.status(500).json({ error: error.message });
     }
+};
+
+module.exports = {
+    registerToken,
+    unregisterToken,
+    broadcastAttendance
 };
