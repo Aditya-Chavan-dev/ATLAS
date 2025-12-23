@@ -104,6 +104,26 @@ export default function MDDashboard() {
         setIsReminderModalOpen(true)
     }
 
+    const handleTestNotification = async () => {
+        try {
+            setToast({ type: 'info', message: 'Sending test... 🧪' })
+            const data = await ApiService.post('/api/fcm/test', { uid: currentUser?.uid })
+            if (data.success) {
+                if (data.results.success > 0) {
+                    setToast({ type: 'success', message: `Test Sent! Check your notifications.` })
+                } else if (data.results.failure > 0) {
+                    setToast({ type: 'error', message: `Test Failed. Google rejected the token.` })
+                } else {
+                    setToast({ type: 'warning', message: `No devices found for you.` })
+                }
+            } else {
+                setToast({ type: 'error', message: data.error })
+            }
+        } catch (error) {
+            setToast({ type: 'error', message: error.message })
+        }
+    }
+
     const confirmSendReminder = async () => {
         setSendingReminder(true)
         try {
@@ -216,7 +236,7 @@ export default function MDDashboard() {
             </motion.div>
 
             {/* 3. Quick Action - Send Reminder */}
-            <div className="flex justify-center lg:justify-start">
+            <div className="flex flex-col lg:flex-row justify-center lg:justify-start gap-4">
                 <motion.button
                     variants={itemVariants}
                     whileHover={{ scale: 1.02 }}
@@ -226,6 +246,16 @@ export default function MDDashboard() {
                 >
                     <Bell size={20} />
                     <span>Send Attendance Reminder</span>
+                </motion.button>
+
+                <motion.button
+                    variants={itemVariants}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleTestNotification}
+                    className="w-full lg:w-auto px-6 py-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-slate-50 dark:hover:bg-slate-700"
+                >
+                    <span className="text-xs uppercase tracking-wider font-bold">Test My Device</span>
                 </motion.button>
             </div>
 

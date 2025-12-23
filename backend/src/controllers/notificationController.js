@@ -222,3 +222,52 @@ exports.broadcastAttendance = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+/**
+ * Send Test Notification (To requester only)
+ * Debugging tool to verify "My Device" connectivity
+ */
+exports.sendTestNotification = async (req, res) => {
+    try {
+        const { uid } = req.body;
+        if (!uid) return res.status(400).json({ error: 'UID required' });
+
+        console.log(`🧪 Sending Test Notification to UID: ${uid}`);
+
+        // 1. Fetch tokens for THIS user (Try DB directly for debug certainty)
+        const tokensSnap = await db.ref('deviceTokens').orderByChild('uid').equalTo(uid).once('value');
+        const tokensData = tokensSnap.val();
+
+        if (!tokensData) {
+            return res.json({ success: false, error: 'No device tokens found for your user.' });
+        }
+
+        const tokens = Object.keys(tokensData);
+        console.log(`🧪 Found ${tokens.length} tokens for test.`);
+
+        // 2. Send
+        const message = {
+            notification: {
+                title: 'Test Notification 🧪',
+                body: 'If you see this, notifications are working! 🚀'
+            },
+            data: {
+                type: 'TEST'
+            },
+            tokens: tokens
+        };
+
+        const response = await messaging.sendEachForMulticast(message);
+
+        res.json({
+            success: true,
+            results: {
+                success: response.successCount,
+                failure: response.failureCount
+            }
+        });
+
+    } catch (error) {
+        console.error('Test Notification Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
