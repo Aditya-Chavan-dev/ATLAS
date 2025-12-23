@@ -83,7 +83,8 @@ export default function MDEmployeeManagement() {
                 // Handle nested profile structure (New) vs Flat (Old/Legacy)
                 let data = val
                 if (source === 'employees' && val.profile) {
-                    data = val.profile
+                    // Merge root and profile to preserve root fields (like email) if missing in profile
+                    data = { ...val, ...val.profile }
                 }
 
                 return {
@@ -99,8 +100,9 @@ export default function MDEmployeeManagement() {
                 const mdRole = ROLES.MD.toLowerCase();
                 const isNotMD = userRole !== mdRole;
                 const isActive = user.status !== 'archived';
+                const hasEmail = !!user.email;
 
-                return isNotMD && isActive;
+                return isNotMD && hasEmail && isActive;
             })
 
         // 🔍 DEFENSIVE LOGGING: Final count
