@@ -104,26 +104,6 @@ export default function MDDashboard() {
         setIsReminderModalOpen(true)
     }
 
-    const handleTestNotification = async () => {
-        try {
-            setToast({ type: 'info', message: 'Sending test... 🧪' })
-            const data = await ApiService.post('/api/fcm/test', { uid: currentUser?.uid })
-            if (data.success) {
-                if (data.results.success > 0) {
-                    setToast({ type: 'success', message: `Test Sent! Check your notifications.` })
-                } else if (data.results.failure > 0) {
-                    setToast({ type: 'error', message: `Test Failed. Google rejected the token.` })
-                } else {
-                    setToast({ type: 'warning', message: `No devices found for you.` })
-                }
-            } else {
-                setToast({ type: 'error', message: data.error })
-            }
-        } catch (error) {
-            setToast({ type: 'error', message: error.message })
-        }
-    }
-
     const confirmSendReminder = async () => {
         setSendingReminder(true)
         try {
@@ -236,7 +216,7 @@ export default function MDDashboard() {
             </motion.div>
 
             {/* 3. Quick Action - Send Reminder */}
-            <div className="flex flex-col lg:flex-row justify-center lg:justify-start gap-4">
+            <div className="flex justify-center lg:justify-start">
                 <motion.button
                     variants={itemVariants}
                     whileHover={{ scale: 1.02 }}
@@ -246,16 +226,6 @@ export default function MDDashboard() {
                 >
                     <Bell size={20} />
                     <span>Send Attendance Reminder</span>
-                </motion.button>
-
-                <motion.button
-                    variants={itemVariants}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleTestNotification}
-                    className="w-full lg:w-auto px-6 py-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-xl flex items-center justify-center gap-2 transition-all hover:bg-slate-50 dark:hover:bg-slate-700"
-                >
-                    <span className="text-xs uppercase tracking-wider font-bold">Test My Device</span>
                 </motion.button>
             </div>
 
@@ -288,125 +258,105 @@ export default function MDDashboard() {
                 </div>
             </Modal>
 
-            {/* Step 8: Delivery Summary Modal (Strict Truth Data) - BEAUTIFIED */}
+            {/* Step 8: Delivery Summary Modal (Strict Truth Data) */}
             <Modal
                 isOpen={isSummaryModalOpen}
                 onClose={() => setIsSummaryModalOpen(false)}
-                title="Broadcast Results"
-                size="lg" // Larger for better visibility
+                title="Broadcast Report"
                 footer={
                     <Button variant="primary" onClick={() => setIsSummaryModalOpen(false)}>
-                        Done
+                        Close Report
                     </Button>
                 }
             >
                 {summaryData && (
-                    <div className="space-y-6">
-                        {/* Top Metrics Banner */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20 rounded-xl p-4 flex flex-col items-center justify-center text-center">
-                                <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">{summaryData.successfullySent}</span>
-                                <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">Received</span>
-                            </div>
-                            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center">
-                                <div className="flex items-center gap-1 mb-1">
-                                    <span className="text-3xl font-bold text-slate-700 dark:text-slate-200">{summaryData.details.notSent.length}</span>
-                                    <span className="text-sm font-medium text-slate-400">/ {summaryData.totalEmployees}</span>
+                    <div className="space-y-4">
+                        <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Delivery Metrics</h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-slate-600 dark:text-slate-300">Total Employees</span>
+                                    <span className="font-bold text-slate-900 dark:text-white">{summaryData.totalEmployees}</span>
                                 </div>
-                                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Not Delivered</span>
+                                <p className="text-[10px] text-slate-400 -mt-1">Excluding MD and Admin</p>
+                                <div className="h-px bg-slate-200 dark:bg-slate-800" />
+                                <div className="flex justify-between items-center">
+                                    <span className="text-blue-600 font-medium">Notifications Sent To</span>
+                                    <span className="font-bold text-blue-600">{summaryData.sentTo}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 -mt-2">Employees with App Installed (Permission ON or OFF)</p>
+
+                                <div className="bg-emerald-50 dark:bg-emerald-900/10 p-2 rounded-lg flex justify-between items-center mt-2">
+                                    <div className="flex items-center gap-2">
+                                        <CheckCircle size={16} className="text-emerald-600" />
+                                        <span className="text-emerald-700 dark:text-emerald-400 font-medium text-sm">Successfully Sent</span>
+                                    </div>
+                                    <span className="font-bold text-emerald-700 dark:text-emerald-400">{summaryData.successfullySent}</span>
+                                </div>
+
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-500">Failed (App not installed)</span>
+                                    <span className="font-mono text-slate-700 dark:text-slate-300">{summaryData.failedNotInstalled}</span>
+                                </div>
+
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-amber-600 dark:text-amber-500">Couldn't Reach (Notifications OFF)</span>
+                                    <span className="font-mono font-bold text-amber-600 dark:text-amber-500">{summaryData.permissionDenied}</span>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Detailed Breakdowns */}
+                        {/* ✅ Detailed Lists */}
                         {summaryData.details && (
-                            <div className="space-y-6">
-                                {/* Success List */}
-                                <div>
-                                    <h4 className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-400 uppercase mb-3 px-1">
-                                        <CheckCircle size={16} />
-                                        Sent Successfully ({summaryData.details.sent.length})
+                            <div className="grid grid-cols-1 gap-2">
+                                {/* Sent List */}
+                                <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg p-3 border border-emerald-100 dark:border-emerald-900/20">
+                                    <h4 className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase mb-2">
+                                        ✅ Sent Successfully ({summaryData.details.sent.length})
                                     </h4>
-                                    <div className="bg-white dark:bg-slate-900 border border-emerald-100 dark:border-emerald-900/20 rounded-xl overflow-hidden shadow-sm divide-y divide-emerald-50 dark:divide-slate-800">
+                                    <div className="max-h-24 overflow-y-auto space-y-1">
                                         {summaryData.details.sent.length > 0 ? (
-                                            summaryData.details.sent.map((email, i) => {
-                                                const user = employees.find(e => e.email?.toLowerCase() === email?.toLowerCase()) || { name: email.split('@')[0], isUnknown: true };
-                                                const avatarColor = getAvatarColor(user.name);
-
-                                                return (
-                                                    <div key={i} className="flex items-center gap-3 p-3 hover:bg-emerald-50/30 transition-colors">
-                                                        <div className={`w-8 h-8 rounded-full ${avatarColor} flex items-center justify-center text-white text-xs font-bold shadow-sm`}>
-                                                            {user.name.charAt(0).toUpperCase()}
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                                                                    {user.isUnknown ? email : user.name}
-                                                                </p>
-                                                                {user.role && (
-                                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 uppercase">
-                                                                        {user.role}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            {!user.isUnknown && (
-                                                                <p className="text-xs text-slate-400 font-mono truncate">{email}</p>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-emerald-500">
-                                                            <CheckCircle size={16} fill="currentColor" className="text-white" />
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })
+                                            summaryData.details.sent.map((email, i) => (
+                                                <div key={i} className="text-xs text-slate-600 dark:text-slate-300 truncate font-mono">
+                                                    {email}
+                                                </div>
+                                            ))
                                         ) : (
-                                            <div className="p-4 text-center text-sm text-slate-400 italic">No messages sent.</div>
+                                            <span className="text-xs text-slate-400 italic">None</span>
                                         )}
                                     </div>
                                 </div>
 
-                                {/* Failure List */}
-                                <div>
-                                    <h4 className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-3 px-1">
-                                        <Bell size={16} className="text-slate-400" />
-                                        Not Delivered ({summaryData.details.notSent.length})
+                                {/* Not Sent List */}
+                                <div className="bg-red-50/50 dark:bg-red-900/10 rounded-lg p-3 border border-red-100 dark:border-red-900/20">
+                                    <h4 className="text-xs font-bold text-red-700 dark:text-red-400 uppercase mb-2">
+                                        ❌ Not Sent ({summaryData.details.notSent.length})
                                     </h4>
-                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm divide-y divide-slate-100 dark:divide-slate-800">
+                                    <div className="max-h-24 overflow-y-auto space-y-1">
                                         {summaryData.details.notSent.length > 0 ? (
-                                            summaryData.details.notSent.map((email, i) => {
-                                                const user = employees.find(e => e.email?.toLowerCase() === email?.toLowerCase()) || { name: email.split('@')[0], isUnknown: true };
-
-                                                return (
-                                                    <div key={i} className="flex items-center gap-3 p-3 opacity-75">
-                                                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-xs font-bold border border-slate-200 dark:border-slate-700">
-                                                            {user.name.charAt(0).toUpperCase()}
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 truncate">
-                                                                    {user.isUnknown ? email : user.name}
-                                                                </p>
-                                                            </div>
-                                                            <p className="text-xs text-slate-400 truncate">
-                                                                App not installed or notifications blocked
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })
+                                            summaryData.details.notSent.map((email, i) => (
+                                                <div key={i} className="text-xs text-slate-600 dark:text-slate-300 truncate font-mono">
+                                                    {email}
+                                                </div>
+                                            ))
                                         ) : (
-                                            <div className="p-4 text-center text-sm text-slate-400 italic">Everyone received it! 🎉</div>
+                                            <span className="text-xs text-slate-400 italic">None</span>
                                         )}
                                     </div>
+                                    <p className="text-[10px] text-red-500 mt-2">
+                                        Includes: App not installed, Permission denied, or Technical failure.
+                                    </p>
                                 </div>
                             </div>
                         )}
-
-                        <p className="text-[10px] text-center text-slate-400 px-4">
-                            Note: Delivery requires the employee to have the app installed on at least one device.
+                        <p className="text-xs text-center text-slate-400">
+                            Metrics are based on verified device tokens and permission states.
                         </p>
                     </div>
                 )}
             </Modal>
+
+
 
             {/* Today's Summary */}
             <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-4 h-fit max-w-sm mt-6">
