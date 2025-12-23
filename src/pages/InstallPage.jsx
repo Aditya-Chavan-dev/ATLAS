@@ -27,25 +27,18 @@ export default function InstallPage() {
     }, []);
 
     const handleInstallClick = async () => {
-        if (isIOS) {
-            setShowIOSHint(true);
-        } else if (canPrompt) {
+        if (canPrompt) {
             await installApp();
-        } else {
-            // Fallback for Incognito/Unsupported where prompt didn't fire
-            setShowIncognitoHint(true);
         }
+        // Silent failure for unsupported browsers (No manual instructions)
     };
 
-    // Button is enabled if:
-    // 1. Android prompt is ready
-    // 2. iOS (always manual)
-    // 3. Timeout passed (manual fallback)
-    const isButtonEnabled = canPrompt || isIOS || checkTimeout;
+    // Button is enabled only if native prompt is ready
+    const isButtonEnabled = canPrompt;
 
     const getButtonText = () => {
         // If disabled and waiting
-        if (!isButtonEnabled) return "Checking...";
+        if (!isButtonEnabled) return "Install Not Available";
         return "Install";
     }
 
@@ -60,25 +53,6 @@ export default function InstallPage() {
             >
                 {getButtonText()}
             </button>
-
-            {/* iOS Hint */}
-            {showIOSHint && (
-                <div className="ios-overlay" onClick={() => setShowIOSHint(false)}>
-                    <div className="ios-message">
-                        Use Share <span className="share-icon"></span> → Add to Home Screen
-                    </div>
-                </div>
-            )}
-
-            {/* Incognito / Manual Hint */}
-            {showIncognitoHint && (
-                <div className="ios-overlay" onClick={() => setShowIncognitoHint(false)}>
-                    <div className="ios-message" style={{ flexDirection: 'column', gap: '10px' }}>
-                        <span>Cannot install in Incognito.</span>
-                        <span style={{ fontSize: '14px', opacity: 0.8 }}>Open link in a normal browser tab.</span>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
