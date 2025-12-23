@@ -81,17 +81,23 @@ export default function MDDashboard() {
                 .filter(u => {
                     const profile = u.profile || u;
 
-                    // 🔍 DIAGNOSTIC: Log each user's filtering decision
-                    const isEmployee = profile.role === ROLES.EMPLOYEE;
+                    // 🔍 CRITICAL FIX: Case-insensitive role comparison
+                    const userRole = (profile.role || '').toLowerCase();
+                    const mdRole = ROLES.MD.toLowerCase(); // 'md'
+
+                    // ✅ Show ALL authenticated users EXCEPT MD
+                    // This ensures ALL employees added via Team Management are counted
+                    const isNotMD = userRole !== mdRole;
                     const hasEmail = !!profile.email;
-                    const passed = isEmployee && hasEmail;
+                    const passed = isNotMD && hasEmail;
 
                     console.log('[Dashboard] User filter:', {
                         id: u.id,
                         email: profile.email,
-                        role: profile.role,
-                        roleExpected: ROLES.EMPLOYEE,
-                        roleMatch: isEmployee,
+                        roleRaw: profile.role,
+                        roleLowercase: userRole,
+                        mdRole: mdRole,
+                        isNotMD: isNotMD,
                         hasEmail: hasEmail,
                         PASSED: passed
                     })
@@ -100,8 +106,8 @@ export default function MDDashboard() {
                         console.warn('[Dashboard] ⚠️ User without role:', u.id, profile.email)
                     }
 
-                    if (profile.role && !isEmployee) {
-                        console.log('[Dashboard] ❌ User excluded (role mismatch):', profile.email, 'has role:', profile.role, 'expected:', ROLES.EMPLOYEE)
+                    if (!passed && profile.email) {
+                        console.log('[Dashboard] ❌ User excluded:', profile.email, 'role:', profile.role)
                     }
 
                     return passed;

@@ -93,13 +93,15 @@ export default function MDEmployeeManagement() {
                 }
             })
             .filter(user => {
-                // ✅ STRICT ROLE FILTERING: Only show EMPLOYEES
-                // Exclude: MD, OWNER, ADMIN, archived users
-                const isEmployee = user.role === ROLES.EMPLOYEE;
+                // ✅ CRITICAL FIX: Case-insensitive role comparison
+                // Show ALL users EXCEPT MD and archived
+                const userRole = (user.role || '').toLowerCase();
+                const mdRole = ROLES.MD.toLowerCase();
+                const isNotMD = userRole !== mdRole;
                 const hasRequiredData = user.name && user.email;
                 const isActive = user.status !== 'archived';
 
-                return isEmployee && hasRequiredData && isActive;
+                return isNotMD && hasRequiredData && isActive;
             })
 
         // 🔍 DEFENSIVE LOGGING: Final count

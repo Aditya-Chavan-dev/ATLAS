@@ -28,10 +28,12 @@ export default function MDProfiles() {
                     .filter(u => {
                         const profile = u.profile || u;
 
-                        // ✅ STRICT ROLE FILTERING: Only show EMPLOYEES
-                        const isEmployee = profile.role === ROLES.EMPLOYEE;
+                        // ✅ CRITICAL FIX: Case-insensitive role comparison
+                        const userRole = (profile.role || '').toLowerCase();
+                        const mdRole = ROLES.MD.toLowerCase();
 
-                        return isEmployee;
+                        // Show ALL users EXCEPT MD
+                        return userRole !== mdRole;
                     })
                     .sort((a, b) => {
                         const nameA = (a.profile?.name || a.name || '').toLowerCase();
