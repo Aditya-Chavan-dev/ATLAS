@@ -88,11 +88,17 @@ export const setupForegroundListener = () => {
         const body = payload.notification?.body || "Mark your attendance for today";
 
         if (Notification.permission === 'granted') {
-            new Notification(title, {
+            const notif = new Notification(title, {
                 body: body,
                 icon: '/pwa-192x192.png',
                 data: payload.data // Pass original data for click handling if needed
             });
+
+            notif.onclick = function (event) {
+                event.preventDefault();
+                notif.close();
+                window.location.href = '/dashboard';
+            };
         }
     });
 };

@@ -1,8 +1,7 @@
 // Notification Controller
-// STRICT implementation of Step 7 (Backend Behavior) - OPTIMIZED WITH CACHE
+// STRICT implementation of Step 7 (Backend Behavior)
 
 const { db, messaging } = require('../config/firebase');
-const CacheService = require('../services/cacheService'); // Cache Service
 
 /**
  * Register Token or Status
@@ -16,11 +15,37 @@ exports.registerToken = async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // Handle Permission Denied
+        // Token-Centric Storage (MANDATORY as per Spec)
+        // Path: /deviceTokens/{token}
+        // If permission denied, we might not have a token?
+        // Spec says: "If permission is denied: Do NOT create a token entry. Track locally."
+        // BUT we need to know for "Notifications OFF" stats?
+        // Spec says: "Failed – notifications disabled".
+        // If we don't store it, we can't count it efficiently unless we check all employees vs tokens?
+        // Spec Part 4 "Truth Guarantee": "Which employees have... notifications disabled".
+        // If we don't store "Denied", we only know "No Token".
+        // "No Token" could be "Not Installed" OR "Denied".
+        // Ref: "Track locally that notifications are disabled" -> Frontend.
+        // Backend Broadcast: "Filter tokens where notificationsEnabled == true".
+        // "Failed - notifications disabled" -> This implies we DO know?
+        // Let's re-read: "If permission is denied: Do NOT create a token entry".
+        // Okay. Then "Failed - notifications disabled" might be inferred if we have a token but enabled=false?
+        // Or maybe we don't count them?
+        // Wait, "Notifications Sent To -> Total employees with app installed (permission ON + OFF)".
+        // If we don't store denied, we can't count OFF.
+        // But the prompt says "Do NOT create a token entry" for denied.
+        // Contradiction?
+        // "Track locally that notifications are disabled".
+        // "Remove invalid tokens automatically".
+        // Maybe "notificationsEnabled" in schema implies we store it if it WAS enabled but then disabled?
+        // If purely denied from start, maybe we don't store.
+        // I will follow "Do NOT create a token entry" if permission is denied.
+
         if (permission === 'denied') {
+            // If we want to strictly follow "Do NOT create", we just return.
+            // But if we want to support "status updates", maybe we remove the existing token?
             if (token) {
                 await db.ref(`deviceTokens/${token}`).remove();
-                CacheService.removeToken(token); // Update Cache
             }
             return res.json({ success: true, message: 'Token removed (Permission Denied)' });
         }
@@ -32,15 +57,15 @@ exports.registerToken = async (req, res) => {
         // Schema match
         const tokenData = {
             uid: uid,
-            email: req.body.email || 'unknown',
+            email: req.body.email || 'unknown', // We need email from frontend or fetch it
             platform: platform || 'web',
             notificationsEnabled: true,
             userAgent: req.headers['user-agent'] || 'unknown',
-            createdAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(), // Should probably be careful not to overwrite if exists?
             lastSeen: new Date().toISOString()
         };
 
-        // Fetch email if unknown (Use Cache for speed if implemented, or DB is fine here as it's one-time)
+        // We might want to fetch email if not provided, for completeness
         if (tokenData.email === 'unknown') {
             const userSnap = await db.ref(`employees/${uid}/profile`).once('value');
             if (userSnap.exists()) {
@@ -48,11 +73,7 @@ exports.registerToken = async (req, res) => {
             }
         }
 
-        // Update DB
         await db.ref(`deviceTokens/${token}`).set(tokenData);
-
-        // Update Cache Immediately
-        CacheService.updateToken(token, tokenData);
 
         res.json({ success: true, message: 'Token registered' });
     } catch (error) {
@@ -67,14 +88,11 @@ exports.registerToken = async (req, res) => {
 exports.unregisterToken = async (req, res) => {
     try {
         const { uid } = req.body;
-        // This endpoint logic was a bit fuzzy in previous steps (removing by UID vs Token).
-        // For cache consistency, removing by UID is hard if token isn't known.
-        // But if client sends token, we can remove it.
-        // Assuming logout logic might call this.
-
-        // Let's keep it simple: If we knew the token, we'd remove it.
-        // If we only know UID, we can't easily remove from 'deviceTokens' without index.
-        // But for optimizing SPEED, this endpoint is less critical than broadcast.
+        if (uid) {
+            // We just remove the record, returning to "App Not Installed" state?
+            // Or just remove token? "App Not Installed" means no record.
+            await db.ref(`fcm_tokens/${uid}`).remove();
+        }
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: 'Error unregistering' });
@@ -82,29 +100,19 @@ exports.unregisterToken = async (req, res) => {
 };
 
 /**
- * Broadcast Logc (Step 7) - OPTIMIZED
+ * Broadcast Logc (Step 7)
  */
 exports.broadcastAttendance = async (req, res) => {
     try {
-        console.log('📢 Starting Broadcast (Token-Based - Global) [OPTIMIZED]...');
+        console.log('📢 Starting Broadcast (Token-Based - Global)...');
 
-        // 1. Fetch Tokens from Cache (Instant)
-        let allTokens = await CacheService.getTokens();
+        // 1. Fetch Tokens directly (Source of Truth)
+        const tokensSnap = await db.ref('deviceTokens').once('value');
+        const allTokens = tokensSnap.val() || {};
 
-        // ⚠️ SAFETY FALLBACK: If cache is empty, fetch from DB directly
-        // This handles cold starts where warmUp() might not have finished or failed
-        if (!allTokens || Object.keys(allTokens).length === 0) {
-            console.warn('⚠️ [Broadcast] Cache is empty! Falling back to direct DB fetch...');
-            const tokensSnap = await db.ref('deviceTokens').once('value');
-            allTokens = tokensSnap.val() || {};
-            console.log(`✅ [Broadcast] DB Fallback retrieved ${Object.keys(allTokens).length} tokens.`);
-        } else {
-            console.log(`⚡ [Broadcast] Using Cached Tokens: ${Object.keys(allTokens).length}`);
-        }
-
-        // 2. Select Targets & Map Emails (In Memory)
+        // 2. Select Targets & Map Emails
         const targetTokens = [];
-        const tokenToEmail = {};
+        const tokenToEmail = {}; // Map token -> email for tracking
         let countPermissionsOff = 0;
         let totalRegistered = 0;
 
@@ -134,10 +142,17 @@ exports.broadcastAttendance = async (req, res) => {
                     title: 'Attendance Reminder',
                     body: 'Mark your attendance for today'
                 },
+                // WebPush Options (Standard Browser Navigation)
+                webpush: {
+                    fcm_options: {
+                        link: 'https://atlas-011.web.app/dashboard'
+                    }
+                },
                 // Data Block (For handlers)
                 data: {
                     type: 'ATTENDANCE_REMINDER',
-                    route: 'MARK_ATTENDANCE',
+                    route: 'MARK_ATTENDANCE', // Legacy
+                    action: 'MARK_ATTENDANCE', // For Service Worker
                     date: new Date().toISOString()
                 },
                 tokens: targetTokens
@@ -161,18 +176,15 @@ exports.broadcastAttendance = async (req, res) => {
                     if (error && (error.code === 'messaging/registration-token-not-registered' ||
                         error.code === 'messaging/invalid-argument')) {
                         console.log(`Removing invalid token: ${token.substring(0, 10)}...`);
-
-                        // Async Remove from DB
                         db.ref(`deviceTokens/${token}`).remove().catch(console.error);
-                        // Async Remove from Cache
-                        CacheService.removeToken(token);
                     }
                 }
             });
         }
 
-        // 4. Stats - Count & List Employees (Using Cache)
-        const allEmployees = await CacheService.getEmployees();
+        // 4. Stats - Count & List Employees
+        const employeesSnap = await db.ref('employees').once('value');
+        const allEmployees = employeesSnap.val() || {};
 
         let actualEmployeeCount = 0;
         const notSentList = [];
@@ -219,55 +231,6 @@ exports.broadcastAttendance = async (req, res) => {
         });
     } catch (error) {
         console.error('Broadcast Error:', error);
-        res.status(500).json({ error: error.message });
-    }
-};
-/**
- * Send Test Notification (To requester only)
- * Debugging tool to verify "My Device" connectivity
- */
-exports.sendTestNotification = async (req, res) => {
-    try {
-        const { uid } = req.body;
-        if (!uid) return res.status(400).json({ error: 'UID required' });
-
-        console.log(`🧪 Sending Test Notification to UID: ${uid}`);
-
-        // 1. Fetch tokens for THIS user (Try DB directly for debug certainty)
-        const tokensSnap = await db.ref('deviceTokens').orderByChild('uid').equalTo(uid).once('value');
-        const tokensData = tokensSnap.val();
-
-        if (!tokensData) {
-            return res.json({ success: false, error: 'No device tokens found for your user.' });
-        }
-
-        const tokens = Object.keys(tokensData);
-        console.log(`🧪 Found ${tokens.length} tokens for test.`);
-
-        // 2. Send
-        const message = {
-            notification: {
-                title: 'Test Notification 🧪',
-                body: 'If you see this, notifications are working! 🚀'
-            },
-            data: {
-                type: 'TEST'
-            },
-            tokens: tokens
-        };
-
-        const response = await messaging.sendEachForMulticast(message);
-
-        res.json({
-            success: true,
-            results: {
-                success: response.successCount,
-                failure: response.failureCount
-            }
-        });
-
-    } catch (error) {
-        console.error('Test Notification Error:', error);
         res.status(500).json({ error: error.message });
     }
 };
