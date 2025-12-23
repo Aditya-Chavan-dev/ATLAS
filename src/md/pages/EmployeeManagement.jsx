@@ -98,10 +98,9 @@ export default function MDEmployeeManagement() {
                 const userRole = (user.role || '').toLowerCase();
                 const mdRole = ROLES.MD.toLowerCase();
                 const isNotMD = userRole !== mdRole;
-                const hasRequiredData = user.name && user.email;
                 const isActive = user.status !== 'archived';
 
-                return isNotMD && hasRequiredData && isActive;
+                return isNotMD && isActive;
             })
 
         // 🔍 DEFENSIVE LOGGING: Final count

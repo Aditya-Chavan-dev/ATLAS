@@ -88,8 +88,7 @@ export default function MDDashboard() {
                     // ✅ Show ALL authenticated users EXCEPT MD
                     // This ensures ALL employees added via Team Management are counted
                     const isNotMD = userRole !== mdRole;
-                    const hasEmail = !!profile.email;
-                    const passed = isNotMD && hasEmail;
+                    const passed = isNotMD; // Email check removed
 
                     console.log('[Dashboard] User filter:', {
                         id: u.id,
@@ -98,7 +97,7 @@ export default function MDDashboard() {
                         roleLowercase: userRole,
                         mdRole: mdRole,
                         isNotMD: isNotMD,
-                        hasEmail: hasEmail,
+                        hasEmail: !!profile.email,
                         PASSED: passed
                     })
 
