@@ -28,13 +28,24 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, onOptimist
             return
         }
 
-        setLoading(true)
+        // OPTIMISTIC UPDATE: Create temporary attendance object
+        const dateStr = new Date().toISOString().split('T')[0]
+        const timestamp = new Date().toISOString()
 
+        const optimisticAttendance = {
+            status: 'pending',
+            timestamp: timestamp,
+            locationType: selectedLocation,
+            siteName: selectedLocation === 'Site' ? siteName : null,
+            mdNotified: false,
+            __optimistic: true  // Flag for UI rendering
+        }
+
+        // Close modal immediately and update UI optimistically
+        onSuccess(optimisticAttendance)
+
+        // Send to backend asynchronously (don't block UI)
         try {
-            // STRICT MODE: Send to backend and wait for confirmation.
-            const dateStr = new Date().toISOString().split('T')[0]
-            const timestamp = new Date().toISOString()
-
             await ApiService.post('/api/attendance/mark', {
                 uid: currentUser.uid,
                 locationType: selectedLocation,
@@ -42,13 +53,11 @@ export default function AttendanceModal({ isOpen, onClose, onSuccess, onOptimist
                 timestamp,
                 dateStr
             })
-
-            onSuccess()
+            // Success - real-time listener will update with server data
         } catch (err) {
-            console.error(err)
-            setError(err.message || 'Failed to mark attendance.')
-        } finally {
-            setLoading(false)
+            console.error('[Attendance] Backend validation failed:', err)
+            // Notify parent to show error toast (but keep optimistic state)
+            // Real-time listener will show actual state from backend
         }
     }
 

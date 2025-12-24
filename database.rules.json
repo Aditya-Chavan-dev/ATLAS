@@ -33,12 +33,18 @@
             ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
         },
         "leaves": {
-            ".read": "auth != null",
-            ".write": "auth != null"
+            "$employeeId": {
+                ".read": "auth != null && ($employeeId === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
+                "$leaveId": {
+                    ".write": "auth != null && ((!data.exists() && $employeeId === auth.uid) || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
+                }
+            }
         },
         "audit": {
-            ".read": "auth != null",
-            ".write": "auth != null"
+            ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
+            "$logId": {
+                ".write": "auth != null && (newData.child('actorUid').val() === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
+            }
         },
         "deviceTokens": {
             "$token": {

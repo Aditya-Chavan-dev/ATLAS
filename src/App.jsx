@@ -165,23 +165,23 @@ import PWAUpdater from './components/PWAUpdater'
 
 function App() {
     return (
-        <Routes>
-            {/* Demo route - completely isolated, no auth required */}
-            <Route path="/demo" element={<DemoApp />} />
+        <AuthProvider>
+            <ThemeProvider>
+                <Routes>
+                    {/* Public routes - explicitly bypassing auth */}
+                    <Route path="/demo" element={<DemoApp />} />
+                    <Route path="/install" element={<InstallPage />} />
 
-            {/* Install route - fast load, no auth required */}
-            <Route path="/install" element={<InstallPage />} />
-
-            {/* Main application with auth - includes metrics for user */}
-            <Route path="/*" element={
-                <AuthProvider>
-                    <ThemeProvider>
-                        <PWAUpdater />
-                        <AppContent />
-                    </ThemeProvider>
-                </AuthProvider>
-            } />
-        </Routes>
+                    {/* Protected routes - require authentication */}
+                    <Route path="/*" element={
+                        <>
+                            <PWAUpdater />
+                            <AppContent />
+                        </>
+                    } />
+                </Routes>
+            </ThemeProvider>
+        </AuthProvider>
     )
 }
 

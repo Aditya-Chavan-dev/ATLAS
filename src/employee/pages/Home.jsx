@@ -40,7 +40,9 @@ export default function Home() {
 
         const todayStr = new Date().toISOString().split('T')[0]
         const currentMonth = new Date().toISOString().slice(0, 7) // 2024-12
-        const attendanceRef = ref(database, `users/${currentUser.uid}/attendance`)
+
+        // Use new schema path: /employees/{uid}/attendance
+        const attendanceRef = ref(database, `employees/${currentUser.uid}/attendance`)
 
         const unsubscribe = onValue(attendanceRef, (snapshot) => {
             const data = snapshot.val()
@@ -89,9 +91,29 @@ export default function Home() {
         }
     }, [todayStatus])
 
-    const handleAttendanceSuccess = () => {
-        setToast({ message: 'Attendance submitted for approval', type: 'success' })
+    const handleAttendanceSuccess = (optimisticData) => {
         setIsModalOpen(false)
+
+        // Update UI immediately with optimistic data
+        if (optimisticData && optimisticData.__optimistic) {
+            const todayStr = new Date().toISOString().split('T')[0]
+            setTodayStatus({
+                ...optimisticData,
+                date: todayStr
+            })
+
+            setToast({
+                type: 'success',
+                message: '✓ Attendance sent! Waiting for MD approval.',
+            })
+        } else {
+            // Fallback for backward compatibility
+            setToast({
+                type: 'success',
+                message: 'Attendance marked successfully!',
+            })
+        }
+        // Real-time listener will update with server-confirmed data
     }
 
     // Date Formatting

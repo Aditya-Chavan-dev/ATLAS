@@ -8,20 +8,17 @@
  * 3. Sanitizes input data before UI consumption
  */
 
+import { ATTENDANCE_STATUS, USER_ROLE, normalizeAttendanceStatus } from '../config/vocabulary';
+
 // 1. Authorization Constants
-const VALID_ROLES = ['employee']; // MD is excluded from "Employee Counts"
+const VALID_ROLES = [USER_ROLE.EMPLOYEE]; // MD is excluded from "Employee Counts"
 
 // 2. Normalization Helpers
 export const normalizeRole = (role) => role?.trim().toLowerCase() || null;
 
-export const normalizeAttendanceStatus = (status) => {
-    const s = status?.toLowerCase().trim();
-    if (!s) return null;
-    if (['present', 'late'].includes(s)) return 'present';
-    if (['onsite', 'on_site', 'site'].includes(s)) return 'onsite';
-    if (['leave', 'on_leave', 'half-day'].includes(s)) return 'onLeave';
-    return null; // Invalid/Unknown status is IGNORED for stats (treated as Absent)
-};
+// Use canonical normalization from vocabulary
+export { normalizeAttendanceStatus } from '../config/vocabulary';
+
 
 /**
  * CORE VALIDATION LOGIC
@@ -38,7 +35,7 @@ export const isValidEmployee = (profile) => {
     if (!role) return { valid: false, reason: 'MISSING_ROLE' };
 
     // MD is NOT an "Employee" for counting purposes
-    if (role === 'md') return { valid: false, reason: 'ROLE_IS_MD' };
+    if (role === USER_ROLE.MD) return { valid: false, reason: 'ROLE_IS_MD' };
 
     // Strict Role Validation
     if (!VALID_ROLES.includes(role)) return { valid: false, reason: `INVALID_ROLE_${role.toUpperCase()}` };

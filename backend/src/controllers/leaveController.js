@@ -1,4 +1,5 @@
 const { db } = require('../config/firebase');
+const { sendPushNotification } = require('../services/notificationService');
 const notificationService = require('../services/notificationService');
 const { getTodayDateIST, getLeaveDaysCount } = require('../utils/dateUtils');
 
@@ -67,7 +68,8 @@ const applyLeave = async (req, res) => {
 
         // STRICT BALANCE CHECK
         const daysCount = getLeaveDaysCount(from, to);
-        const balSnap = await db.ref(`users/${employeeId}/leaveBalance`).once('value');
+        // Use new schema: employees/{uid}/leaveBalance
+        const balSnap = await db.ref(`employees/${employeeId}/leaveBalance`).once('value');
         const balance = balSnap.val() || { pl: 17, co: 0 };
 
         if (type === 'PL') {
@@ -184,7 +186,8 @@ const approveLeave = async (req, res) => {
         if (!leave || leave.status !== 'pending') return res.status(400).json({ error: 'Invalid leave request' });
 
         // STRICT BALANCE DEDUCTION
-        const balanceRef = db.ref(`users/${employeeId}/leaveBalance`);
+        // Use new schema: employees/{uid}/leaveBalance
+        const balanceRef = db.ref(`employees/${employeeId}/leaveBalance`);
 
 
         // Simpler approach: Check then Deduct (Optimistic Locking via Transaction)
@@ -217,7 +220,8 @@ const approveLeave = async (req, res) => {
 
         await logLeaveHistory(employeeId, 'approved', leave, mdId, 'MD');
 
-        const userSnap = await db.ref(`users/${employeeId}`).once('value');
+        // Use new schema: employees/{uid}/profile
+        const userSnap = await db.ref(`employees/${employeeId}/profile`).once('value');
         const user = userSnap.val();
         if (user && user.fcmToken) {
             await sendPushNotification([user.fcmToken], '✅ Leave Approved', `Your ${leave.type} request has been approved.`);
@@ -272,7 +276,8 @@ const rejectLeave = async (req, res) => {
 
         await logLeaveHistory(employeeId, 'rejected', leave, mdId, 'MD', { reason });
 
-        const userSnap = await db.ref(`users/${employeeId}`).once('value');
+        // Use new schema: employees/{uid}/profile
+        const userSnap = await db.ref(`employees/${employeeId}/profile`).once('value');
         const user = userSnap.val();
         if (user && user.fcmToken) {
             await sendPushNotification([user.fcmToken], '❌ Leave Rejected', `Your leave request was rejected.`);

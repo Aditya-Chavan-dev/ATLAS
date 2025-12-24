@@ -43,19 +43,32 @@ const sendMulticast = async (tokens, notification, data) => {
  * Body: { uid, locationType, siteName, timestamp, dateStr }
  */
 exports.markAttendance = async (req, res) => {
-    const { uid, locationType, siteName, timestamp, dateStr } = req.body;
+    const { uid, locationType, siteName, dateStr, latitude, longitude } = req.body;
 
     if (!uid || !locationType || !dateStr) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
     try {
-        // 1. Write to Firebase (Transactional Source of Truth)
-        // Target: employees/{uid}/attendance/{dateStr}
+        // 1. Check for duplicate (Idempotency - LEAK #8 fix)
         const attendanceRef = db.ref(`employees/${uid}/attendance/${dateStr}`);
+        const existingSnap = await attendanceRef.once('value');
 
-        // Fetch user profile for name
-        // Target: employees/{uid}/profile
+        if (existingSnap.exists()) {
+            const existing = existingSnap.val();
+            // If already approved, reject duplicate attempt
+            if (existing.status === 'approved' || existing.status === 'Present') {
+                return res.status(409).json({
+                    error: 'Attendance already marked and approved for this date',
+                    existing: existing
+                });
+            }
+        }
+
+        // 2. SERVER-SIDE TIMESTAMP (LEAK #2 fix - do not trust client)
+        const serverTimestamp = new Date().toISOString();
+
+        // 3. Fetch user profile for name
         const userSnap = await db.ref(`employees/${uid}/profile`).once('value');
         const userData = userSnap.val() || {};
         const employeeName = userData.name || 'Employee';
@@ -74,10 +87,12 @@ exports.markAttendance = async (req, res) => {
 
         const updateData = {
             status: status,
-            timestamp: timestamp || new Date().toISOString(),
+            timestamp: serverTimestamp, // Always use server time
             locationType,
             siteName: siteName || null,
-            mdNotified: false, // Flag for idempotency logic if needed detailed tracking
+            latitude: latitude || null,  // Store coordinates for audit
+            longitude: longitude || null,
+            mdNotified: false,
             specialNote: statusNote
         };
 
@@ -183,7 +198,7 @@ exports.updateStatus = async (req, res) => {
                 // Earned CO
                 // Balance is ... where? user said "No legacy nodes".
                 // Ideally profile.leaveBalance? Or leaves/balance?
-                // leaveController checks `users/${employeeId}/leaveBalance`.
+                // leaveController checks `employees/${employeeId}/leaveBalance`.
                 // PROMPT didn't specify leave balance location.
                 // I will put it in `employees/${employeeUid}/profile/leaveBalance` to be safe/consistent?
                 // Or `leaves/${employeeUid}/balance`?
