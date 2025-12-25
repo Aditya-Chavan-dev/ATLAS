@@ -18,23 +18,6 @@ export const LEAVE_POLICY = {
 };
 
 // ============================================================================
-// GEOLOCATION
-// ============================================================================
-
-export const GEOLOCATION = {
-    OFFICE_RADIUS_METERS: 100,     // Auto-approve radius for office attendance
-    TIMEOUT_MS: 10000,             // Geolocation API timeout
-    MAX_AGE_MS: 0,                 // Don't use cached position
-    HIGH_ACCURACY: true,           // Request high accuracy GPS
-};
-
-// Office coordinates (AutoTeknic)
-export const OFFICE_COORDINATES = {
-    latitude: null,  // TODO: Set actual office coordinates
-    longitude: null, // TODO: Set actual office coordinates
-};
-
-// ============================================================================
 // NOTIFICATION SETTINGS
 // ============================================================================
 

@@ -85,7 +85,7 @@ graph TB
 
 **Progressive Web App (Client)**: Presentational layer only. Displays data from real-time Firebase listeners, collects user inputs (attendance form, leave request), sends HTTP requests to backend for any write operation. Handles authentication via Firebase Auth (Google OAuth), manages UI state via React Context API (AuthContext for user session, ThemeContext for light/dark mode). Implements service worker for offline asset caching and background push notification delivery. Constraint: Frontend never writes to database directly—all mutations proxied through backend.
 
-**Node.js Backend API**: Validation and enforcement gateway. All write operations (mark attendance, apply leave, approve request) route through controllers that validate payloads, enforce business rules (geofencing radius, leave balance checks, authorization), generate server-side timestamps, and write to Firebase. Backend uses Firebase Admin SDK with elevated privileges to bypass security rules for validated operations. Implements centralized error handling middleware for structured logging and standardized error responses. Deployed on Render with `0.0.0.0` host binding for cloud platform compatibility.
+**Node.js Backend API**: Validation and enforcement gateway. All write operations (mark attendance, apply leave, approve request) route through controllers that validate payloads, enforce business rules (leave balance checks, authorization), generate server-side timestamps, and write to Firebase. Backend uses Firebase Admin SDK with elevated privileges to bypass security rules for validated operations. Implements centralized error handling middleware for structured logging and standardized error responses. Deployed on Render with `0.0.0.0` host binding for cloud platform compatibility.
 
 **Firebase Realtime Database**: Single source of truth for all operational data. Stores employee profiles, attendance records (nested under `/employees/{uid}/attendance/{date}`), leave requests, FCM device tokens, and audit logs. Enforces row-level security via declarative rules (employees can only read/write their own data, MDs have read-all/write-restricted permissions). Real-time listeners (onValue) push changes to clients instantly without polling, enabling sub-second dashboard updates. Data structure optimized for access patterns: nest data by user→date to enable efficient per-employee queries.
 
@@ -99,13 +99,13 @@ graph TB
 
 ### Attendance Marking Flow (Critical Path)
 
-The complete attendance marking workflow demonstrates the system's constraint-driven design: Employee opens PWA and taps "Mark Attendance." Frontend requests GPS coordinates via browser Geolocation API (`getCurrentPosition` with high accuracy mode, 10-second timeout). Browser returns latitude/longitude or error (permission denied, timeout, GPS unavailable). Frontend sends POST to `/api/attendance/mark` with payload: `{uid, locationType, siteName, timestamp, latitude, longitude, dateStr}`.
+The complete attendance marking workflow demonstrates the system's constraint-driven design: Employee opens PWA and taps "Mark Attendance." Frontend sends POST to `/api/attendance/mark` with payload: `{uid, locationType, siteName, timestamp, dateStr}`.
 
-Backend attendance controller receives request. Validates payload structure and user authorization (Firebase Auth token verification). Generates server-side timestamp using `Date.now()` to prevent client time manipulation. Calculates distance from office coordinates using Haversine formula. Decision: if distance < 100 meters AND locationType="Office" → status="approved" (auto-approved), else status="pending" (manual review required). Critical constraint: server decides approval, not client—prevents employees from bypassing geofence by modifying frontend code.
+Backend attendance controller receives request. Validates payload structure and user authorization (Firebase Auth token verification). Generates server-side timestamp using `Date.now()` to prevent client time manipulation. All attendance is marked as status="pending" for manual MD review. Critical constraint: server decides status, not client—prevents employees from bypassing approval workflow by modifying frontend code.
 
-Database write executes atomically: writes to `/employees/{uid}/attendance/{dateStr}` with structure `{status, timestamp, locationType, siteName, latitude, longitude, approvedBy: "system"|MD_UID}`. Duplicates global entry to `/attendance/{uid}_{dateStr}` for MD dashboard visibility (denormalized for query efficiency). If status="pending", backend queries `/deviceTokens` for all MD tokens, sends FCM multicast notification with data payload `{type: "REVIEW_ATTENDANCE", employeeId: uid, date: dateStr}`.
+Database write executes atomically: writes to `/employees/{uid}/attendance/{dateStr}` with structure `{status, timestamp, locationType, siteName, approvedBy: MD_UID}`. If status="pending", backend queries `/deviceTokens` for all MD tokens, sends FCM multicast notification with data payload `{type: "REVIEW_ATTENDANCE", employeeId: uid, date: dateStr}`.
 
-Real-time propagation: Firebase RTDB triggers `onValue` listeners on all subscribed clients. Employee's dashboard updates instantly showing new attendance status (render changes in next React frame, typically <16ms). MD dashboard pending count increments, new entry appears in approval queue. MD receives push notification on device (if app backgrounded, service worker wakes and displays system notification). End-to-end observed latency: <1 second for auto-approved office attendance, median 3-5 minutes for manual site attendance review.
+Real-time propagation: Firebase RTDB triggers `onValue` listeners on all subscribed clients. Employee's dashboard updates instantly showing new attendance status (render changes in next React frame, typically <16ms). MD dashboard pending count increments, new entry appears in approval queue. MD receives push notification on device (if app backgrounded, service worker wakes and displays system notification). End-to-end observed latency: median 3-5 minutes for manual attendance review.
 
 ### Leave Request Flow
 
@@ -117,9 +117,7 @@ Rejection flow similar but without balance deduction. Employee sees real-time st
 
 ### Edge Cases & Failure Handling
 
-**Geolocation unavailable**: If browser denies permission or GPS times out, frontend still allows attendance marking but flags as "no_location" (stored as null coordinates). Backend defaults to status="pending" for manual MD review. Prevents hard-blocking employees due to GPS failures (common on desktop browsers, indoor environments with poor satellite visibility).
-
-**Duplicate submission**: Backend checks for existing record at `attendance/{uid}/{today}` before write. If exists and status="approved", rejects with 409 Conflict error. If exists and status="pending", allows re-submit to update coordinates (enables employee to retry geofence check if first attempt failed outside radius but they're now at office).
+**Duplicate submission**: Backend checks for existing record at `attendance/{uid}/{today}` before write. If exists and status="approved", rejects with 409 Conflict error. If exists and status="pending", allows re-submit (enables employee to update their submission if needed).
 
 **Offline mode**: Service worker caches static assets, app loads normally offline. Database reads fail gracefully—frontend shows last cached state from onValue listener. Write operations queue and retry when connectivity restored (Firebase SDK automatic retry with exponential backoff). User sees "offline" indicator, "Mark Attendance" button shows "Will sync when online."
 
@@ -133,7 +131,7 @@ All employee counts, statistics, and aggregates computed from `employeeStats.js`
 
 All status values imported from `vocabulary.js` (canonical constants: `ATTENDANCE_STATUS.APPROVED`, `LEAVE_STATUS.PENDING`, etc.). Zero hardcoded strings like `"approved"` or `"pending"` in components—use constants exclusively. Prevents vocabulary drift where backend writes "Approved" but frontend checks for "approved" (case mismatch breaks logic).
 
-All business rules centralized in `constants.js`: leave policy limits (17 PL, 30-day max duration), geofencing radius (100m), notification batch size (500). Controllers import these values—no magic numbers. Enables changing rules without hunting through codebase.
+All business rules centralized in `constants.js`: leave policy limits (17 PL, 30-day max duration), notification batch size (500). Controllers import these values—no magic numbers. Enables changing rules without hunting through codebase.
 
 ---
 
@@ -153,23 +151,7 @@ All business rules centralized in `constants.js`: leave policy limits (17 PL, 30
 
 **Consequences**: Achieved <1 second dashboard update latency. Development velocity increased (no WebSocket server to maintain). Acceptable query limitations for operational use case.
 
----
 
-### Geofencing as Soft Verification
-
-**Decision**: Capture GPS coordinates and calculate distance, but don't hard-block if coordinates missing/invalid.
-
-**Constraint**: GPS frequently fails (browser permission denied, indoor satellite interference, desktop users have no GPS). Hard-blocking would create operational support burden ("I can't mark attendance, app says location required").
-
-**Implementation**: If coordinates available AND distance < 100m → auto-approve. If coordinates unavailable OR distance >= 100m → status="pending" for manual review. Coordinates always logged for audit (even if null).
-
-**Rejected Alternative**: Strict geofencing (attendance fails if outside radius). Would create false negatives (employee at office but GPS glitched). Trust model: employees generally honest, audit trail provides retrospective deterrence for fraud.
-
-**Trade-Off Accepted**: Spoofable by motivated attacker (mock GPS coordinates). Mitigation: audit logs capture all submissions with coordinates for pattern analysis ("employee always submits from exact same lat/long → suspicious, investigate").
-
-**Consequences**: Zero user-reported blockers related to geofencing. 95%+ submissions include valid coordinates. Manual review queue manageable (<10 pending/day for 25-employee org).
-
----
 
 ### Backend-Mediated Writes
 
@@ -181,7 +163,7 @@ All business rules centralized in `constants.js`: leave policy limits (17 PL, 30
 
 **Trade-Off Accepted**: Additional network hop adds latency (~50-100ms for US-East server round-trip). Mitigation: acceptable because writes are infrequent (1-3 per user per day) and latency hidden by optimistic UI updates (show "Submitting..." state immediately).
 
-**Rejected Alternative**: Client-side writes with security rules only. Would prevent enforcement of: leave balance checks, duplicate attendance checks, server-side timestamps, geofencing logic (client could bypass by modifying JS). Unacceptable security surface.
+**Rejected Alternative**: Client-side writes with security rules only. Would prevent enforcement of: leave balance checks, duplicate attendance checks, server-side timestamps. Unacceptable security surface.
 
 **Consequences**: Backend becomes single point of failure for writes (if Render down, no attendance marking). Mitigation: Render auto-restarts on crash, 99.9% uptime SLA. Reads still work (direct Firebase connection) so users can view data offline.
 
@@ -274,7 +256,7 @@ Based on code patterns:
 ### System Boundaries
 
 **ATLAS Handles**:
-- Attendance marking with geolocation verification
+- Attendance marking with manual MD approval
 - Leave request submission and approval workflow
 - Real-time dashboard statistics for MDs
 - Push notification delivery to employees and MDs
@@ -325,8 +307,7 @@ All diagrams reflect production deployment as of December 2025:
 - Database: Firebase RTDB us-central1 region
 
 **Latency Estimates** (observed in production):
-- Auto-approved attendance: <1 second end-to-end
-- Manual approval (pending → approved): 3-5 minutes median
+- Attendance marking: 3-5 minutes median (pending → approved)
 - Real-time dashboard update: <500ms from database write to UI render
 - Push notification delivery: 2-10 seconds (variable based on device state)
 

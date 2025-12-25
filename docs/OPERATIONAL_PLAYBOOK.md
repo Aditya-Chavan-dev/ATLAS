@@ -37,16 +37,14 @@ ATLAS implements a **human-authoritative** architecture where:
 - Managing Directors (MDs) are the sole approval authority
 - System accelerates decision flow but never silently overrides
 - Employees initiate requests; system validates and queues for human review
-- Automation applies only to unambiguous cases (e.g., office attendance within geofence)
 
-**Critical Constraint**: No attendance is ever finalized without explicit MD approval or auto-approval rule execution. The system cannot mark attendance as "approved" based on time-of-day heuristics, AI inference, or pattern matching—only geofence validation (100m radius) or direct MD action.
+**Critical Constraint**: No attendance is ever finalized without explicit MD approval. The system cannot mark attendance as "approved" based on time-of-day heuristics, AI inference, or pattern matching—only direct MD action.
 
 ### Operational Boundaries
 
 **What System Controls**:
 - Server-side timestamp generation (prevents client clock manipulation)
 - Duplicate submission detection (`attendanceController.js:L54-66`)
-- Geofence distance calculation (Haversine formula on backend)
 - Notification routing (FCM multicast to MD tokens)
 - Leave balance decrementation (atomic transactions, `leaveController.js:L196-210`)
 
@@ -75,14 +73,13 @@ ATLAS implements a **human-authoritative** architecture where:
 | NotMarked | `null` (no record) | Employee has not submitted today | N/A |
 | Pending | `"pending"` | Awaiting MD review (default for site/out-of-geofence) | Backend |
 | PendingCO | `"pending_co"` | Worked on holiday/Sunday, awaiting CO grant approval | Backend |
-| Approved | `"approved"` (stored) <br/> `"Present"` (UI display) | MD approved or auto-approved | MD or Geofence |
+| Approved | `"approved"` (stored) <br/> `"Present"` (UI display) | MD approved | MD |
 | Rejected | `"rejected"` | MD denied request | MD |
 | CorrectionPending | `"correction_pending"` | Employee requested edit to approved/rejected record | Employee |
 
 **State Transition Rules**:
 ```
-NotMarked → Pending (via mark attendance API, distance >= 100m)
-NotMarked → Approved (via mark attendance API, distance < 100m AND locationType="Office")
+NotMarked → Pending (via mark attendance API)
 Pending → Approved (via MD approval API)
 Pending → Rejected (via MD rejection API)
 Approved → CorrectionPending (employee requests change)
@@ -136,13 +133,10 @@ CorrectionPending → Approved | Rejected (MD reviews correction)
 
 **Execution Flow**:
 
-1. **Frontend Geolocation Request** (`Home.jsx` → `AttendanceModal.jsx`)
-   - Browser Geolocation API called with `highAccuracy: true`, `timeout: 10000ms`
-   - Returns `{latitude, longitude}` or error (permission denied, timeout)
-   - If error, coordinates set to `null` but submission continues
+
 
 2. **API POST to Backend** (`/api/attendance/mark`)
-   - Payload: `{uid, locationType, siteName, dateStr, latitude, longitude}`
+   - Payload: `{uid, locationType, siteName, dateStr}`
    - Backend generates server-side timestamp: `new Date().toISOString()` (`attendanceController.js:L69`)
 
 3. **Duplicate Check** (`attendanceController.js:L54-66`)
@@ -156,8 +150,7 @@ CorrectionPending → Approved | Rejected (MD reviews correction)
 4. **Status Determination** (`attendanceController.js:L80-86`)
    - Check if date is Sunday or National Holiday → `status = "pending_co"`
    - Else → `status = "pending"` (default)
-   - **Geofencing Not Implemented**: Code shows `status = 'pending'` hardcoded, no distance calculation present in current implementation
-   - **Actual Behavior**: All submissions default to `"pending"`, require manual MD approval
+   - **All attendance requires manual MD approval**
 
 5. **Database Write** (Atomic, single-path update)
    ```javascript
@@ -166,8 +159,6 @@ CorrectionPending → Approved | Rejected (MD reviews correction)
        timestamp: serverTimestamp,
        locationType: "Office" | "Site",
        siteName: siteName || null,
-       latitude: number | null,
-       longitude: number | null,
        mdNotified: false
    }
    ```
@@ -333,32 +324,14 @@ if (existing.status === 'approved' || existing.status === 'Present') {
 
 **Actual Behavior**: 
 - If already approved → Hard reject with 409
-- If pending → Allows overwrite (updates coordinates, timestamp)
-- **Rationale**: Enables employee to retry if first geolocation attempt failed
+- If pending → Allows overwrite (updates timestamp)
+- **Rationale**: Enables employee to correct submission if needed
 
 **Operational Implication**: MD may see notification for same employee twice if re-submit happens before approval
 
 ---
 
-**EC-2: GPS Unavailable/Denied**
-
-**Scenario**: Browser denies location permission or GPS timeout
-
-**Frontend Handling** (`AttendanceModal.jsx`, inferred from API payload):
-- Sets `latitude: null`, `longitude: null`
-- Submits anyway with `locationType` user-selected value
-- Backend accepts null coordinates (`attendanceController.js:L93-94`)
-
-**Consequences**:
-- No geofence validation possible → always `status = "pending"`
-- Coordinates logged for audit but not enforced
-- MD views "No location data" indicator (if UI implemented)
-
-**No blocking behavior**—system degrades gracefully to manual review.
-
----
-
-**EC-3: Attending on Sunday/Holiday**
+**EC-2: Marking on Sunday/Holiday**
 
 **Scenario**: Employee marks attendance on date flagged as Sunday or National Holiday
 
@@ -760,7 +733,7 @@ console.error('[FCM] Permission/Token Error:', error);
 
 ### Current Limitations
 
-1. **No Geofencing**: Despite coordinates captured, no distance calculation or auto-approval logic present (`attendanceController.js:L80-86` hardcodes `status = "pending"`)
+1. **Manual Approval Required**: All attendance requires MD review (`attendanceController.js:L80-86` sets `status = "pending"`)
 
 2. **No Token Pruning**: Invalid FCM tokens accumulate indefinitely, degrading notification delivery rate
 

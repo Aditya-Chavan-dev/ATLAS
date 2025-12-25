@@ -409,3 +409,26 @@
         font-size: 2rem;
     }
 }
+
+/* Download App Link */
+.download-app-link {
+    color: #1e40af;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    padding: 0.5rem;
+}
+
+.download-app-link:hover {
+    color: #1e3a8a;
+    transform: translateY(-1px);
+}
+
+.download-app-link:active {
+    transform: translateY(0);
+}

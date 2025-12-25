@@ -43,7 +43,7 @@ const sendMulticast = async (tokens, notification, data) => {
  * Body: { uid, locationType, siteName, timestamp, dateStr }
  */
 exports.markAttendance = async (req, res) => {
-    const { uid, locationType, siteName, dateStr, latitude, longitude } = req.body;
+    const { uid, locationType, siteName, dateStr } = req.body;
 
     if (!uid || !locationType || !dateStr) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -90,8 +90,6 @@ exports.markAttendance = async (req, res) => {
             timestamp: serverTimestamp, // Always use server time
             locationType,
             siteName: siteName || null,
-            latitude: latitude || null,  // Store coordinates for audit
-            longitude: longitude || null,
             mdNotified: false,
             specialNote: statusNote
         };

@@ -51,6 +51,43 @@
                 ".read": "auth != null && ((data.child('uid').val() === auth.uid) || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
                 ".write": "auth != null && (newData.child('uid').val() === auth.uid)"
             }
+        },
+        "demo": {
+            ".read": false,
+            ".write": false,
+            "sources": {
+                ".indexOn": [
+                    "createdAt",
+                    "name"
+                ],
+                ".read": "auth != null && root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner'",
+                "$sourceId": {
+                    ".write": "auth != null && root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner'"
+                }
+            },
+            "sessions": {
+                ".indexOn": [
+                    "sourceId",
+                    "createdAt",
+                    "completed"
+                ],
+                ".read": "auth != null && root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner'",
+                "$sessionId": {
+                    ".validate": "newData.hasChildren(['ownerUid', 'createdAt'])",
+                    ".write": "auth != null && (!data.exists() || data.child('ownerUid').val() === auth.uid)",
+                    "ownerUid": {
+                        ".validate": "newData.val() === auth.uid"
+                    },
+                    "events": {
+                        "$eventType": {
+                            ".write": "auth != null && root.child('demo').child('sessions').child($sessionId).child('ownerUid').val() === auth.uid"
+                        }
+                    },
+                    "completed": {
+                        ".write": "auth != null && root.child('demo').child('sessions').child($sessionId).child('ownerUid').val() === auth.uid"
+                    }
+                }
+            }
         }
     }
 }

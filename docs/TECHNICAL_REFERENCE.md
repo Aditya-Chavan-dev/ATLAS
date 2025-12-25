@@ -12,13 +12,14 @@
 1. [Project Overview](#project-overview)
 2. [Technology Stack](#technology-stack)
 3. [Architecture](#architecture)
-4. [Database Schema](#database-schema)
-5. [Authentication System](#authentication-system)
-6. [Attendance Workflow](#attendance-workflow)
-7. [Approval Workflow](#approval-workflow)
-8. [Notification System](#notification-system)
-9. [Leave Management](#leave-management)
-10. [Export System](#export-system)
+4. [**Demo Mode Isolation — Architectural Invariant**](#demo-mode-isolation)
+5. [Database Schema](#database-schema)
+6. [Authentication System](#authentication-system)
+7. [Attendance Workflow](#attendance-workflow)
+8. [Approval Workflow](#approval-workflow)
+9. [Notification System](#notification-system)
+10. [Leave Management](#leave-management)
+11. [Export System](#export-system)
 
 ---
 
@@ -26,7 +27,7 @@
 
 ### Purpose
 
-ATLAS (Attendance Tracking & Leave Approval System) is a production-grade Progressive Web Application designed to replace manual attendance tracking processes. It eliminates human error in Excel-based systems by providing real-time attendance marking, geolocation capture, instant MD notifications, and automated reporting.
+ATLAS (Attendance Tracking & Leave Approval System) is a production-grade Progressive Web Application designed to replace manual attendance tracking processes. It eliminates human error in Excel-based systems by providing real-time attendance marking, instant MD notifications, and automated reporting.
 
 ### Business Value
 
@@ -169,7 +170,130 @@ ATLAS (Attendance Tracking & Leave Approval System) is a production-grade Progre
 
 ---
 
-## 4. Database Schema
+## 4. Demo Mode Isolation — Architectural Invariant
+
+> **⚠️ CRITICAL SECURITY POLICY**  
+> Demo and production data must NEVER mix. Violations constitute a SEV-1 incident.
+
+### Purpose
+
+ATLAS includes a **demo mode** for recruiter evaluation and system demonstrations. Demo mode operates in complete isolation from production data to prevent:
+- Data contamination (demo records polluting production analytics)
+- Privacy violations (demo users accessing employee data)
+- Audit failures (inability to distinguish real from synthetic data)
+
+### Physical Separation Model
+
+**Database Root Isolation**:
+```
+Firebase RTDB
+├── /employees/          ← PRODUCTION ONLY
+├── /attendance/         ← PRODUCTION ONLY  
+├── /leaves/             ← PRODUCTION ONLY
+├── /audit/              ← PRODUCTION ONLY
+└── /demo/               ← DEMO ONLY (ISOLATED)
+    ├── /sessions/       ← Anonymous demo sessions
+    └── /sources/        ← Demo link tracking
+```
+
+**NO shared paths**. Demo and production occupy distinct database namespaces.
+
+### Authentication Isolation
+
+| Aspect | Production | Demo |
+|--------|-----------|------|
+| Auth Method | Google OAuth / Phone OTP | Firebase Anonymous Auth |
+| User Profiles | `/employees/{uid}/profile` | None (ephemeral session) |
+| Permissions | Role-based (employee/md/owner) | Sandboxed (write own session only) |
+
+**Demo users cannot authenticate as production users** — separate auth flows.
+
+### Security Rules Enforcement
+
+**Demo Session Ownership** (`database.rules.json:55-82`):
+```json
+"demo": {
+  "sessions": {
+    "$sessionId": {
+      ".validate": "newData.hasChildren(['ownerUid', 'createdAt'])",
+      ".write": "auth != null && (!data.exists() || data.child('ownerUid').val() === auth.uid)",
+      "ownerUid": {
+        ".validate": "newData.val() === auth.uid"
+      }
+    }
+  }
+}
+```
+
+**Key Guarantees**:
+1. **Positive Allowlist**: Demo paths explicitly defined (no default rule reliance)
+2. **Session Ownership**: Only `ownerUid === auth.uid` can write to their session
+3. **Analytics Protection**: Only `owner` role can read demo metrics
+4. **Cross-Session Prevention**: Demo users cannot access other demo sessions
+
+### Admin SDK Hard Lock
+
+**File**: `backend/src/utils/demoGuard.js`
+
+**Enforcement**:
+```javascript
+function guardAgainstDemoWrite(path) {
+  if (path.startsWith('demo/')) {
+    throw new DemoPathViolationError(path); // SEV-1 error
+  }
+}
+```
+
+**Integration**: `backend/src/config/firebase.js:55-68`  
+All Admin SDK database references wrapped with protection guard.
+
+**Consequence**: Any backend attempt to write to `/demo/*` **immediately fails** with logged SEV-1 error.
+
+### Automated Verification
+
+**Script**: `scripts/verify-demo-isolation.js`
+
+**Checks Performed**:
+1. `/demo/*` security rules exist in `database.rules.json`
+2. Demo code does NOT reference production paths (`/employees`, `/attendance`, etc.)
+3. Production code does NOT write to `/demo/*`
+4. `demoGuard.js` exists and is integrated in backend
+5. Documentation includes this section
+
+**Usage**:
+```bash
+node scripts/verify-demo-isolation.js
+```
+
+**Build Integration**: Run before deployment to catch regressions.
+
+### Violation Response Protocol
+
+**If demo data contaminates production**:
+1. **Immediate Escalation**: Notify owner role
+2. **Data Audit**: Identify affected records via `/demo/` path inspection
+3. **Remediation**: Remove contaminated records (zero tolerance)
+4. **Root Cause**: Review code changes that bypassed guards
+5. **Prevention**: Update assertions to catch new attack vector
+
+**If Admin SDK writes to demo** (caught by guard):
+1. **Fail Loudly**: Crash backend process (fail-safe design)
+2. **Log SEV-1**: Alert triggers for operations team
+3. **Code Review**: Identify and remove offending write path
+4. **Retest**: Run `verify-demo-isolation.js` before redeploy
+
+### Architectural Guarantees
+
+✅ **Demo is a sandbox, not a feature flag**  
+✅ **No shared database paths between demo and production**  
+✅ **No shared authentication tokens**  
+✅ **Admin SDK cannot touch `/demo/*`**  
+✅ **Client SDK cannot touch production paths in demo mode**  
+✅ **Automated assertions prevent silent regressions**
+
+---
+
+## 5. Database Schema
 
 ### Schema Version 2.0 (Employees-Based)
 
@@ -196,8 +320,6 @@ firebase-realtime-database/
 │       │       ├── timestamp: ISO string (server-generated)
 │       │       ├── locationType: "Office"|"Site"
 │       │       ├── siteName: string|null
-│       │       ├── latitude: number|null
-│       │       ├── longitude: number|null
 │       │       ├── mdNotified: boolean
 │       │       ├── employeeNotified: boolean
 │       │       ├── approvedAt: ISO string|null
@@ -644,7 +766,7 @@ class ApiService {
 
 ```javascript
 exports.markAttendance = async (req, res) => {
-    const { uid, locationType, siteName, dateStr, latitude, longitude } = req.body  // L46: Destructure payload
+    const { uid, locationType, siteName, dateStr } = req.body  // L46: Destructure payload
     
     // L48-50: Request validation
     if (!uid || !locationType || !dateStr) {
@@ -689,23 +811,7 @@ exports.markAttendance = async (req, res) => {
         }
 ```
 
-**⚠️ Missing Logic**: Geofencing auto-approval
-
-**Expected (but not implemented)**:
-```javascript
-// HYPOTHETICAL CODE (NOT PRESENT):
-if (latitude && longitude) {
-    const distance = calculateHaversineDistance(
-        latitude, longitude,
-        OFFICE_LAT, OFFICE_LON
-    )
-    if (distance < 100 && locationType === "Office") {
-        status = 'approved'  // Auto-approve if within 100m radius
-    }
-}
-```
-
-**Current behavior**: ALL attendance defaults to `"pending"` regardless of GPS coordinates.
+**Current behavior**: ALL attendance defaults to `"pending"` or `"pending_co"` (for holidays/Sundays) and requires manual MD approval.
 
 **Lines 88-100: Database Write**
 
@@ -715,10 +821,8 @@ const updateData = {
     timestamp: serverTimestamp,  // L90: Authoritative server time
     locationType,                // L91: "Office" or "Site"
     siteName: siteName || null,  // L92: Nullable
-    latitude: latitude || null,  // L93: May be null if GPS denied
-    longitude: longitude || null,
-    mdNotified: false,           // L95: Will be updated after notification sent
-    specialNote: statusNote      // L96: Holiday/Sunday note
+    mdNotified: false,           // L93: Will be updated after notification sent
+    specialNote: statusNote      // L94: Holiday/Sunday note
 }
 
 await attendanceRef.update(updateData)  // L99: Atomic write at path level

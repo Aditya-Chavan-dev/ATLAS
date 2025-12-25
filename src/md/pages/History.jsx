@@ -34,7 +34,29 @@ export default function MDHistory() {
         const usersRef = ref(database, 'employees')
         const unsubscribe = onValue(usersRef, (snapshot) => {
             if (snapshot.exists()) {
-                const allUsers = Object.values(snapshot.val()).filter(u => u.role !== 'admin' && u.role !== 'owner')
+                const employeesData = snapshot.val()
+                // Map employees with their profiles and attendance
+                const allUsers = Object.entries(employeesData)
+                    .filter(([uid, data]) => {
+                        // Filter out non-employee roles, check both flat structure and nested profile
+                        const profile = data.profile || data
+                        const hasValidName = profile.name &&
+                            profile.name.trim() !== '' &&
+                            profile.name.toLowerCase() !== 'unknown'
+                        return profile.role !== 'admin' &&
+                            profile.role !== 'owner' &&
+                            profile.role !== 'md' &&
+                            hasValidName
+                    })
+                    .map(([uid, data]) => {
+                        // Handle both flat and nested structure
+                        const profile = data.profile || data
+                        return {
+                            ...profile,
+                            uid,
+                            attendance: data.attendance || {}
+                        }
+                    })
                 setUsers(allUsers)
             } else {
                 setUsers([])
@@ -61,19 +83,46 @@ export default function MDHistory() {
         const dateStr = format(dateObj, 'yyyy-MM-dd')
         const record = user.attendance?.[dateStr]
 
+        // Debug logging (remove after fixing)
+        if (user.name === 'Adi' && dateStr.includes('2024-12')) {
+            console.log('Debug Adi attendance for', dateStr, ':', record)
+        }
+
         if (!record) return { type: 'none' }
 
-        if (record.status === 'Present') {
+        const status = record.status?.toLowerCase()
+
+        // Handle approved/present status
+        if (record.status === 'Present' || status === 'approved' || status === 'present') {
             return {
                 type: record.locationType === 'Office' ? 'office' : 'site',
                 time: record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '',
                 loc: record.siteName || record.locationType
             }
         }
-        if (record.status === 'Leave') return { type: 'leave' }
-        if (record.status === 'Absent') return { type: 'absent' }
-        if (record.status === 'pending') return { type: 'pending' }
-        if (record.status === 'Late') {
+
+        // Handle pending status
+        if (status === 'pending' || status === 'pending_co') {
+            return { type: 'pending' }
+        }
+
+        // Handle rejected
+        if (status === 'rejected') {
+            return { type: 'absent' }
+        }
+
+        // Handle leave
+        if (record.status === 'Leave' || status === 'leave') {
+            return { type: 'leave' }
+        }
+
+        // Handle absent
+        if (record.status === 'Absent' || status === 'absent') {
+            return { type: 'absent' }
+        }
+
+        // Handle late
+        if (status === 'late') {
             return {
                 type: record.locationType === 'Office' ? 'office' : 'site',
                 isLate: true,
@@ -81,7 +130,11 @@ export default function MDHistory() {
                 loc: record.siteName || record.locationType
             }
         }
-        if (record.status === 'half-day') return { type: 'leave' }
+
+        // Handle half-day
+        if (status === 'half-day' || status === 'half day') {
+            return { type: 'leave' }
+        }
 
         return { type: 'none' }
     }

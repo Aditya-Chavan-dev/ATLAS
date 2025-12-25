@@ -17,7 +17,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ref, get, set, serverTimestamp } from 'firebase/database'
-import { database } from '../../src/firebase/config'
+import { database, auth } from '../../src/firebase/config'
 import { useDemoContext } from '../context/DemoContext'
 
 // Generate a unique session ID
@@ -96,10 +96,17 @@ export function useDemoSession() {
                 const deviceType = detectDeviceType()
                 const screenMode = detectScreenMode()
 
+                // Get current auth user for ownership
+                const currentUser = auth.currentUser
+                if (!currentUser) {
+                    throw new Error('Authentication required for demo session')
+                }
+
                 const newSession = {
                     sessionId,
+                    ownerUid: currentUser.uid,  // SECURITY: Enforce session ownership
                     sourceId,
-                    startedAt: serverTimestamp(),
+                    createdAt: serverTimestamp(),  // SECURITY: Required by validation rules
                     deviceType,
                     screenMode,
                     completed: false,

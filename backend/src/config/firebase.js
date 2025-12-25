@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const { createProtectedAdminRef } = require('../utils/demoGuard');
 require('dotenv').config();
 
 console.log('🔧 Initializing Firebase Admin SDK...');
@@ -52,9 +53,23 @@ let app, db, messaging;
 
 try {
     app = initializeFirebase();
-    db = admin.database();
+    const rawDb = admin.database();
+
+    // CRITICAL SECURITY: Wrap database with demo path protection guard
+    db = new Proxy(rawDb, {
+        get(target, prop) {
+            if (prop === 'ref') {
+                return function (path) {
+                    const ref = target.ref(path);
+                    return createProtectedAdminRef(ref);
+                };
+            }
+            return target[prop];
+        }
+    });
+
     messaging = admin.messaging();
-    console.log('✅ Firebase services ready (database, messaging)');
+    console.log('✅ Firebase services ready (database with demo protection, messaging)');
 } catch (error) {
     console.error('❌ CRITICAL: Firebase initialization failed:', error.message);
     console.error('The server will start but Firebase features will not work.');
@@ -63,4 +78,5 @@ try {
 }
 
 module.exports = { admin, db, messaging };
+
 

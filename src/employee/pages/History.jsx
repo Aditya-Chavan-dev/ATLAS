@@ -34,7 +34,7 @@ export default function History() {
         const month = String(currentDate.getMonth() + 1).padStart(2, '0')
         const queryPath = `${year}-${month}`
 
-        const historyRef = ref(database, `users/${currentUser.uid}/attendance`)
+        const historyRef = ref(database, `employees/${currentUser.uid}/attendance`)
 
         const unsubscribe = onValue(historyRef, (snapshot) => {
             const data = snapshot.val()

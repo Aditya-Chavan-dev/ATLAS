@@ -366,7 +366,6 @@ function Login() {
                     <span>Sign in with Google</span>
                 </button>
 
-                {/* Installation Section */}
                 {/* Installation Link */}
                 {!isInstalled && (
                     <div className="text-center mt-6">
@@ -374,13 +373,9 @@ function Login() {
                             href="/install"
                             onClick={(e) => {
                                 e.preventDefault()
-                                if (canPrompt) {
-                                    handleInstall()
-                                } else {
-                                    navigate('/install')
-                                }
+                                navigate('/install')
                             }}
-                            className="text-blue-600 font-semibold text-sm hover:text-blue-700 transition-colors flex items-center justify-center gap-2"
+                            className="download-app-link"
                         >
                             <span className="text-lg">📱</span> Download Mobile App
                         </a>
