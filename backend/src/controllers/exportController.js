@@ -213,15 +213,23 @@ const exportAttendanceReport = async (req, res) => {
                     const attendanceRecord = emp.attendance?.[dateStr];
 
                     if (attendanceRecord) {
+                        // Normalize status to lowercase for comparison
+                        const status = (attendanceRecord.status || '').toLowerCase();
+                        // Accept 'present', 'approved' (which maps to 'Present' in logic), or legacy 'office'/'site'
+                        const isValidStatus = ['present', 'approved', 'office', 'site'].includes(status);
+
                         // For GBC, we treat any record as valid (Auto-approved)
-                        // For others, strictly 'Present'
-                        const isApprovable = isGBC || attendanceRecord.status === 'Present';
+                        // For others, strictly valid statuses only
+                        const isApprovable = isGBC || isValidStatus;
 
                         if (isApprovable) {
                             if (attendanceRecord.locationType === 'Office') {
                                 cell.value = 'OFFICE';
                             } else if (attendanceRecord.locationType === 'Site') {
                                 cell.value = attendanceRecord.siteName ? attendanceRecord.siteName.toUpperCase() : 'SITE';
+                            } else {
+                                // Fallback: if status is valid but locationType missing, assume OFFICE
+                                cell.value = 'OFFICE';
                             }
                         } else {
                             cell.value = '';
