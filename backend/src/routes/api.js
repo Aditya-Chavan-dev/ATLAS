@@ -36,7 +36,7 @@ router.post('/leave/cancel', leaveController.cancelLeave);
 
 // Dashboard Routes (SSOT for employee statistics)
 const dashboardController = require('../controllers/dashboardController');
-router.get('/dashboard/stats', dashboardController.getStats);
+router.get('/dashboard/stats', dashboardController.getDashboardStats);
 
 // Auth Routes (Admin Only)
 router.post('/auth/create-employee', authController.createEmployee);
