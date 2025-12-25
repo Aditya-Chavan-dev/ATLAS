@@ -38,14 +38,12 @@ const exportAttendanceReport = async (req, res) => {
                 const isNotOwner = emp.role !== 'owner';
                 return isActive && isNotOwner && emp.name && emp.email;
             })
-            // Sort with exact MD-required ordering
+            // Sort with exact MD-required ordering: 1. RVS, 2. GBC, 3. Others (Alphabetical)
             .sort((a, b) => {
-                const emailA = (a.email || '').toLowerCase();
-                const emailB = (b.email || '').toLowerCase();
                 const nameA = (a.name || a.email || '').toUpperCase();
                 const nameB = (b.name || b.email || '').toUpperCase();
 
-                // 1. RVS (Auto-marked) - FIRST
+                // 1. RVS (Auto-marked) - ALWAYS FIRST
                 const isRvsA = nameA.includes('RVS');
                 const isRvsB = nameB.includes('RVS');
 
@@ -53,30 +51,20 @@ const exportAttendanceReport = async (req, res) => {
                 if (!isRvsA && isRvsB) return 1;
                 if (isRvsA && isRvsB) return 0;
 
-                // Identify Santy (HR)
-                const isSantyA = emailA === 'santy9shinde@gmail.com';
-                const isSantyB = emailB === 'santy9shinde@gmail.com';
+                // 2. GBC - ALWAYS SECOND
+                const isGbcA = nameA.includes('GBC');
+                const isGbcB = nameB.includes('GBC');
 
-                // 2. Active MD - SECOND (ANY MD role that isn't Santy or RVS)
-                const isRealMDA = a.role === 'md' && !isSantyA && !isRvsA;
-                const isRealMDB = b.role === 'md' && !isSantyB && !isRvsB;
+                if (isGbcA && !isGbcB) return -1;
+                if (!isGbcA && isGbcB) return 1;
+                if (isGbcA && isGbcB) return 0;
 
-                if (isRealMDA && !isRealMDB) return -1;
-                if (!isRealMDA && isRealMDB) return 1;
-                if (isRealMDA && isRealMDB) return 0;
-
-                // 3. HR (Santy) - THIRD
-                if (isSantyA && !isSantyB) return -1;
-                if (!isSantyA && isSantyB) return 1;
-                if (isSantyA && isSantyB) return 0;
-
-                // 4. Other active employees - ALPHABETICAL
+                // 3. All other active employees - ALPHABETICAL
                 return nameA.localeCompare(nameB);
             });
 
         // Fetch all leaves
         const leavesSnapshot = await db.ref('leaves').once('value');
-
         const leavesData = leavesSnapshot.val() || {};
         const allLeaves = [];
         Object.values(leavesData).forEach(userLeaves => {
@@ -98,7 +86,7 @@ const exportAttendanceReport = async (req, res) => {
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const monthName = monthNames[monthNum - 1];
 
-        // Row 1: Autoteknik (MD-approved spelling)
+        // Row 1: Autoteknik
         worksheet.mergeCells(1, 1, 1, employees.length + 1);
         const titleCell = worksheet.getCell(1, 1);
         titleCell.value = 'Autoteknik';
@@ -112,14 +100,20 @@ const exportAttendanceReport = async (req, res) => {
         subtitleCell.font = { size: 14, bold: true };
         subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // Row 3: Headers (GREEN per MD reference)
+        // Row 3: Headers (Light Green)
         const headerRow = worksheet.getRow(3);
         headerRow.getCell(1).value = 'DATE';
         headerRow.getCell(1).font = { bold: true };
         headerRow.getCell(1).fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FF92D050' } // Excel green to match reference
+            fgColor: { argb: 'FF92D050' } // Light Green
+        };
+        headerRow.getCell(1).border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
         };
 
         employees.forEach((emp, index) => {
@@ -129,9 +123,15 @@ const exportAttendanceReport = async (req, res) => {
             cell.fill = {
                 type: 'pattern',
                 pattern: 'solid',
-                fgColor: { argb: 'FF92D050' } // Excel green to match reference
+                fgColor: { argb: 'FF92D050' } // Light Green
             };
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
         });
 
         // Data rows
@@ -152,7 +152,7 @@ const exportAttendanceReport = async (req, res) => {
                 dateCell.fill = {
                     type: 'pattern',
                     pattern: 'solid',
-                    fgColor: { argb: 'FFFFFF00' } // Yellow
+                    fgColor: { argb: 'FFFFFF00' } // Bright Yellow
                 };
             }
 
@@ -160,32 +160,30 @@ const exportAttendanceReport = async (req, res) => {
                 const cell = row.getCell(empIndex + 2);
                 const empName = (emp.name || '').toUpperCase();
                 const isRVS = empName.includes('RVS');
+                const isGBC = empName.includes('GBC');
 
-                // Default font - BOLD everywhere
+                // Default styling
                 cell.font = { bold: true, size: 10 };
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-                // Apply yellow background to ALL cells in Sunday rows (full row highlight)
+                // Borders for all cells
+                cell.border = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+
+                // Apply yellow background to ALL cells in Sunday rows
                 if (isSunday) {
                     cell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
-                        fgColor: { argb: 'FFFFFF00' } // Yellow for entire Sunday row
+                        fgColor: { argb: 'FFFFFF00' } // Bright Yellow
                     };
                 }
 
-                // RVS auto-marking logic
-                if (isRVS) {
-                    if (isSunday) {
-                        cell.value = 'H';
-                        // Yellow fill already applied above
-                    } else {
-                        cell.value = 'OFFICE';
-                    }
-                    return;
-                }
-
-                // Check for leave
+                // Check for leave FIRST (applies to everyone, including RVS/GBC)
                 const leave = allLeaves.find(l => {
                     if (l.employeeEmail !== emp.email || l.status !== 'approved') return false;
                     const leaveStart = new Date(l.from);
@@ -199,23 +197,34 @@ const exportAttendanceReport = async (req, res) => {
 
                 if (isSunday) {
                     cell.value = 'H';
-                    // Yellow fill already applied above for entire row
+                    // Yellow fill already applied
                 } else if (leave) {
                     cell.value = 'L';
                     cell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
-                        fgColor: { argb: 'FF90EE90' } // Light green for leave
+                        fgColor: { argb: 'FF90EE90' } // Light Green
                     };
+                } else if (isRVS) {
+                    // RVS Auto-mark logic: Auto-OFFICE if not H/L
+                    cell.value = 'OFFICE';
                 } else {
-                    // Check attendance record from employee's embedded attendance data
+                    // Normal Attendance Logic + GBC Auto-approval
                     const attendanceRecord = emp.attendance?.[dateStr];
 
-                    if (attendanceRecord && attendanceRecord.status === 'Present') {
-                        if (attendanceRecord.locationType === 'Office') {
-                            cell.value = 'OFFICE';
-                        } else if (attendanceRecord.locationType === 'Site') {
-                            cell.value = attendanceRecord.siteName ? attendanceRecord.siteName.toUpperCase() : 'SITE';
+                    if (attendanceRecord) {
+                        // For GBC, we treat any record as valid (Auto-approved)
+                        // For others, strictly 'Present'
+                        const isApprovable = isGBC || attendanceRecord.status === 'Present';
+
+                        if (isApprovable) {
+                            if (attendanceRecord.locationType === 'Office') {
+                                cell.value = 'OFFICE';
+                            } else if (attendanceRecord.locationType === 'Site') {
+                                cell.value = attendanceRecord.siteName ? attendanceRecord.siteName.toUpperCase() : 'SITE';
+                            }
+                        } else {
+                            cell.value = '';
                         }
                     } else {
                         cell.value = '';
