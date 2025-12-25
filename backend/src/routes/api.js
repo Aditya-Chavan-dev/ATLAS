@@ -45,8 +45,4 @@ router.post('/auth/archive-employee', authController.archiveEmployee);
 // System Routes
 router.post('/system/migrate', migrationController.runMigration);
 
-// Export Routes
-const exportController = require('../controllers/exportController');
-router.get('/export/attendance', exportController.exportAttendanceReport);
-
 module.exports = router;
