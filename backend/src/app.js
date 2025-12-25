@@ -34,6 +34,10 @@ const corsOptions = {
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+
+    // CRITICAL: Expose headers for file downloads
+    exposedHeaders: ['Content-Disposition', 'Content-Type', 'Content-Length'],
+
     credentials: true,
     optionsSuccessStatus: 200
 };
