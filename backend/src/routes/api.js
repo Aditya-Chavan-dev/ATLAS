@@ -38,6 +38,10 @@ router.post('/leave/cancel', leaveController.cancelLeave);
 const dashboardController = require('../controllers/dashboardController');
 router.get('/dashboard/stats', dashboardController.getDashboardStats);
 
+// Export Routes
+const exportController = require('../controllers/exportController');
+router.get('/export/attendance', exportController.exportAttendanceReport);
+
 // Auth Routes (Admin Only)
 router.post('/auth/create-employee', authController.createEmployee);
 router.post('/auth/archive-employee', authController.archiveEmployee);
