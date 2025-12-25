@@ -12,21 +12,40 @@ const exportAttendanceReport = async (req, res) => {
         const monthNum = parseInt(month);
         const yearNum = parseInt(year);
 
-        // Fetch all employees
-        const usersSnapshot = await db.ref('users').once('value');
-        const usersData = usersSnapshot.val() || {};
+        // Fetch all employees from SSOT /employees path
+        const employeesSnapshot = await db.ref('employees').once('value');
+        const employeesData = employeesSnapshot.val() || {};
 
-        const employees = Object.entries(usersData)
-            .map(([uid, user]) => ({ uid, ...user }))
-            // Removed filter to include MDs
-            // .filter(u => u.role !== 'md' && u.role !== 'admin') 
+        // Extract employees with their attendance data
+        const employees = Object.entries(employeesData)
+            .map(([uid, data]) => {
+                // Handle both nested profile structure and flat structure
+                const profile = data.profile || data;
+                return {
+                    uid,
+                    name: profile.name,
+                    email: profile.email,
+                    role: profile.role,
+                    status: profile.status,
+                    attendance: data.attendance || {}
+                };
+            })
+            // Filter only active employees (exclude inactive/terminated)
+            .filter(emp => {
+                // Include if status is explicitly 'active' OR status field doesn't exist (legacy active users)
+                const isActive = !emp.status || emp.status === 'active';
+                // Exclude owner role from export
+                const isNotOwner = emp.role !== 'owner';
+                return isActive && isNotOwner && emp.name && emp.email;
+            })
+            // Sort with exact MD-required ordering
             .sort((a, b) => {
                 const emailA = (a.email || '').toLowerCase();
                 const emailB = (b.email || '').toLowerCase();
                 const nameA = (a.name || a.email || '').toUpperCase();
                 const nameB = (b.name || b.email || '').toUpperCase();
 
-                // 1. RVS (Auto-marked)
+                // 1. RVS (Auto-marked) - FIRST
                 const isRvsA = nameA.includes('RVS');
                 const isRvsB = nameB.includes('RVS');
 
@@ -38,27 +57,22 @@ const exportAttendanceReport = async (req, res) => {
                 const isSantyA = emailA === 'santy9shinde@gmail.com';
                 const isSantyB = emailB === 'santy9shinde@gmail.com';
 
-                // 2. MD 2 (Active MD - ANY MD role that isn't Santy or RVS)
+                // 2. Active MD - SECOND (ANY MD role that isn't Santy or RVS)
                 const isRealMDA = a.role === 'md' && !isSantyA && !isRvsA;
                 const isRealMDB = b.role === 'md' && !isSantyB && !isRvsB;
 
                 if (isRealMDA && !isRealMDB) return -1;
                 if (!isRealMDA && isRealMDB) return 1;
-                if (isRealMDA && isRealMDB) return 0; // Maintain relative order
+                if (isRealMDA && isRealMDB) return 0;
 
-                // 3. HR (Santy)
+                // 3. HR (Santy) - THIRD
                 if (isSantyA && !isSantyB) return -1;
                 if (!isSantyA && isSantyB) return 1;
                 if (isSantyA && isSantyB) return 0;
 
-                // 4. Other employees (alphabetical)
+                // 4. Other active employees - ALPHABETICAL
                 return nameA.localeCompare(nameB);
             });
-
-        // Fetch all attendance records
-        const attendanceSnapshot = await db.ref('attendance').once('value');
-        const attendanceData = attendanceSnapshot.val() || {};
-        const attendanceRecords = Object.values(attendanceData);
 
         // Fetch all leaves
         const leavesSnapshot = await db.ref('leaves').once('value');
@@ -193,17 +207,14 @@ const exportAttendanceReport = async (req, res) => {
                         fgColor: { argb: 'FF90EE90' } // Light green for leave
                     };
                 } else {
-                    // Check attendance record
-                    const record = attendanceRecords.find(r =>
-                        r.date === dateStr &&
-                        (r.employeeEmail === emp.email || r.employeeId === emp.uid)
-                    );
+                    // Check attendance record from employee's embedded attendance data
+                    const attendanceRecord = emp.attendance?.[dateStr];
 
-                    if (record && record.status === 'approved') {
-                        if (record.location === 'office') {
+                    if (attendanceRecord && attendanceRecord.status === 'Present') {
+                        if (attendanceRecord.locationType === 'Office') {
                             cell.value = 'OFFICE';
-                        } else if (record.location === 'site') {
-                            cell.value = record.siteName ? record.siteName.toUpperCase() : 'SITE';
+                        } else if (attendanceRecord.locationType === 'Site') {
+                            cell.value = attendanceRecord.siteName ? attendanceRecord.siteName.toUpperCase() : 'SITE';
                         }
                     } else {
                         cell.value = '';
