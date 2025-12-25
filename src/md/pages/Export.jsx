@@ -23,35 +23,243 @@ export default function MDExport() {
         setStatus(null)
 
         try {
-            // Extract month and year from yyyy-MM format
             const [year, monthNum] = month.split('-')
 
-            // Call backend API for calendar matrix format
-            const response = await fetch(
-                `https://atlas-backend-pwmx.onrender.com/api/export/attendance?month=${monthNum}&year=${year}`,
-                {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                    }
-                }
-            )
+            // Fetch employees from Firebase
+            const usersRef = ref(database, 'employees')
+            const snapshot = await get(usersRef)
 
-            if (!response.ok) {
-                throw new Error(`Export failed: ${response.statusText}`)
+            if (!snapshot.exists()) {
+                throw new Error('No employee data found')
             }
 
-            // Get the blob and download it
-            const blob = await response.blob()
+            const employeesData = snapshot.val()
+
+            // Process employees with same logic as backend
+            const employees = Object.entries(employeesData)
+                .map(([uid, data]) => {
+                    const profile = data.profile || data
+                    return {
+                        uid,
+                        name: profile.name,
+                        email: profile.email,
+                        role: profile.role,
+                        status: profile.status,
+                        attendance: data.attendance || {}
+                    }
+                })
+                .filter(emp => {
+                    const isActive = !emp.status || emp.status === 'active'
+                    const isNotOwner = emp.role !== 'owner'
+                    return isActive && isNotOwner && emp.name && emp.email
+                })
+                .sort((a, b) => {
+                    const emailA = (a.email || '').toLowerCase()
+                    const emailB = (b.email || '').toLowerCase()
+                    const nameA = (a.name || a.email || '').toUpperCase()
+                    const nameB = (b.name || b.email || '').toUpperCase()
+
+                    const isRvsA = nameA.includes('RVS')
+                    const isRvsB = nameB.includes('RVS')
+                    if (isRvsA && !isRvsB) return -1
+                    if (!isRvsA && isRvsB) return 1
+                    if (isRvsA && isRvsB) return 0
+
+                    const isSantyA = emailA === 'santy9shinde@gmail.com'
+                    const isSantyB = emailB === 'santy9shinde@gmail.com'
+
+                    const isRealMDA = a.role === 'md' && !isSantyA && !isRvsA
+                    const isRealMDB = b.role === 'md' && !isSantyB && !isRvsB
+                    if (isRealMDA && !isRealMDB) return -1
+                    if (!isRealMDA && isRealMDB) return 1
+                    if (isRealMDA && isRealMDB) return 0
+
+                    if (isSantyA && !isSantyB) return -1
+                    if (!isSantyA && isSantyB) return 1
+                    if (isSantyA && isSantyB) return 0
+
+                    return nameA.localeCompare(nameB)
+                })
+
+            // Fetch leaves
+            const leavesSnapshot = await get(ref(database, 'leaves'))
+            const leavesData = leavesSnapshot.val() || {}
+            const allLeaves = []
+            Object.values(leavesData).forEach(userLeaves => {
+                Object.values(userLeaves).forEach(leave => allLeaves.push(leave))
+            })
+
+            // Generate Excel with calendar matrix format
+            const ExcelJS = (await import('exceljs')).default
+            const workbook = new ExcelJS.Workbook()
+            const worksheet = workbook.addWorksheet('Attendance')
+
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            const monthName = monthNames[parseInt(monthNum) - 1]
+            const yearNum = parseInt(year)
+
+            // Generate dates
+            const daysInMonth = new Date(yearNum, parseInt(monthNum), 0).getDate()
+            const dates = []
+            for (let day = 1; day <= daysInMonth; day++) {
+                dates.push(new Date(yearNum, parseInt(monthNum) - 1, day))
+            }
+
+            // Row 1: Autoteknik
+            worksheet.mergeCells(1, 1, 1, employees.length + 1)
+            const titleCell = worksheet.getCell(1, 1)
+            titleCell.value = 'Autoteknik'
+            titleCell.font = { size: 16, bold: true }
+            titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+            // Row 2: Attendance Month Year
+            worksheet.mergeCells(2, 1, 2, employees.length + 1)
+            const subtitleCell = worksheet.getCell(2, 1)
+            subtitleCell.value = `Attendance ${monthName} ${yearNum}`
+            subtitleCell.font = { size: 14, bold: true }
+            subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+            // Row 3: Headers (GREEN)
+            const headerRow = worksheet.getRow(3)
+            headerRow.getCell(1).value = 'DATE'
+            headerRow.getCell(1).font = { bold: true }
+            headerRow.getCell(1).fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF92D050' }
+            }
+
+            employees.forEach((emp, index) => {
+                const cell = headerRow.getCell(index + 2)
+                cell.value = (emp.name || emp.email).toUpperCase()
+                cell.font = { bold: true }
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF92D050' }
+                }
+                cell.alignment = { horizontal: 'center', vertical: 'middle' }
+            })
+
+            // Data rows
+            dates.forEach((date, dateIndex) => {
+                const row = worksheet.getRow(dateIndex + 4)
+                const dateStr = date.toISOString().split('T')[0]
+                const dayOfWeek = date.getDay()
+                const isSunday = dayOfWeek === 0
+
+                // Date column
+                const dateCell = row.getCell(1)
+                dateCell.value = `${date.getDate()}-${monthName}-${yearNum.toString().slice(-2)}`
+                dateCell.font = { bold: true, size: 11 }
+                dateCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+                if (isSunday) {
+                    dateCell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFFFFF00' }
+                    }
+                }
+
+                employees.forEach((emp, empIndex) => {
+                    const cell = row.getCell(empIndex + 2)
+                    const empName = (emp.name || '').toUpperCase()
+                    const isRVS = empName.includes('RVS')
+
+                    cell.font = { bold: true, size: 10 }
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+
+                    // RVS auto-marking
+                    if (isRVS) {
+                        if (isSunday) {
+                            cell.value = 'H'
+                            cell.fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: 'FFFFFF00' }
+                            }
+                        } else {
+                            cell.value = 'OFFICE'
+                        }
+                        return
+                    }
+
+                    // Check for leave
+                    const leave = allLeaves.find(l => {
+                        if (l.employeeEmail !== emp.email || l.status !== 'approved') return false
+                        const leaveStart = new Date(l.from)
+                        const leaveEnd = new Date(l.to)
+                        leaveStart.setHours(0, 0, 0, 0)
+                        leaveEnd.setHours(0, 0, 0, 0)
+                        const checkDate = new Date(date)
+                        checkDate.setHours(0, 0, 0, 0)
+                        return checkDate >= leaveStart && checkDate <= leaveEnd
+                    })
+
+                    if (isSunday) {
+                        cell.value = 'H'
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFFFFF00' }
+                        }
+                    } else if (leave) {
+                        cell.value = 'L'
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FF90EE90' }
+                        }
+                    } else {
+                        const attendanceRecord = emp.attendance?.[dateStr]
+                        if (attendanceRecord && attendanceRecord.status === 'Present') {
+                            if (attendanceRecord.locationType === 'Office') {
+                                cell.value = 'OFFICE'
+                            } else if (attendanceRecord.locationType === 'Site') {
+                                cell.value = attendanceRecord.siteName ? attendanceRecord.siteName.toUpperCase() : 'SITE'
+                            }
+                        } else {
+                            cell.value = ''
+                        }
+                    }
+                })
+            })
+
+            // Set column widths
+            worksheet.getColumn(1).width = 15
+            employees.forEach((emp, index) => {
+                const empName = (emp.name || emp.email).toUpperCase()
+                const columnWidth = Math.max(12, Math.min(25, empName.length + 2))
+                worksheet.getColumn(index + 2).width = columnWidth
+            })
+
+            // Add borders
+            worksheet.eachRow((row, rowNumber) => {
+                if (rowNumber >= 3) {
+                    row.eachCell((cell) => {
+                        cell.border = {
+                            top: { style: 'thin', color: { argb: 'FF000000' } },
+                            left: { style: 'thin', color: { argb: 'FF000000' } },
+                            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+                            right: { style: 'thin', color: { argb: 'FF000000' } }
+                        }
+                    })
+                }
+            })
+
+            // Set row heights
+            worksheet.getRow(1).height = 25
+            worksheet.getRow(2).height = 20
+            worksheet.getRow(3).height = 20
+
+            // Download
+            const buffer = await workbook.xlsx.writeBuffer()
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-
-            // Extract month name for filename
-            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-            const monthName = monthNames[parseInt(monthNum) - 1]
-
-            a.download = `Attendance_${monthName}_${year}.xlsx`
+            a.download = `Attendance_${monthName}_${yearNum}.xlsx`
             document.body.appendChild(a)
             a.click()
             document.body.removeChild(a)
@@ -178,24 +386,24 @@ export default function MDExport() {
                     {/* Quick Stats or Tips */}
                     <Card className="p-6 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 border-dashed">
                         <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">
-                            Report Columns
+                            Report Format
                         </h3>
                         <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
                             <li className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                Employee Details
+                                Calendar Matrix Layout
                             </li>
                             <li className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                Exact Check-in Time
+                                Green Headers
                             </li>
                             <li className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                GPS Location / Site Name
+                                Yellow Sundays
                             </li>
                             <li className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                Approval Status
+                                OFFICE / Site Codes
                             </li>
                         </ul>
                     </Card>
