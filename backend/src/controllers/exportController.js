@@ -98,10 +98,10 @@ const exportAttendanceReport = async (req, res) => {
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const monthName = monthNames[monthNum - 1];
 
-        // Row 1: Autoteknic
+        // Row 1: Autoteknik (MD-approved spelling)
         worksheet.mergeCells(1, 1, 1, employees.length + 1);
         const titleCell = worksheet.getCell(1, 1);
-        titleCell.value = 'Autoteknic';
+        titleCell.value = 'Autoteknik';
         titleCell.font = { size: 16, bold: true };
         titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
@@ -112,14 +112,14 @@ const exportAttendanceReport = async (req, res) => {
         subtitleCell.font = { size: 14, bold: true };
         subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // Row 3: Headers
+        // Row 3: Headers (GREEN per MD reference)
         const headerRow = worksheet.getRow(3);
         headerRow.getCell(1).value = 'DATE';
         headerRow.getCell(1).font = { bold: true };
         headerRow.getCell(1).fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FFD3D3D3' }
+            fgColor: { argb: 'FF92D050' } // Excel green to match reference
         };
 
         employees.forEach((emp, index) => {
@@ -129,7 +129,7 @@ const exportAttendanceReport = async (req, res) => {
             cell.fill = {
                 type: 'pattern',
                 pattern: 'solid',
-                fgColor: { argb: 'FFD3D3D3' }
+                fgColor: { argb: 'FF92D050' } // Excel green to match reference
             };
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
         });
