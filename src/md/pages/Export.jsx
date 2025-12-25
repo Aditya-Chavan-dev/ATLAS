@@ -1,13 +1,9 @@
 import React, { useState } from 'react'
-import { ref, get } from 'firebase/database'
-import { database } from '../../firebase/config'
 import {
     Download, Calendar as CalendarIcon,
     FileSpreadsheet, AlertCircle, CheckCircle2,
     Loader2
 } from 'lucide-react'
-import { format } from 'date-fns'
-import * as XLSX from 'xlsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -24,76 +20,41 @@ export default function MDExport() {
         setStatus(null)
 
         try {
-            // 1. Fetch Users (Source of Truth)
-            const usersRef = ref(database, 'employees')
-            const snapshot = await get(usersRef)
+            // Extract month and year from yyyy-MM format
+            const [year, monthNum] = month.split('-')
 
-            if (!snapshot.exists()) {
-                throw new Error('No user data found in system.')
-            }
-
-            const users = snapshot.val()
-            let reportData = []
-            const reportMonth = month // yyyy-MM
-
-            // 2. Process Data
-            Object.values(users).forEach(user => {
-                // Filter: Real Employees Only (skip admins/md if desired, or keep for audit)
-                // Let's exclude purely 'admin' roles who don't mark attendance usually
-                if (user.role === 'admin') return
-
-                // Check attendance
-                if (user.attendance) {
-                    const records = Object.values(user.attendance).filter(record =>
-                        record.date && record.date.startsWith(reportMonth)
-                    )
-
-                    // Provide a row for every record found
-                    records.forEach(record => {
-                        reportData.push({
-                            'Employee Name': user.name || 'Unknown',
-                            'Email': user.email || '-',
-                            'Date': record.date,
-                            'Status': record.status,
-                            'Location Type': record.locationType || '-',
-                            'Site Name': record.siteName || (record.locationType === 'Office' ? 'Office' : '-'),
-                            'Check-in Time': record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '-',
-                            'Approval Status': record.status === 'Present' ? 'Approved' : 'Pending/Rejected'
-                        })
-                    })
+            // Call backend API for calendar matrix format
+            const response = await fetch(
+                `https://atlas-backend-pwmx.onrender.com/api/export/attendance?month=${monthNum}&year=${year}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    }
                 }
-            })
+            )
 
-            // 3. Sort by Date then Name
-            reportData.sort((a, b) => {
-                const dateCompare = a['Date'].localeCompare(b['Date'])
-                if (dateCompare !== 0) return dateCompare
-                return a['Employee Name'].localeCompare(b['Employee Name'])
-            })
-
-            if (reportData.length === 0) {
-                setStatus({ type: 'error', message: `No attendance records found for ${month}` })
-                setLoading(false)
-                return
+            if (!response.ok) {
+                throw new Error(`Export failed: ${response.statusText}`)
             }
 
-            // 4. Generate Excel
-            const worksheet = XLSX.utils.json_to_sheet(reportData)
+            // Get the blob and download it
+            const blob = await response.blob()
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
 
-            // Auto-width for columns (simple heuristic)
-            const colWidths = Object.keys(reportData[0]).map(key => ({
-                wch: Math.max(key.length, 15)
-            }))
-            worksheet['!cols'] = colWidths
+            // Extract month name for filename
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            const monthName = monthNames[parseInt(monthNum) - 1]
 
-            const workbook = XLSX.utils.book_new()
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Monthly Attendance")
+            a.download = `Attendance_${monthName}_${year}.xlsx`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            window.URL.revokeObjectURL(url)
 
-            // 5. Download
-            const fileName = `ATLAS_Attendance_${month}.xlsx`
-            XLSX.writeFile(workbook, fileName)
-
-            setStatus({ type: 'success', message: 'Report downloaded successfully!' })
+            setStatus({ type: 'success', message: 'Calendar matrix report downloaded successfully!' })
 
         } catch (error) {
             console.error('Export failed:', error)
