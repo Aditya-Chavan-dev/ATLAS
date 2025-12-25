@@ -147,7 +147,7 @@ const exportAttendanceReport = async (req, res) => {
             dateCell.font = { bold: true, size: 11 };
             dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-            // Highlight Sunday dates in yellow
+            // Apply yellow background to date cell if Sunday
             if (isSunday) {
                 dateCell.fill = {
                     type: 'pattern',
@@ -165,15 +165,20 @@ const exportAttendanceReport = async (req, res) => {
                 cell.font = { bold: true, size: 10 };
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
 
+                // Apply yellow background to ALL cells in Sunday rows (full row highlight)
+                if (isSunday) {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFFFFF00' } // Yellow for entire Sunday row
+                    };
+                }
+
                 // RVS auto-marking logic
                 if (isRVS) {
                     if (isSunday) {
                         cell.value = 'H';
-                        cell.fill = {
-                            type: 'pattern',
-                            pattern: 'solid',
-                            fgColor: { argb: 'FFFFFF00' } // Yellow for Sunday
-                        };
+                        // Yellow fill already applied above
                     } else {
                         cell.value = 'OFFICE';
                     }
@@ -194,11 +199,7 @@ const exportAttendanceReport = async (req, res) => {
 
                 if (isSunday) {
                     cell.value = 'H';
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: { argb: 'FFFFFF00' } // Yellow for Sunday
-                    };
+                    // Yellow fill already applied above for entire row
                 } else if (leave) {
                     cell.value = 'L';
                     cell.fill = {
