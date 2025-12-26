@@ -21,6 +21,7 @@ import ApiService from '../../services/api'
 export default function MDEmployeeManagement() {
     const { currentUser } = useAuth()
     const [employees, setEmployees] = useState([])
+    const [archivedEmployees, setArchivedEmployees] = useState([])
     // Keeping searchQuery state to preserve logic, but removing UI controls for it
     const [searchQuery, setSearchQuery] = useState('')
     const [loading, setLoading] = useState(true)
@@ -30,6 +31,7 @@ export default function MDEmployeeManagement() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+    const [isPermanentDeleteModalOpen, setIsPermanentDeleteModalOpen] = useState(false)
 
     // Form/Selection State
     const [selectedEmployee, setSelectedEmployee] = useState(null)
@@ -44,10 +46,11 @@ export default function MDEmployeeManagement() {
         const unsubscribe = onValue(employeesRef, (snapshot) => {
             const data = snapshot.val() || {}
             // Use Centralized Utility
-            const { validEmployees } = getEmployeeStats(data, '') // No date needed for management list
+            const { validEmployees, diagnostics } = getEmployeeStats(data, '') // No date needed for management list
 
             console.log(`[EmployeeManagement] Loaded employees: ${validEmployees.length}`)
             setEmployees(validEmployees)
+            setArchivedEmployees(diagnostics?.archivedEmployees || [])
             setLoading(false)
         })
 
@@ -129,6 +132,24 @@ export default function MDEmployeeManagement() {
         }
     }
 
+    const handlePermanentDelete = async () => {
+        if (!selectedEmployee) return
+        setProcessing(true)
+        try {
+            // HARD DELETE via Backend
+            await ApiService.post('/api/auth/delete-employee', { uid: selectedEmployee.uid })
+
+            setIsPermanentDeleteModalOpen(false)
+            setSelectedEmployee(null)
+            setToast({ type: 'success', message: "Member permanently deleted" })
+        } catch (error) {
+            console.error(error)
+            setToast({ type: 'error', message: "Failed to delete member" })
+        } finally {
+            setProcessing(false)
+        }
+    }
+
     const openEdit = (emp) => {
         setSelectedEmployee(emp)
         setFormData({ name: emp.name, email: emp.email, role: emp.role, phone: emp.phone || '' })
@@ -138,6 +159,11 @@ export default function MDEmployeeManagement() {
     const openDelete = (emp) => {
         setSelectedEmployee(emp)
         setIsDeleteModalOpen(true)
+    }
+
+    const openPermanentDelete = (emp) => {
+        setSelectedEmployee(emp)
+        setIsPermanentDeleteModalOpen(true)
     }
 
     // Filter Logic Preserved
@@ -221,6 +247,53 @@ export default function MDEmployeeManagement() {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* --- Archived/Disabled Section --- */}
+            {archivedEmployees.length > 0 && (
+                <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 animate-fade-in">
+                    <h3 className="text-lg font-semibold text-slate-500 mb-6 flex items-center gap-2">
+                        <PauseCircle size={20} className="text-slate-400" />
+                        Archived / Disabled Members
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 opacity-75">
+                        {archivedEmployees.map((emp) => (
+                            <div
+                                key={emp.uid}
+                                className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col gap-2 relative overflow-hidden"
+                            >
+                                <div className="absolute top-0 right-0 p-1 bg-red-100 dark:bg-red-900/30 text-red-600 text-xs font-bold rounded-bl-lg">
+                                    ARCHIVED
+                                </div>
+
+                                <div className="flex items-center gap-3 grayscale">
+                                    <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-500">
+                                        {emp.name?.[0]?.toUpperCase() || 'U'}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="font-semibold text-slate-600 dark:text-slate-400 truncate">
+                                            {emp.name}
+                                        </h3>
+                                        <p className="text-sm text-slate-400 truncate">
+                                            {emp.email}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-auto pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+                                    <Button
+                                        variant="danger-ghost"
+                                        size="sm"
+                                        onClick={() => openPermanentDelete(emp)}
+                                        className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    >
+                                        Delete Permanently
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -336,6 +409,30 @@ export default function MDEmployeeManagement() {
                 </p>
             </Modal>
 
+            <Modal
+                isOpen={isPermanentDeleteModalOpen}
+                onClose={() => setIsPermanentDeleteModalOpen(false)}
+                title="Permanently Delete Member?"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setIsPermanentDeleteModalOpen(false)}>Cancel</Button>
+                        <Button variant="danger-solid" onClick={handlePermanentDelete} loading={processing} className="bg-red-600 hover:bg-red-700 text-white">Delete Permanently</Button>
+                    </>
+                }
+            >
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded-lg flex gap-3 mb-4">
+                    <Trash2 className="shrink-0 w-5 h-5" />
+                    <p className="text-sm">
+                        <b>WARNING: NO UNDO.</b><br />
+                        This will permanently delete the user's login account and all profile data. Attendance records may become orphaned.
+                    </p>
+                </div>
+                <p className="text-slate-600 dark:text-slate-300">
+                    Are you sure you want to <b>Permanently Delete</b> <b className="text-slate-900 dark:text-white">{selectedEmployee?.name}</b>?
+                </p>
+            </Modal>
+
         </div>
     )
 }
+

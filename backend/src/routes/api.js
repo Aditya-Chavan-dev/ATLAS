@@ -45,6 +45,7 @@ router.get('/export/attendance', exportController.exportAttendanceReport);
 // Auth Routes (Admin Only)
 router.post('/auth/create-employee', authController.createEmployee);
 router.post('/auth/archive-employee', authController.archiveEmployee);
+router.post('/auth/delete-employee', authController.deleteEmployee);
 
 // System Routes
 router.post('/system/migrate', migrationController.runMigration);

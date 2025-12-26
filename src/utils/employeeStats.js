@@ -133,7 +133,7 @@ export const getEmployeeStats = (employeesSnapshotVal, todayISO) => {
 
         } else {
             // --- IGNORED RECORD ---
-            result.diagnostics.ignoredProfiles.push({ uid, reason });
+            result.diagnostics.ignoredProfiles.push({ uid, reason, profile });
             result.diagnostics.reasonCounts[reason] = (result.diagnostics.reasonCounts[reason] || 0) + 1;
         }
     });
@@ -141,6 +141,16 @@ export const getEmployeeStats = (employeesSnapshotVal, todayISO) => {
     // Sort Streams
     result.liveFeed.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     result.validEmployees.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Sort Archived
+    result.diagnostics.archivedEmployees = result.diagnostics.ignoredProfiles
+        .filter(p => p.profile && (p.reason.includes('ARCHIVED') || p.profile.active === false || p.profile.status === 'archived'))
+        .map(p => ({
+            ...p.profile,
+            uid: p.uid,
+            reason: p.reason
+        }))
+        .sort((a, b) => new Date(b.archivedAt || 0) - new Date(a.archivedAt || 0));
 
     return result;
 };

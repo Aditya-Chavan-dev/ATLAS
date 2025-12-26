@@ -126,3 +126,49 @@ exports.archiveEmployee = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+/**
+ * Delete Employee (Hard Delete)
+ * - PERMANENTLY remove from Auth
+ * - PERMANENTLY remove from DB
+ * - No undo.
+ */
+exports.deleteEmployee = async (req, res) => {
+    try {
+        const { uid } = req.body;
+
+        if (!uid) {
+            return res.status(400).json({ error: 'UID is required.' });
+        }
+
+        console.log(`[Auth] PERMANENTLY DELETING user: ${uid}`);
+
+        // 1. Delete from Firebase Auth
+        try {
+            await admin.auth().deleteUser(uid);
+            console.log(`[Auth] User deleted from Auth: ${uid}`);
+        } catch (error) {
+            if (error.code === 'auth/user-not-found') {
+                console.log(`[Auth] User already gone from Auth: ${uid}`);
+            } else {
+                console.error(`[Auth] Failed to delete from Auth:`, error);
+                // We typically continue to clean up DB even if Auth fails (orphaned record)
+            }
+        }
+
+        // 2. Delete from DB (Canonical Profile)
+        const empRef = db.ref(`employees/${uid}`);
+        await empRef.remove();
+        console.log(`[DB] Record removed from employees/${uid}`);
+
+        // 3. Cleanup Legacy check
+        const legacyRef = db.ref(`users/${uid}`);
+        await legacyRef.remove();
+
+        res.json({ success: true, message: 'User permanently deleted.' });
+
+    } catch (error) {
+        console.error('[Auth] Delete Failed:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
