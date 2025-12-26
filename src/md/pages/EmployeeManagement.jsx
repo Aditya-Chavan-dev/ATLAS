@@ -21,7 +21,6 @@ import ApiService from '../../services/api'
 export default function MDEmployeeManagement() {
     const { currentUser } = useAuth()
     const [employees, setEmployees] = useState([])
-    const [archivedEmployees, setArchivedEmployees] = useState([])
     // Keeping searchQuery state to preserve logic, but removing UI controls for it
     const [searchQuery, setSearchQuery] = useState('')
     const [loading, setLoading] = useState(true)
@@ -31,7 +30,6 @@ export default function MDEmployeeManagement() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-    const [isPermanentDeleteModalOpen, setIsPermanentDeleteModalOpen] = useState(false)
 
     // Form/Selection State
     const [selectedEmployee, setSelectedEmployee] = useState(null)
@@ -46,11 +44,10 @@ export default function MDEmployeeManagement() {
         const unsubscribe = onValue(employeesRef, (snapshot) => {
             const data = snapshot.val() || {}
             // Use Centralized Utility
-            const { validEmployees, diagnostics } = getEmployeeStats(data, '') // No date needed for management list
+            const { validEmployees } = getEmployeeStats(data, '') // No date needed for management list
 
             console.log(`[EmployeeManagement] Loaded employees: ${validEmployees.length}`)
             setEmployees(validEmployees)
-            setArchivedEmployees(diagnostics?.archivedEmployees || [])
             setLoading(false)
         })
 
