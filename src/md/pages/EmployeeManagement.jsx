@@ -399,9 +399,9 @@ export default function MDEmployeeManagement() {
                 <div className="p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 rounded-lg flex gap-3 mb-4">
                     <Shield className="shrink-0 w-5 h-5" />
                     <p className="text-sm">
-                        <b>Access Revocation Policy:</b> The user's account will be disabled immediately, preventing any further login.
+                        <b>Access Revocation Policy:</b> The user's account will be disabled immediately.
                         <br /><br />
-                        Note: Historic attendance data will be <b>retained for 30 days</b> for audit purposes before permanent deletion.
+                        Note: <b>Data is retained indefinitely.</b> If you add this member again in the future, their account and history will be restored automatically.
                     </p>
                 </div>
                 <p className="text-slate-600 dark:text-slate-300">
