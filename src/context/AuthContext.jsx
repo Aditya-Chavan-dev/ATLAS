@@ -153,91 +153,76 @@ export const AuthProvider = ({ children }) => {
                 stopRealtimeListeners()
 
                 if (user) {
+                    // ⚡ OPTIMIZATION: Optimistic Role Assignment
+                    // Set role IMMEDIATELY based on allowlist to unblock UI
+                    let optimisticRole = null
+                    if (isOwner(user.email)) optimisticRole = ROLES.OWNER
+                    else if (isMD(user.email)) optimisticRole = ROLES.MD
+                    else if (isHR(user.email)) optimisticRole = ROLES.HR
+
+                    if (optimisticRole) {
+                        console.log('⚡ Optimistic Role Set:', optimisticRole)
+                        setUserRole(optimisticRole)
+                        // Don't wait for DB to load UI, but still fetch profile to populate userProfile state
+                    }
+
                     try {
+                        // Single centralized DB fetch
                         const dbRef = ref(database)
                         const userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))
 
+                        let profileData = null
                         if (userSnapshot.exists()) {
-                            let profileData = userSnapshot.val()
+                            profileData = userSnapshot.val()
+                        }
 
-                            // Check if user is in MD allowlist - override database role if needed
-                            if (isMD(user.email)) {
-                                if (profileData.role !== ROLES.MD) {
-                                    console.log('🔄 Auth listener: Updating role to MD for', user.email)
-                                    profileData.role = ROLES.MD
-                                    // Update in database
-                                    await set(ref(database, `employees/${user.uid}/profile`), {
-                                        ...profileData,
-                                        role: ROLES.MD
-                                    })
-                                }
-                            }
-                            // Check if user is in HR allowlist
-                            else if (isHR(user.email)) {
-                                if (profileData.role !== ROLES.HR) {
-                                    console.log('🔄 Auth listener: Updating role to HR for', user.email)
-                                    profileData.role = ROLES.HR
-                                    // Update in database
-                                    await set(ref(database, `employees/${user.uid}/profile`), {
-                                        ...profileData,
-                                        role: ROLES.HR
-                                    })
-                                }
-                            }
+                        // Determine final authority role
+                        // If allowlist says MD/HR/OWNER, that overrides DB.
+                        // If allowlist is specific, ensure DB reflects it.
 
-                            setUserRole(profileData.role)
+                        if (optimisticRole) {
+                            // We are special role. Ensure DB matches.
+                            const needsUpdate = !profileData || profileData.role !== optimisticRole
+
+                            if (needsUpdate) {
+                                console.log('🔄 Syncing DB role to match Allowlist:', optimisticRole)
+                                profileData = {
+                                    uid: user.uid,
+                                    email: user.email,
+                                    name: user.displayName || (profileData?.name || optimisticRole),
+                                    photoURL: user.photoURL || (profileData?.photoURL || ''),
+                                    role: optimisticRole,
+                                    phone: profileData?.phone || ''
+                                }
+                                await set(ref(database, `employees/${user.uid}/profile`), profileData)
+                            }
+                            // Finalize state
                             setUserProfile(profileData)
                             startRealtimeListeners(user)
+
                         } else {
-                            console.warn('⚠️ User profile not found in database.')
-                            // If MD user has no profile, create one
-                            if (isMD(user.email)) {
-                                const mdProfile = {
-                                    uid: user.uid,
-                                    email: user.email,
-                                    name: user.displayName || 'MD',
-                                    photoURL: user.photoURL || '',
-                                    role: ROLES.MD,
-                                    phone: ''
-                                }
-                                await set(ref(database, `employees/${user.uid}/profile`), mdProfile)
-                                setUserRole(ROLES.MD)
-                                setUserProfile(mdProfile)
+                            // Normal Employee Case
+                            if (profileData) {
+                                setUserRole(profileData.role)
+                                setUserProfile(profileData)
                                 startRealtimeListeners(user)
-                                console.log('✅ Created MD profile in auth listener')
-                            }
-                            // If HR user has no profile, create one
-                            else if (isHR(user.email)) {
-                                const hrProfile = {
-                                    uid: user.uid,
-                                    email: user.email,
-                                    name: user.displayName || 'HR Export',
-                                    photoURL: user.photoURL || '',
-                                    role: ROLES.HR,
-                                    phone: ''
-                                }
-                                await set(ref(database, `employees/${user.uid}/profile`), hrProfile)
-                                setUserRole(ROLES.HR)
-                                setUserProfile(hrProfile)
-                                startRealtimeListeners(user)
-                                console.log('✅ Created HR profile in auth listener')
                             } else {
-                                // User has no profile and is not MD/HR
-                                // STAY LOGGED IN but with null role (Waiting Room)
+                                // Waiting Room / New User
                                 console.log('⏳ User waiting for approval/role assignment:', user.email)
                                 setUserRole(null)
                                 setUserProfile(null)
-                                startRealtimeListeners(user) // CRITICAL: Listen for profile creation
+                                startRealtimeListeners(user)
                             }
                         }
                     } catch (dbError) {
                         console.error('❌ Error fetching user profile:', dbError)
+                        // Even if DB fails, if we had optimistic role, keep it
+                        if (!optimisticRole) setUserRole(null)
                     }
                 } else {
                     setUserRole(null)
                     setUserProfile(null)
                 }
-
 
                 setCurrentUser(user)
                 setLoading(false)
@@ -264,168 +249,9 @@ export const AuthProvider = ({ children }) => {
 
             const result = await signInWithPopup(auth, provider)
             const user = result.user
-            const email = user.email
-
-            let role = null
-            let profileData = null
-
-            // 0. Check OWNER first - has access to metrics dashboard
-            if (isOwner(email)) {
-                role = ROLES.OWNER
-                console.log('👤 Owner user logged in:', email)
-
-                // Create/update owner profile
-                const dbRef = ref(database)
-                let userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))
-
-                if (userSnapshot.exists()) {
-                    profileData = userSnapshot.val()
-                    profileData.role = ROLES.OWNER
-                } else {
-                    profileData = {
-                        uid: user.uid,
-                        email: user.email,
-                        name: user.displayName || 'Owner',
-                        photoURL: user.photoURL || '',
-                        role: ROLES.OWNER,
-                        phone: ''
-                    }
-                }
-                await set(ref(database, `employees/${user.uid}/profile`), profileData)
-            }
-            // 1. Check MD allowlist next - this takes PRIORITY over employee
-            else if (isMD(email)) {
-                role = ROLES.MD
-                console.log('👑 MD user logged in:', email)
-
-                // Check if MD has a profile in database
-                const dbRef = ref(database)
-                let userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))
-
-                if (userSnapshot.exists()) {
-                    profileData = userSnapshot.val()
-                    // Override role to MD even if database says employee
-                    if (profileData.role !== ROLES.MD) {
-                        console.log('🔄 Updating database role from', profileData.role, 'to MD')
-                        profileData.role = ROLES.MD
-                        // Update in database
-                        await set(ref(database, `employees/${user.uid}/profile`), {
-                            ...profileData,
-                            role: ROLES.MD
-                        })
-                    }
-                } else {
-                    // Create MD profile if doesn't exist
-                    profileData = {
-                        uid: user.uid,
-                        email: user.email,
-                        name: user.displayName || 'MD',
-                        photoURL: user.photoURL || '',
-                        role: ROLES.MD,
-                        phone: ''
-                    }
-                    await set(ref(database, `employees/${user.uid}/profile`), profileData)
-                    console.log('✅ Created MD profile in database')
-                }
-            }
-            // 2. Check HR allowlist
-            else if (isHR(email)) {
-                role = ROLES.HR
-                console.log('📋 HR user logged in:', email)
-
-                // Check if HR has a profile in database
-                const dbRef = ref(database)
-                let userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))
-
-                if (userSnapshot.exists()) {
-                    profileData = userSnapshot.val()
-                    // Override role to HR even if database says employee
-                    if (profileData.role !== ROLES.HR) {
-                        console.log('🔄 Updating database role from', profileData.role, 'to HR')
-                        profileData.role = ROLES.HR
-                        // Update in database
-                        await set(ref(database, `employees/${user.uid}/profile`), {
-                            ...profileData,
-                            role: ROLES.HR
-                        })
-                    }
-                } else {
-                    // Create HR profile if doesn't exist
-                    profileData = {
-                        uid: user.uid,
-                        email: user.email,
-                        name: user.displayName || 'HR Export',
-                        photoURL: user.photoURL || '',
-                        role: ROLES.HR,
-                        phone: ''
-                    }
-                    await set(ref(database, `employees/${user.uid}/profile`), profileData)
-                    console.log('✅ Created HR profile in database')
-                }
-            } else {
-                // 3. Check Firebase DB for employee
-                const dbRef = ref(database)
-                let userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))
-
-                if (userSnapshot.exists()) {
-                    // Existing employee with correct UID
-                    profileData = userSnapshot.val()
-                    role = profileData.role
-                    console.log('✅ Existing employee logged in:', email)
-                } else {
-                    // 3. Fallback: Check if added by MD (lookup by email)
-                    // This handles the first login where the user has a placeholder UID
-                    console.log('🔍 Checking for pre-added employee record by email...')
-                    const employeesRef = ref(database, 'employees')
-                    const emailQuery = query(employeesRef, orderByChild('email'), equalTo(email))
-                    const emailSnapshot = await get(emailQuery)
-
-                    if (emailSnapshot.exists()) {
-                        // Found the pre-added record!
-                        const data = emailSnapshot.val()
-                        const oldUid = Object.keys(data)[0] // Get the placeholder UID (e.g. emp_123)
-                        profileData = data[oldUid]
-
-                        console.log('♻️ Found pre-added record. Migrating to real UID...', oldUid)
-
-                        // Update profile with real UID and photo
-                        const updatedProfile = {
-                            ...profileData,
-                            uid: user.uid,
-                            photoURL: user.photoURL || '',
-                            email: user.email // Ensure email matches exactly
-                        }
-
-                        // Save to new location (real UID)
-                        await set(ref(database, `employees/${user.uid}/profile`), updatedProfile)
-
-                        // Delete old placeholder record
-                        await remove(ref(database, `employees/${oldUid}`))
-
-                        role = updatedProfile.role
-                        profileData = updatedProfile
-                        console.log('✅ Migration complete. Logged in as:', role)
-                    } else {
-                        // Not in allowlist and not in DB - unauthorized
-                        // CHANGE: Do NOT sign out. Enter "Waiting Room" state.
-                        console.log('⏳ Unauthorized user entered waiting room:', email)
-                        // await signOut(auth) 
-                        // throw new Error('You are not authorized to access this system. Please contact your administrator.')
-
-                        role = null
-                        profileData = null
-                        // We will let the effect hook pick this up and start listeners
-                    }
-                }
-            }
-
-
-            // Update local state
-            setCurrentUser(user)
-            setUserRole(role)
-            setUserProfile(profileData)
-
-            return { user, role }
+            // Logic is handled by onAuthStateChanged listener which triggers immediately after sign-in
+            // We just return user here to satisfy promise
+            return { user }
         } catch (error) {
             console.error('❌ Login error:', error)
             throw error

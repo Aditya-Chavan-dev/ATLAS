@@ -4,6 +4,7 @@ const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0'; // Required for Render
 
 console.log('🚀 Starting ATLAS Backend Server...');
+console.log('🔄 Build Timestamp: ' + new Date().toISOString());
 console.log('📋 Configuration:', {
     port: PORT,
     host: HOST,
