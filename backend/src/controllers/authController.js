@@ -17,28 +17,33 @@ exports.createEmployee = async (req, res) => {
         console.log(`[Auth] Creating user: ${email}`);
 
         // 1. Create User in Firebase Auth
+        // 1. Check if user already exists (Explicit Logic)
         let user;
-        try {
-            user = await admin.auth().createUser({
-                email: email,
-                emailVerified: false,
-                phoneNumber: phone || undefined, // Must be E.164 if provided
-                displayName: name,
-                disabled: false
-            });
-            console.log(`[Auth] User created: ${user.uid}`);
-        } catch (authError) {
-            // Idempotency: If user already exists, just fetch them
-            if (authError.code === 'auth/email-already-exists') {
-                console.log(`[Auth] User already exists, fetching UID...`);
-                user = await admin.auth().getUserByEmail(email);
+        let isNewUser = false;
 
-                // CRITICAL: Re-enable user if they were previously archived/disabled
-                // CRITICAL: Always ensure user is enabled (fixes re-adding archived users)
-                await admin.auth().updateUser(user.uid, { disabled: false });
-                console.log(`[Auth] Ensured user is enabled: ${user.uid}`);
+        try {
+            user = await admin.auth().getUserByEmail(email);
+            console.log(`[Auth] Found existing user: ${user.uid}`);
+
+            // CRITICAL: Always re-enable existing users to fix "Archived" state
+            await admin.auth().updateUser(user.uid, { disabled: false });
+            console.log(`[Auth] Enforced enabled state for: ${user.uid}`);
+
+        } catch (fetchError) {
+            if (fetchError.code === 'auth/user-not-found') {
+                // 2. Create New User
+                console.log(`[Auth] Creating new user for: ${email}`);
+                user = await admin.auth().createUser({
+                    email: email,
+                    emailVerified: false,
+                    phoneNumber: phone || undefined,
+                    displayName: name,
+                    disabled: false
+                });
+                isNewUser = true;
+                console.log(`[Auth] New user created: ${user.uid}`);
             } else {
-                throw authError; // Rethrow real errors (e.g. invalid phone)
+                throw fetchError; // Unknown error
             }
         }
 
