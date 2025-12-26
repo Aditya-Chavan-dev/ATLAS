@@ -2,7 +2,7 @@
 // These users can ONLY access the Export Reports feature
 
 export const HR_ALLOWLIST = [
-    'adityagchavan3@gmail.com',
+
     'santy9shinde@gmail.com'
 ];
 

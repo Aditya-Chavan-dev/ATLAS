@@ -9,7 +9,7 @@
 // Centralized role constants and route mapping
 
 // Owner email - has access to metrics dashboard
-export const OWNER_EMAIL = 'adityagchavan3@gmail.com';
+export const OWNER_EMAIL = 'admin@example.com'; // Placeholder
 
 export const ROLES = {
     OWNER: 'owner',
