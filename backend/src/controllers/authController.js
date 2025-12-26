@@ -34,10 +34,9 @@ exports.createEmployee = async (req, res) => {
                 user = await admin.auth().getUserByEmail(email);
 
                 // CRITICAL: Re-enable user if they were previously archived/disabled
-                if (user.disabled) {
-                    await admin.auth().updateUser(user.uid, { disabled: false });
-                    console.log(`[Auth] Re-enabled previously disabled user: ${user.uid}`);
-                }
+                // CRITICAL: Always ensure user is enabled (fixes re-adding archived users)
+                await admin.auth().updateUser(user.uid, { disabled: false });
+                console.log(`[Auth] Ensured user is enabled: ${user.uid}`);
             } else {
                 throw authError; // Rethrow real errors (e.g. invalid phone)
             }
