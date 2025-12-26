@@ -3,7 +3,7 @@
 
 export const MD_ALLOWLIST = [
     'chavan500@gmail.com',
-    'adityagchavan310@gmail.com'
+
 ];
 
 export const isMD = (email) => {
