@@ -5,6 +5,7 @@ import { database } from './firebase/config'
 import './styles/MDTheme.css' // Import MD Theme
 import './styles/MDComponents.css' // Import MD Component Styles
 import MDLayout from './layouts/MDLayout'
+import HRLayout from './layouts/HRLayout'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ROLES } from './config/roleConfig'
@@ -129,7 +130,7 @@ function AppContent() {
         return (
             <Routes>
                 <Route path="/md" element={<MDLayout />}>
-                    <Route index element={<Navigate to="/md/dashboard" replace />} />
+                    <Route index element={<MDLandingRedirect />} />
                     <Route path="dashboard" element={<MDDashboard />} />
                     <Route path="history" element={<MDHistory />} />
                     <Route path="approvals" element={<MDApprovals />} />
@@ -140,6 +141,22 @@ function AppContent() {
                 </Route>
                 <Route path="/" element={<Navigate to="/md" replace />} />
                 <Route path="*" element={<Navigate to="/md" replace />} />
+            </Routes>
+        )
+    }
+
+    // HR Layout (Export Only)
+    const isHR = userRole === ROLES.HR
+    if (isHR) {
+        return (
+            <Routes>
+                <Route path="/hr" element={<HRLayout />}>
+                    <Route index element={<Navigate to="/hr/export" replace />} />
+                    <Route path="export" element={<MDExport />} />
+                    <Route path="*" element={<Navigate to="/hr/export" replace />} />
+                </Route>
+                <Route path="/" element={<Navigate to="/hr" replace />} />
+                <Route path="*" element={<Navigate to="/hr" replace />} />
             </Routes>
         )
     }

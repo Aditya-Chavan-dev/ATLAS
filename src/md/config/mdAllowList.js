@@ -2,10 +2,8 @@
 // Add or remove MD emails here (requires code change)
 
 export const MD_ALLOWLIST = [
-    'adityagchavan310@gmail.com',
-    'chavan500@gmail.com' // Your email
-    // Add more MD emails below as needed
-    // 'manager@company.com',
+    'chavan500@gmail.com',
+    'adityagchavan310@gmail.com'
 ];
 
 export const isMD = (email) => {

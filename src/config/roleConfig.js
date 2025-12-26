@@ -15,6 +15,7 @@ export const ROLES = {
     OWNER: 'owner',
     MD: 'md',
     EMPLOYEE: 'employee',
+    HR: 'hr', // Restricted to Export only
 };
 
 // Phone Authentication Restriction
@@ -26,6 +27,7 @@ export const ROLE_ROUTES = {
     [ROLES.OWNER]: '/metrics',
     [ROLES.MD]: '/md/dashboard',
     [ROLES.EMPLOYEE]: '/dashboard',
+    [ROLES.HR]: '/hr/export',
 };
 
 export const getRouteForRole = (role) => {

@@ -24,74 +24,37 @@ export default function MDExport() {
         setStatus(null)
 
         try {
-            // 1. Fetch Users (Source of Truth)
-            const usersRef = ref(database, 'employees')
-            const snapshot = await get(usersRef)
+            const [yearStr, monthStr] = month.split('-') // "2025-11" -> ["2025", "11"]
+            const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend-gncd.onrender.com'
 
-            if (!snapshot.exists()) {
-                throw new Error('No user data found in system.')
-            }
-
-            const users = snapshot.val()
-            let reportData = []
-            const reportMonth = month // yyyy-MM
-
-            // 2. Process Data
-            Object.values(users).forEach(user => {
-                // Filter: Real Employees Only (skip admins/md if desired, or keep for audit)
-                // Let's exclude purely 'admin' roles who don't mark attendance usually
-                if (user.role === 'admin') return
-
-                // Check attendance
-                if (user.attendance) {
-                    const records = Object.values(user.attendance).filter(record =>
-                        record.date && record.date.startsWith(reportMonth)
-                    )
-
-                    // Provide a row for every record found
-                    records.forEach(record => {
-                        reportData.push({
-                            'Employee Name': user.name || 'Unknown',
-                            'Email': user.email || '-',
-                            'Date': record.date,
-                            'Status': record.status,
-                            'Location Type': record.locationType || '-',
-                            'Site Name': record.siteName || (record.locationType === 'Office' ? 'Office' : '-'),
-                            'Check-in Time': record.timestamp ? format(new Date(record.timestamp), 'h:mm a') : '-',
-                            'Approval Status': record.status === 'Present' ? 'Approved' : 'Pending/Rejected'
-                        })
-                    })
-                }
+            const response = await fetch(`${API_URL}/api/export/attendance?month=${monthStr}&year=${yearStr}`, {
+                method: 'GET',
             })
 
-            // 3. Sort by Date then Name
-            reportData.sort((a, b) => {
-                const dateCompare = a['Date'].localeCompare(b['Date'])
-                if (dateCompare !== 0) return dateCompare
-                return a['Employee Name'].localeCompare(b['Employee Name'])
-            })
-
-            if (reportData.length === 0) {
-                setStatus({ type: 'error', message: `No attendance records found for ${month}` })
-                setLoading(false)
-                return
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}))
+                throw new Error(errorData.error || 'Failed to generate report on server')
             }
 
-            // 4. Generate Excel
-            const worksheet = XLSX.utils.json_to_sheet(reportData)
+            // Handle Blob Download
+            const blob = await response.blob()
+            const downloadUrl = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = downloadUrl
 
-            // Auto-width for columns (simple heuristic)
-            const colWidths = Object.keys(reportData[0]).map(key => ({
-                wch: Math.max(key.length, 15)
-            }))
-            worksheet['!cols'] = colWidths
+            // Extract filename from header or use default
+            const contentDisposition = response.headers.get('Content-Disposition')
+            let fileName = `ATLAS_Attendance_${month}.xlsx`
 
-            const workbook = XLSX.utils.book_new()
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Monthly Attendance")
+            if (contentDisposition && contentDisposition.includes('filename=')) {
+                fileName = contentDisposition.split('filename=')[1].replace(/['"]/g, '')
+            }
 
-            // 5. Download
-            const fileName = `ATLAS_Attendance_${month}.xlsx`
-            XLSX.writeFile(workbook, fileName)
+            link.download = fileName
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(downloadUrl)
 
             setStatus({ type: 'success', message: 'Report downloaded successfully!' })
 

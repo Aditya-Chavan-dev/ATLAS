@@ -32,6 +32,12 @@ exports.createEmployee = async (req, res) => {
             if (authError.code === 'auth/email-already-exists') {
                 console.log(`[Auth] User already exists, fetching UID...`);
                 user = await admin.auth().getUserByEmail(email);
+
+                // CRITICAL: Re-enable user if they were previously archived/disabled
+                if (user.disabled) {
+                    await admin.auth().updateUser(user.uid, { disabled: false });
+                    console.log(`[Auth] Re-enabled previously disabled user: ${user.uid}`);
+                }
             } else {
                 throw authError; // Rethrow real errors (e.g. invalid phone)
             }

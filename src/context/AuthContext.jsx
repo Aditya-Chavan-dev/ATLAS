@@ -27,6 +27,7 @@ import {
 } from 'firebase/database'
 import { auth, database } from '../firebase/config'
 import { isMD } from '../md/config/mdAllowList'
+import { isHR } from '../config/hrAllowList'
 import { ROLES, isOwner } from '../config/roleConfig'
 
 
@@ -164,11 +165,22 @@ export const AuthProvider = ({ children }) => {
                                 if (profileData.role !== ROLES.MD) {
                                     console.log('🔄 Auth listener: Updating role to MD for', user.email)
                                     profileData.role = ROLES.MD
-                                    profileData.role = ROLES.MD
                                     // Update in database
                                     await set(ref(database, `employees/${user.uid}/profile`), {
                                         ...profileData,
                                         role: ROLES.MD
+                                    })
+                                }
+                            }
+                            // Check if user is in HR allowlist
+                            else if (isHR(user.email)) {
+                                if (profileData.role !== ROLES.HR) {
+                                    console.log('🔄 Auth listener: Updating role to HR for', user.email)
+                                    profileData.role = ROLES.HR
+                                    // Update in database
+                                    await set(ref(database, `employees/${user.uid}/profile`), {
+                                        ...profileData,
+                                        role: ROLES.HR
                                     })
                                 }
                             }
@@ -193,6 +205,29 @@ export const AuthProvider = ({ children }) => {
                                 setUserProfile(mdProfile)
                                 startRealtimeListeners(user)
                                 console.log('✅ Created MD profile in auth listener')
+                            }
+                            // If HR user has no profile, create one
+                            else if (isHR(user.email)) {
+                                const hrProfile = {
+                                    uid: user.uid,
+                                    email: user.email,
+                                    name: user.displayName || 'HR Export',
+                                    photoURL: user.photoURL || '',
+                                    role: ROLES.HR,
+                                    phone: ''
+                                }
+                                await set(ref(database, `employees/${user.uid}/profile`), hrProfile)
+                                setUserRole(ROLES.HR)
+                                setUserProfile(hrProfile)
+                                startRealtimeListeners(user)
+                                console.log('✅ Created HR profile in auth listener')
+                            } else {
+                                // User has no profile and is not MD/HR
+                                // STAY LOGGED IN but with null role (Waiting Room)
+                                console.log('⏳ User waiting for approval/role assignment:', user.email)
+                                setUserRole(null)
+                                setUserProfile(null)
+                                startRealtimeListeners(user) // CRITICAL: Listen for profile creation
                             }
                         }
                     } catch (dbError) {
@@ -292,8 +327,43 @@ export const AuthProvider = ({ children }) => {
                     await set(ref(database, `employees/${user.uid}/profile`), profileData)
                     console.log('✅ Created MD profile in database')
                 }
+            }
+            // 2. Check HR allowlist
+            else if (isHR(email)) {
+                role = ROLES.HR
+                console.log('📋 HR user logged in:', email)
+
+                // Check if HR has a profile in database
+                const dbRef = ref(database)
+                let userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))
+
+                if (userSnapshot.exists()) {
+                    profileData = userSnapshot.val()
+                    // Override role to HR even if database says employee
+                    if (profileData.role !== ROLES.HR) {
+                        console.log('🔄 Updating database role from', profileData.role, 'to HR')
+                        profileData.role = ROLES.HR
+                        // Update in database
+                        await set(ref(database, `employees/${user.uid}/profile`), {
+                            ...profileData,
+                            role: ROLES.HR
+                        })
+                    }
+                } else {
+                    // Create HR profile if doesn't exist
+                    profileData = {
+                        uid: user.uid,
+                        email: user.email,
+                        name: user.displayName || 'HR Export',
+                        photoURL: user.photoURL || '',
+                        role: ROLES.HR,
+                        phone: ''
+                    }
+                    await set(ref(database, `employees/${user.uid}/profile`), profileData)
+                    console.log('✅ Created HR profile in database')
+                }
             } else {
-                // 2. Check Firebase DB for employee
+                // 3. Check Firebase DB for employee
                 const dbRef = ref(database)
                 let userSnapshot = await get(child(dbRef, `employees/${user.uid}/profile`))
 
@@ -337,9 +407,14 @@ export const AuthProvider = ({ children }) => {
                         console.log('✅ Migration complete. Logged in as:', role)
                     } else {
                         // Not in allowlist and not in DB - unauthorized
-                        console.log('❌ Unauthorized user:', email)
-                        await signOut(auth)
-                        throw new Error('You are not authorized to access this system. Please contact your administrator.')
+                        // CHANGE: Do NOT sign out. Enter "Waiting Room" state.
+                        console.log('⏳ Unauthorized user entered waiting room:', email)
+                        // await signOut(auth) 
+                        // throw new Error('You are not authorized to access this system. Please contact your administrator.')
+
+                        role = null
+                        profileData = null
+                        // We will let the effect hook pick this up and start listeners
                     }
                 }
             }

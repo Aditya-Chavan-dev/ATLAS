@@ -250,7 +250,7 @@ export default function MDEmployeeManagement() {
                         type="email"
                         placeholder="e.g. john@example.com"
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase() })}
                     />
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 ml-1">Role</label>
