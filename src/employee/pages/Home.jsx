@@ -12,6 +12,7 @@ import { ref, onValue } from 'firebase/database'
 import AttendanceModal from '../components/AttendanceModal'
 import StatCard from '../components/StatCard'
 import Toast from '../components/Toast'
+import { EmployeeHomeSkeleton } from '../../components/ui/Skeleton'
 
 export default function Home() {
     const { currentUser, userProfile } = useAuth()
@@ -23,6 +24,7 @@ export default function Home() {
     const [todayStatus, setTodayStatus] = useState(null) // null | { status: 'Present'|'Late', location: 'Office'|'Site', timestamp: '...' }
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [toast, setToast] = useState(null) // { message, type }
+    const [loading, setLoading] = useState(true)
 
     // Auto-open modal from notifications
     useEffect(() => {
@@ -65,6 +67,7 @@ export default function Home() {
                 })
                 setAttendanceStats(stats)
             }
+            setLoading(false)
         })
 
         return () => unsubscribe()
@@ -123,6 +126,10 @@ export default function Home() {
         if (hour < 12) return 'Good Morning'
         if (hour < 18) return 'Good Afternoon'
         return 'Good Evening'
+    }
+
+    if (loading) {
+        return <EmployeeHomeSkeleton />
     }
 
     return (

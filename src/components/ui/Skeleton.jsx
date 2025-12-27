@@ -131,4 +131,45 @@ export function ListSkeleton({ count = 5 }) {
     )
 }
 
+// Skeleton for Employee Home
+export function EmployeeHomeSkeleton() {
+    return (
+        <div className="space-y-6 p-4">
+            {/* Greeting */}
+            <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-6 w-48" />
+                </div>
+                <Skeleton variant="circle" className="w-10 h-10" />
+            </div>
+
+            {/* Main Stats Card */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
+                <div className="flex justify-between items-center">
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton variant="circle" className="w-8 h-8" />
+                </div>
+                <div className="space-y-2">
+                    <Skeleton className="h-10 w-24" />
+                    <Skeleton className="h-4 w-full" />
+                </div>
+            </div>
+
+            {/* Quick Actions Grid */}
+            <div className="grid grid-cols-2 gap-4">
+                <Skeleton variant="card" className="h-32" />
+                <Skeleton variant="card" className="h-32" />
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-3">
+                <Skeleton className="h-5 w-32 mb-2" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+            </div>
+        </div>
+    )
+}
+
 export default Skeleton

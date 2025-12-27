@@ -22,6 +22,7 @@ import logger from '../../utils/logger'
 import MDToast from '../components/MDToast'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
+import { DashboardSkeleton } from '../../components/ui/Skeleton'
 
 // Utility
 const getAvatarColor = (name) => {
@@ -137,6 +138,14 @@ export default function MDDashboard() {
     const itemVariants = {
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0 }
+    }
+
+    if (loading) {
+        return (
+            <div className="md-page-container">
+                <DashboardSkeleton />
+            </div>
+        )
     }
 
     return (
