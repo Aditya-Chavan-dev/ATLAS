@@ -45,7 +45,9 @@ const checkAttendanceOverlap = async (employeeId, start, end) => {
 
 const applyLeave = async (req, res) => {
     try {
-        const { employeeId, employeeName, type, from, to, reason } = req.body;
+        // SECURITY: Use authenticated user's UID, not user-supplied ID (IDOR prevention)
+        const employeeId = req.user.uid;
+        const { employeeName, type, from, to, reason } = req.body;
 
         const TodayIST = getTodayDateIST();
 
@@ -290,7 +292,9 @@ const rejectLeave = async (req, res) => {
 };
 
 const cancelLeave = async (req, res) => {
-    const { leaveId, employeeId, reason } = req.body;
+    // SECURITY: Use authenticated user's UID (IDOR prevention)
+    const employeeId = req.user.uid;
+    const { leaveId, reason } = req.body;
     try {
         const leaveRef = db.ref(`leaves/${employeeId}/${leaveId}`);
         const snapshot = await leaveRef.once('value');

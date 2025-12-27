@@ -40,12 +40,15 @@ const sendMulticast = async (tokens, notification, data) => {
 /**
  * Mark Attendance (Employee -> MD)
  * POST /api/attendance/mark
- * Body: { uid, locationType, siteName, timestamp, dateStr }
+ * Body: { locationType, siteName, dateStr }
+ * NOTE: uid is taken from authenticated token, NOT from body (IDOR prevention)
  */
 exports.markAttendance = async (req, res) => {
-    const { uid, locationType, siteName, dateStr } = req.body;
+    // SECURITY: Use authenticated user's UID, not user-supplied UID
+    const uid = req.user.uid;
+    const { locationType, siteName, dateStr } = req.body;
 
-    if (!uid || !locationType || !dateStr) {
+    if (!locationType || !dateStr) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 

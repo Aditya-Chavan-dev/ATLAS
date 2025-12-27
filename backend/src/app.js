@@ -5,7 +5,29 @@ const { errorHandler } = require('./services/errorHandler');
 
 const app = express();
 
-app.use(cors());
+// SECURITY: Restrict CORS to allowed origins only
+const allowedOrigins = [
+    'https://atlas-011.web.app',
+    'https://atlas-011.firebaseapp.com',
+    'http://localhost:5173',  // Local dev
+    'http://localhost:5174'   // Local dev alternate
+];
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.warn(`[CORS] Blocked request from: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true
+}));
+
 app.use(express.json());
 
 // Mount API Routes
