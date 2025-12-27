@@ -216,6 +216,12 @@ function MetricsDashboard() {
                 </div>
                 <div className="header-right">
                     <span className="user-email">{currentUser?.email}</span>
+                    <button
+                        className="p-2 mr-2 text-sm font-medium text-slate-600 bg-white rounded-lg hover:bg-slate-50 border border-slate-200"
+                        onClick={() => window.location.href = '/md/dashboard'}
+                    >
+                        Go to App
+                    </button>
                     <button className="logout-btn" onClick={logout}>Logout</button>
                 </div>
             </header>

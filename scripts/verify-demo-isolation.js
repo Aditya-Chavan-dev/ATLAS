@@ -10,8 +10,12 @@
  * Usage: node scripts/verify-demo-isolation.js
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const ERRORS = [];
 const WARNINGS = [];
@@ -64,8 +68,13 @@ const productionPaths = [
     'deviceTokens/'
 ];
 
+console.log(`Debug: Scanning demo dir at: ${demoDir}`);
+
 function scanDirectory(dir, callback) {
-    if (!fs.existsSync(dir)) return;
+    if (!fs.existsSync(dir)) {
+        console.log(`Debug: Directory not found: ${dir}`);
+        return;
+    }
 
     const files = fs.readdirSync(dir);
     files.forEach(file => {
@@ -81,18 +90,22 @@ function scanDirectory(dir, callback) {
 }
 
 let demoFileCount = 0;
-scanDirectory(demoDir, (filePath) => {
-    demoFileCount++;
-    const content = fs.readFileSync(filePath, 'utf8');
+if (fs.existsSync(demoDir)) {
+    scanDirectory(demoDir, (filePath) => {
+        demoFileCount++;
+        const content = fs.readFileSync(filePath, 'utf8');
 
-    productionPaths.forEach(prodPath => {
-        // Check for ref(database, 'employees/...') patterns
-        const refPattern = new RegExp(`ref\\([^,]+,\\s*['"\`]${prodPath}`, 'g');
-        if (refPattern.test(content)) {
-            ERRORS.push(`CRITICAL: Demo file writes to production path ${prodPath}: ${filePath}`);
-        }
+        productionPaths.forEach(prodPath => {
+            // Check for ref(database, 'employees/...') patterns
+            const refPattern = new RegExp(`ref\\([^,]+,\\s*['"\`]${prodPath}`, 'g');
+            if (refPattern.test(content)) {
+                ERRORS.push(`CRITICAL: Demo file writes to production path ${prodPath}: ${filePath}`);
+            }
+        });
     });
-});
+} else {
+    ERRORS.push(`CRITICAL: Demo directory not found at ${demoDir}`);
+}
 
 console.log(`  ✓ Scanned ${demoFileCount} demo files`);
 

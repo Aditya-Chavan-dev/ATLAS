@@ -12,44 +12,42 @@
             "$uid": {
                 "profile": {
                     ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
-                    ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
+                    ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' || (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' && $uid !== auth.uid))"
                 },
                 "attendance": {
-                    ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
+                    ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'hr')",
                     "$date": {
-                        ".write": "auth != null && ( (!data.exists() && $uid === auth.uid) || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' )"
+                        ".write": "auth != null && ( (!data.exists() && $uid === auth.uid && root.child('employees').child(auth.uid).child('profile').child('status').val() === 'ACTIVE') || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' )"
                     }
-                },
-                ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' || $uid === auth.uid)",
-                ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
+                }
             }
         },
         "users": {
-            ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
-            ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
+            ".read": "false",
+            ".write": "false"
         },
         "attendance": {
-            ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
-            ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
+            ".read": "false",
+            ".write": "false"
         },
         "leaves": {
             "$employeeId": {
                 ".read": "auth != null && ($employeeId === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
                 "$leaveId": {
-                    ".write": "auth != null && ((!data.exists() && $employeeId === auth.uid) || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
+                    ".write": "auth != null && ((!data.exists() && $employeeId === auth.uid && root.child('employees').child(auth.uid).child('profile').child('status').val() === 'ACTIVE') || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md')"
                 }
+            }
+        },
+        "system": {
+            "owners": {
+                ".read": "auth != null && root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner'",
+                ".write": "false"
             }
         },
         "audit": {
             ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
             "$logId": {
-                ".write": "auth != null && (newData.child('actorUid').val() === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')"
-            }
-        },
-        "deviceTokens": {
-            "$token": {
-                ".read": "auth != null && ((data.child('uid').val() === auth.uid) || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
-                ".write": "auth != null && (newData.child('uid').val() === auth.uid)"
+                ".write": "auth != null"
             }
         },
         "demo": {
@@ -58,7 +56,7 @@
             "sources": {
                 ".indexOn": [
                     "createdAt",
-                    "name"
+                    "label"
                 ],
                 ".read": "auth != null && root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner'",
                 "$sourceId": {
@@ -73,17 +71,8 @@
                 ],
                 ".read": "auth != null && root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner'",
                 "$sessionId": {
-                    ".validate": "newData.hasChildren(['ownerUid', 'createdAt'])",
                     ".write": "auth != null && (!data.exists() || data.child('ownerUid').val() === auth.uid)",
-                    "ownerUid": {
-                        ".validate": "newData.val() === auth.uid"
-                    },
                     "events": {
-                        "$eventType": {
-                            ".write": "auth != null && root.child('demo').child('sessions').child($sessionId).child('ownerUid').val() === auth.uid"
-                        }
-                    },
-                    "completed": {
                         ".write": "auth != null && root.child('demo').child('sessions').child($sessionId).child('ownerUid').val() === auth.uid"
                     }
                 }

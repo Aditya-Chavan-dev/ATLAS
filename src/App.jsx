@@ -115,20 +115,17 @@ function AppContent() {
         )
     }
 
-    // Owner - show Metrics Dashboard
-    if (isOwnerRole) {
+    // Owner & MD Layout - Combined Access
+    // Owner is a superset of MD (can access Metrics + everything MD can do)
+    if (isMD || isOwnerRole) {
         return (
             <Routes>
-                <Route path="/metrics" element={<MetricsDashboard />} />
-                <Route path="*" element={<Navigate to="/metrics" replace />} />
-            </Routes>
-        )
-    }
+                {/* Owner-Specific Route */}
+                {isOwnerRole && (
+                    <Route path="/metrics" element={<MetricsDashboard />} />
+                )}
 
-    // MD Layout
-    if (isMD) {
-        return (
-            <Routes>
+                {/* MD Layout (Accessible to MD & Owner) */}
                 <Route path="/md" element={<MDLayout />}>
                     <Route index element={<MDLandingRedirect />} />
                     <Route path="dashboard" element={<MDDashboard />} />
@@ -139,8 +136,11 @@ function AppContent() {
                     <Route path="export" element={<MDExport />} />
                     <Route path="*" element={<Navigate to="/md/dashboard" replace />} />
                 </Route>
-                <Route path="/" element={<Navigate to="/md" replace />} />
-                <Route path="*" element={<Navigate to="/md" replace />} />
+
+                {/* Redirects */}
+                {/* Owner defaults to Metrics, MD defaults to Dashboard */}
+                <Route path="/" element={<Navigate to={isOwnerRole ? "/metrics" : "/md"} replace />} />
+                <Route path="*" element={<Navigate to={isOwnerRole ? "/metrics" : "/md"} replace />} />
             </Routes>
         )
     }
