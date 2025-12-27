@@ -30,7 +30,7 @@
                     "$date": {
                         ".validate": "newData.hasChildren(['status', 'timestamp'])",
                         "status": {
-                            ".validate": "newData.isString() && (newData.val() === 'Present' || newData.val() === 'Absent' || newData.val() === 'Half-Day' || newData.val() === 'Holiday')"
+                            ".validate": "newData.isString() && (newData.val() === 'pending' || newData.val() === 'pending_co' || newData.val() === 'approved' || newData.val() === 'rejected' || newData.val() === 'correction_pending')"
                         },
                         "timestamp": {
                             ".validate": "newData.isString()"
@@ -52,15 +52,15 @@
             "$employeeId": {
                 ".read": "auth != null && ($employeeId === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
                 "$leaveId": {
-                    ".validate": "newData.hasChildren(['type', 'days', 'status'])",
+                    ".validate": "newData.hasChildren(['type', 'totalDays', 'status'])",
                     "type": {
                         ".validate": "newData.val() === 'PL' || newData.val() === 'CO' || newData.val() === 'SL'"
                     },
-                    "days": {
+                    "totalDays": {
                         ".validate": "newData.isNumber()"
                     },
                     "status": {
-                        ".validate": "newData.val() === 'Pending' || newData.val() === 'Approved' || newData.val() === 'Rejected' || newData.val() === 'Cancelled'"
+                        ".validate": "newData.val() === 'pending' || newData.val() === 'approved' || newData.val() === 'rejected' || newData.val() === 'cancelled'"
                     },
                     ".write": "auth != null && ((!data.exists() && $employeeId === auth.uid && root.child('employees').child(auth.uid).child('profile').child('status').val() === 'ACTIVE') || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md')"
                 }
