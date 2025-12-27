@@ -236,7 +236,7 @@ const broadcastAttendance = async (req, res) => {
         });
     } catch (error) {
         console.error('Broadcast Error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };
 

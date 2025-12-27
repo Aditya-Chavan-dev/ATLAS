@@ -159,6 +159,6 @@ exports.runMigration = async (req, res) => {
 
     } catch (error) {
         console.error('❌ Migration Failed:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };

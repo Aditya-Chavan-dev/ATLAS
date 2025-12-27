@@ -71,7 +71,7 @@ exports.createEmployee = async (req, res) => {
 
     } catch (error) {
         console.error('[Auth] Create Failed:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };
 
@@ -123,7 +123,7 @@ exports.archiveEmployee = async (req, res) => {
 
     } catch (error) {
         console.error('[Auth] Archive Failed:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };
 
@@ -169,6 +169,6 @@ exports.deleteEmployee = async (req, res) => {
 
     } catch (error) {
         console.error('[Auth] Delete Failed:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };

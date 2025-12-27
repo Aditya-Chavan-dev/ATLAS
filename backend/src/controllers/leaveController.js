@@ -143,7 +143,7 @@ const applyLeave = async (req, res) => {
 
     } catch (error) {
         console.error('Leave Apply Error:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };
 
@@ -154,7 +154,7 @@ const getHistory = async (req, res) => {
         const leaves = snapshot.val() || {};
         res.json(Object.values(leaves));
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };
 
@@ -174,7 +174,7 @@ const getPending = async (req, res) => {
 
         res.json(allLeaves);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };
 
@@ -255,7 +255,7 @@ const approveLeave = async (req, res) => {
 
         res.json({ success: true, message: 'Leave approved and attendance overrides applied.' });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };
 
@@ -287,7 +287,7 @@ const rejectLeave = async (req, res) => {
 
         res.json({ success: true });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };
 
@@ -318,7 +318,7 @@ const cancelLeave = async (req, res) => {
 
         res.json({ success: true });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };
 
