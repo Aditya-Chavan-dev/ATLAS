@@ -1,5 +1,6 @@
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { useEffect } from 'react'
+import logger from '../utils/logger'
 
 export default function PWAUpdater() {
     const {
@@ -7,7 +8,7 @@ export default function PWAUpdater() {
         updateServiceWorker,
     } = useRegisterSW({
         onRegistered(r) {
-            console.log('SW Registered:', r)
+            logger.info('SW Registered:', r)
             // Check for updates every minute
             if (r) {
                 setInterval(() => {
@@ -22,7 +23,7 @@ export default function PWAUpdater() {
 
     useEffect(() => {
         if (needRefresh) {
-            console.log('New content available, auto-updating...')
+            logger.info('New content available, auto-updating...')
             updateServiceWorker(true)
         }
     }, [needRefresh, updateServiceWorker])

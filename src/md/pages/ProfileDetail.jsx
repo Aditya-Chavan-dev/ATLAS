@@ -44,15 +44,15 @@ function MDProfileDetail() {
             }
         })
 
-        // Fetch Attendance
-        const attendanceRef = ref(database, 'attendance')
+        // Fetch Attendance (SSOT: /employees/{uid}/attendance)
+        const attendanceRef = ref(database, `employees/${id}/attendance`)
         const unsubscribeAtt = onValue(attendanceRef, (snapshot) => {
             const data = snapshot.val()
             if (data) {
-                const allRecords = Object.values(data)
-                // Filter by UID
-                const empRecords = allRecords.filter(r => r.employeeId === id)
+                const empRecords = Object.values(data)
                 setHistory(empRecords.sort((a, b) => new Date(b.date) - new Date(a.date)))
+            } else {
+                setHistory([])
             }
             setLoading(false)
         })

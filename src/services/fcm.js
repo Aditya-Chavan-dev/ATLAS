@@ -1,8 +1,10 @@
+
 // Firebase Cloud Messaging (FCM) Service
 // Strict Implementation: Data-Only Payloads, Explicit Status Tracking
 
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
-import app from "../firebase/config";
+import app from "../firebase/config"; // Keep app import for getMessaging(app)
+import logger from '../utils/logger';
 import ApiService from "./api"; // Wrapper for backend calls
 
 const messaging = getMessaging(app);
@@ -29,11 +31,11 @@ export const requestNotificationPermission = async (uid) => {
         const permission = await Notification.requestPermission();
 
         if (permission === 'granted') {
-            console.log('[FCM] Permission granted, waiting for service worker...');
+            logger.info('[FCM] Permission granted, waiting for service worker...');
 
             // 2. Wait for Service Worker to be ready (CRITICAL)
             const registration = await navigator.serviceWorker.ready;
-            console.log('[FCM] Service worker ready with scope:', registration.scope);
+            logger.info('[FCM] Service worker ready with scope:', registration.scope);
 
             // 3. Get Token with Service Worker Binding (CRITICAL)
             const token = await getToken(messaging, {
@@ -50,14 +52,14 @@ export const requestNotificationPermission = async (uid) => {
                     permission: 'granted',
                     timestamp: new Date().toISOString()
                 });
-                console.log('[FCM] Token Registered:', token);
-                console.log('[FCM] Token bound to SW scope:', registration.scope);
+                logger.info('[FCM] Token Registered:', token);
+                logger.info('[FCM] Token bound to SW scope:', registration.scope);
             } else {
                 console.error('[FCM] Failed to generate token');
             }
         } else {
             // 5. Permission Denied (Do NOT create a token entry)
-            console.log('[FCM] Permission Denied. No token registered.');
+            logger.info('[FCM] Permission Denied. No token registered.');
         }
 
     } catch (error) {
@@ -72,7 +74,7 @@ export const requestNotificationPermission = async (uid) => {
  */
 export const setupForegroundListener = () => {
     return onMessage(messaging, (payload) => {
-        console.log('[FCM] Foreground Message Received:', payload);
+        logger.info('[FCM] Foreground Message Received:', payload);
 
         // Data-Only Payload Handling
         // Payload comes in 'data' key (e.g. payload.data.type, payload.data.route)

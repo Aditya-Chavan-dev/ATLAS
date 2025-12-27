@@ -11,7 +11,8 @@
 import { ATTENDANCE_STATUS, USER_ROLE, normalizeAttendanceStatus } from '../config/vocabulary';
 
 // 1. Authorization Constants
-const VALID_ROLES = [USER_ROLE.EMPLOYEE]; // MD is excluded from "Employee Counts"
+// These roles are visible as "Staff" in MD Dashboard
+const VALID_ROLES = [USER_ROLE.EMPLOYEE, USER_ROLE.HR]; // MD and Owner excluded from counts
 
 // 2. Normalization Helpers
 export const normalizeRole = (role) => role?.trim().toLowerCase() || null;

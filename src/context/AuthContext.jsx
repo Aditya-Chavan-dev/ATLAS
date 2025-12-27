@@ -22,10 +22,12 @@ import {
     set,
     child,
     onValue,
-    off
+    off,
+    serverTimestamp
 } from 'firebase/database'
 import { auth, database } from '../firebase/config'
 import { ROLES, isOwnerEmail } from '../config/roleConfig'
+import logger from '../utils/logger'
 
 const AuthContext = createContext()
 
@@ -61,7 +63,7 @@ export const AuthProvider = ({ children }) => {
         stopProfileListener()
         const userRef = ref(database, `employees/${uid}/profile`)
 
-        console.log('🔒 Establishing Authoritative Connection for', uid)
+        logger.info('🔒 Establishing Authoritative Connection for', uid)
 
         const handleSnapshot = async (snapshot) => {
             if (snapshot.exists()) {
@@ -104,7 +106,7 @@ export const AuthProvider = ({ children }) => {
 
                 // 2. Role Resolution
                 if (profile.role && profile.status === 'ACTIVE') {
-                    console.log(`✅ Role Resolved: ${profile.role}`)
+                    logger.info(`✅ Role Resolved: ${profile.role}`)
                     setUserRole(profile.role)
                     setUserProfile(profile)
                     setAuthError(null)
@@ -116,21 +118,21 @@ export const AuthProvider = ({ children }) => {
                 }
 
             } else {
-                console.log('🆕 New User Detected - Attempting Bootstrap or Registration')
+                logger.info('🆕 New User Detected - Attempting Bootstrap or Registration')
                 // Profile doesn't exist. Check for Owner Bootstrap.
                 if (isOwnerEmail(email)) {
-                    console.log('👑 Bootstrapping OWNER Account...')
+                    logger.info('👑 Bootstrapping OWNER Account...')
                     const ownerProfile = {
                         uid: uid,
                         email: email.toLowerCase(),
                         name: 'System Owner',
                         role: ROLES.OWNER,
                         status: 'ACTIVE',
-                        createdAt: Date.now()
+                        createdAt: serverTimestamp()
                     }
                     try {
                         await set(userRef, ownerProfile)
-                        console.log('✅ Owner Bootstrapped. Refreshing...')
+                        logger.info('✅ Owner Bootstrapped. Refreshing...')
                         // Listener will catch the update automatically
                     } catch (err) {
                         console.error('❌ Bootstrap Failed:', err)
@@ -166,19 +168,19 @@ export const AuthProvider = ({ children }) => {
 
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
-                console.log('🔑 Auth State: Authenticated', user.email)
+                logger.info('🔑 Auth State: Authenticated', user.email)
                 setCurrentUser(user)
                 if (!user.isAnonymous) {
                     setupProfileListener(user.uid, user.email)
                 } else {
                     // Anonymous User (Demo Mode) handled separately or ignored here
                     // DemoApp handles its own context usually, but if we share:
-                    console.log('🎭 Anonymous User (Demo Mode)')
+                    logger.info('🎭 Anonymous User (Demo Mode)')
                     setUserRole('DEMO_USER') // Virtual role for context
                     setLoading(false)
                 }
             } else {
-                console.log('🔒 Auth State: Signed Out')
+                logger.info('🔒 Auth State: Signed Out')
                 setCurrentUser(null)
                 setUserRole(null)
                 setUserProfile(null)

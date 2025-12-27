@@ -17,6 +17,7 @@ import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import MDToast from '../components/MDToast'
 import ApiService from '../../services/api'
+import logger from '../../utils/logger'
 
 export default function MDEmployeeManagement() {
     const { currentUser } = useAuth()
@@ -30,11 +31,15 @@ export default function MDEmployeeManagement() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+    const [isPermanentDeleteModalOpen, setIsPermanentDeleteModalOpen] = useState(false)
 
     // Form/Selection State
     const [selectedEmployee, setSelectedEmployee] = useState(null)
     const [formData, setFormData] = useState({ name: '', email: '', role: 'employee' })
     const [processing, setProcessing] = useState(false)
+
+    // Archived employees list (from centralised stats)
+    const [archivedEmployees, setArchivedEmployees] = useState([])
 
     // Fetch Data (Canonical Source Only)
     useEffect(() => {
@@ -44,10 +49,13 @@ export default function MDEmployeeManagement() {
         const unsubscribe = onValue(employeesRef, (snapshot) => {
             const data = snapshot.val() || {}
             // Use Centralized Utility
-            const { validEmployees } = getEmployeeStats(data, '') // No date needed for management list
+            const result = getEmployeeStats(data, '') // No date needed for management list
 
-            console.log(`[EmployeeManagement] Loaded employees: ${validEmployees.length}`)
-            setEmployees(validEmployees)
+            logger.info(`[EmployeeManagement] Loaded employees: ${result.validEmployees.length}`)
+            setEmployees(result.validEmployees)
+
+            // Extract archived employees from diagnostics
+            setArchivedEmployees(result.diagnostics?.archivedEmployees || [])
             setLoading(false)
         })
 
@@ -71,7 +79,7 @@ export default function MDEmployeeManagement() {
 
             if (response.success) {
                 // Success
-                console.log('User created:', response.user)
+                logger.info('User created:', response.user)
             } else {
                 throw new Error(response.error || 'Creation failed')
             }

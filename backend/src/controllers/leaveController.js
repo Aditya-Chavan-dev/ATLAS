@@ -1,4 +1,4 @@
-const { db } = require('../config/firebase');
+const { db, admin } = require('../config/firebase');
 const { sendPushNotification } = require('../services/notificationService');
 const notificationService = require('../services/notificationService');
 const { getTodayDateIST, getLeaveDaysCount } = require('../utils/dateUtils');
@@ -101,15 +101,15 @@ const applyLeave = async (req, res) => {
             const leaveData = {
                 leaveId, employeeId, employeeName, type, from, to, totalDays, reason,
                 status: 'auto-blocked',
-                appliedAt: Date.now(),
+                appliedAt: admin.database.ServerValue.TIMESTAMP,
                 conflictNotes: 'Attendance already marked for these dates'
             };
             await leaveRef.set(leaveData);
             await logLeaveHistory(employeeId, 'auto-blocked', leaveData, 'system', 'system', { notes: 'Attendance conflict' });
 
-            const usersSnap = await db.ref('users').orderByChild('role').equalTo('md').once('value');
+            const usersSnap = await db.ref('employees').orderByChild('profile/role').equalTo('md').once('value');
             const mds = usersSnap.val() || {};
-            const mdTokens = Object.values(mds).map(u => u.fcmToken);
+            const mdTokens = Object.values(mds).map(u => u.profile?.fcmToken).filter(Boolean);
             await sendPushNotification(mdTokens, '🚫 Leave Auto-Blocked', `${employeeName} attempted leave on marked attendance dates.`);
 
             return res.status(409).json({ error: 'Attendance already marked for selected dates', conflict: true });
@@ -122,16 +122,16 @@ const applyLeave = async (req, res) => {
         const leaveData = {
             leaveId, employeeId, employeeName, type, from, to, totalDays, reason,
             status: 'pending',
-            appliedAt: Date.now()
+            appliedAt: admin.database.ServerValue.TIMESTAMP
         };
 
         await leaveRef.set(leaveData);
         await logLeaveHistory(employeeId, 'applied', leaveData, employeeId, 'employee');
 
-        // Notify MD
-        const usersSnap = await db.ref('users').orderByChild('role').equalTo('md').once('value');
+        // Notify MD (using SSOT /employees path)
+        const usersSnap = await db.ref('employees').orderByChild('profile/role').equalTo('md').once('value');
         const mds = usersSnap.val() || {};
-        const mdTokens = Object.values(mds).map(u => u.fcmToken);
+        const mdTokens = Object.values(mds).map(u => u.profile?.fcmToken).filter(Boolean);
 
         await sendPushNotification(mdTokens, '📝 New Leave Request', `${employeeName} applied for ${type} (${totalDays} days)`, {
             type: 'LEAVE_REQUEST', leaveId
@@ -213,7 +213,7 @@ const approveLeave = async (req, res) => {
 
         await leaveRef.update({
             status: 'approved',
-            actedAt: Date.now(),
+            actedAt: admin.database.ServerValue.TIMESTAMP,
             actorId: mdId,
             actorRole: 'MD'
         });
@@ -268,7 +268,7 @@ const rejectLeave = async (req, res) => {
 
         await leaveRef.update({
             status: 'rejected',
-            actedAt: Date.now(),
+            actedAt: admin.database.ServerValue.TIMESTAMP,
             actorId: mdId,
             actorRole: 'MD',
             rejectionReason: reason
@@ -300,16 +300,16 @@ const cancelLeave = async (req, res) => {
 
         await leaveRef.update({
             status: 'cancelled',
-            actedAt: Date.now(),
+            actedAt: admin.database.ServerValue.TIMESTAMP,
             actorId: employeeId,
             actorRole: 'employee'
         });
 
         await logLeaveHistory(employeeId, 'cancelled', leave, employeeId, 'employee', { reason });
 
-        const usersSnap = await db.ref('users').orderByChild('role').equalTo('md').once('value');
+        const usersSnap = await db.ref('employees').orderByChild('profile/role').equalTo('md').once('value');
         const mds = usersSnap.val() || {};
-        const mdTokens = Object.values(mds).map(u => u.fcmToken);
+        const mdTokens = Object.values(mds).map(u => u.profile?.fcmToken).filter(Boolean);
         await sendPushNotification(mdTokens, '🚫 Leave Cancelled', `${leave.employeeName} cancelled their request.`);
 
         res.json({ success: true });

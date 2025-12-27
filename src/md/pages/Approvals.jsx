@@ -363,7 +363,7 @@ const RequestCard = ({ item, onApprove, onReject, isProcessing, isHistory }) => 
 
                     <div className={clsx(
                         "rounded-xl mt-3 transition-colors",
-                        !isLeave && "bg-slate-50 dark:bg-slate-800/50 p-3 space-y-2"
+                        !isLeave && "bg-slate-100 dark:bg-slate-900 p-3 space-y-2"
                     )}>
                         {isLeave ? (
                             <div className="space-y-4 py-1">

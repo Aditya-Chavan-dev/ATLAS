@@ -168,3 +168,48 @@ exports.unregisterOwnerFcmToken = functions.https.onCall(async (data, context) =
     console.log(`FCM token unregistered`);
     return { success: true };
 });
+
+/**
+ * TRIGGER: User Cleanup (Zombie Data Fix)
+ * Listens for deletion in /employees/{uid} and cascades delete to:
+ * - /leaves/{uid}
+ * - /fcm_tokens/{uid} (Legacy)
+ * - /deviceTokens (where uid matches)
+ */
+exports.onUserDeleted = functions.database
+    .ref('/employees/{uid}')
+    .onDelete(async (snap, context) => {
+        const uid = context.params.uid;
+        console.log(`🗑️ Processing cleanup for deleted user: ${uid}`);
+
+        try {
+            // 1. Delete Leaves (User-Specific Path)
+            await db.ref(`leaves/${uid}`).remove();
+            console.log(`✅ Deleted leaves for ${uid}`);
+
+            // 2. Delete Legacy FCM Tokens (User-Specific Path)
+            await db.ref(`fcm_tokens/${uid}`).remove();
+
+            // 3. Delete Device Tokens (Reverse Lookup required)
+            // deviceTokens are keyed by Token, so we must query by UID
+            const tokensSnap = await db.ref('deviceTokens')
+                .orderByChild('uid')
+                .equalTo(uid)
+                .once('value');
+
+            if (tokensSnap.exists()) {
+                const updates = {};
+                Object.keys(tokensSnap.val()).forEach(tokenKey => {
+                    updates[`deviceTokens/${tokenKey}`] = null;
+                });
+                await db.ref().update(updates);
+                console.log(`✅ Deleted ${Object.keys(updates).length} device tokens for ${uid}`);
+            }
+
+            console.log(`USER CLEANUP COMPLETE for ${uid}`);
+
+        } catch (error) {
+            console.error('❌ Error during user cleanup:', error);
+        }
+    });
+

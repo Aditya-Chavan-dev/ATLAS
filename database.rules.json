@@ -3,37 +3,65 @@
         ".read": false,
         ".write": false,
         "employees": {
-            ".read": "auth != null",
+            ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'hr')",
             ".indexOn": [
                 "email",
                 "phone",
                 "role"
             ],
             "$uid": {
+                ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'hr')",
                 "profile": {
-                    ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
-                    ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' || (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' && $uid !== auth.uid))"
+                    ".validate": "newData.hasChildren(['role', 'email'])",
+                    "role": {
+                        ".validate": "newData.isString() && (newData.val() === 'owner' || newData.val() === 'md' || newData.val() === 'hr' || newData.val() === 'employee')"
+                    },
+                    "email": {
+                        ".validate": "newData.isString() && newData.val().contains('@')"
+                    },
+                    "status": {
+                        ".validate": "newData.isString() && (newData.val() === 'ACTIVE' || newData.val() === 'SUSPENDED' || newData.val() === 'REVOKED')"
+                    },
+                    ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'hr')",
+                    ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' || (root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' && $uid !== auth.uid) || (auth.token.email === 'adityagchavan3@gmail.com' && auth.token.email_verified === true && $uid === auth.uid))"
                 },
                 "attendance": {
                     ".read": "auth != null && ($uid === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'hr')",
                     "$date": {
-                        ".write": "auth != null && ( (!data.exists() && $uid === auth.uid && root.child('employees').child(auth.uid).child('profile').child('status').val() === 'ACTIVE') || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' )"
+                        ".validate": "newData.hasChildren(['status', 'timestamp'])",
+                        "status": {
+                            ".validate": "newData.isString() && (newData.val() === 'Present' || newData.val() === 'Absent' || newData.val() === 'Half-Day' || newData.val() === 'Holiday')"
+                        },
+                        "timestamp": {
+                            ".validate": "newData.isString()"
+                        },
+                        ".write": "auth != null && ( (!data.exists() && $uid === auth.uid && root.child('employees').child(auth.uid).child('profile').child('status').val() === 'ACTIVE') || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'hr' )"
                     }
                 }
             }
         },
         "users": {
-            ".read": "false",
-            ".write": "false"
+            ".read": false,
+            ".write": false
         },
         "attendance": {
-            ".read": "false",
-            ".write": "false"
+            ".read": false,
+            ".write": false
         },
         "leaves": {
             "$employeeId": {
                 ".read": "auth != null && ($employeeId === auth.uid || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner')",
                 "$leaveId": {
+                    ".validate": "newData.hasChildren(['type', 'days', 'status'])",
+                    "type": {
+                        ".validate": "newData.val() === 'PL' || newData.val() === 'CO' || newData.val() === 'SL'"
+                    },
+                    "days": {
+                        ".validate": "newData.isNumber()"
+                    },
+                    "status": {
+                        ".validate": "newData.val() === 'Pending' || newData.val() === 'Approved' || newData.val() === 'Rejected' || newData.val() === 'Cancelled'"
+                    },
                     ".write": "auth != null && ((!data.exists() && $employeeId === auth.uid && root.child('employees').child(auth.uid).child('profile').child('status').val() === 'ACTIVE') || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md')"
                 }
             }
@@ -54,14 +82,8 @@
             ".read": false,
             ".write": false,
             "sources": {
-                ".indexOn": [
-                    "createdAt",
-                    "label"
-                ],
                 ".read": "auth != null && root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner'",
-                "$sourceId": {
-                    ".write": "auth != null && root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner'"
-                }
+                ".write": "false"
             },
             "sessions": {
                 ".indexOn": [

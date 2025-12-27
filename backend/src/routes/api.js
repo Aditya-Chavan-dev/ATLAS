@@ -1,53 +1,67 @@
 const express = require('express');
 const router = express.Router();
+
+// Controllers
 const notificationController = require('../controllers/notificationController');
 const authController = require('../controllers/authController');
 const migrationController = require('../controllers/migrationController');
+const attendanceController = require('../controllers/attendanceController');
+const leaveController = require('../controllers/leaveController');
+const dashboardController = require('../controllers/dashboardController');
+const exportController = require('../controllers/exportController');
 
-// Health Check
+// Auth Middleware
+const { verifyToken, verifyTokenAndRole } = require('../middleware/authMiddleware');
+
+// Health Check (Public - no auth needed)
 router.get('/', (req, res) => {
     res.json({
         status: 'active',
         service: 'ATLAS Notification Server',
         timestamp: new Date().toISOString(),
-        version: '3.1.0 (Strict Broadcast)'
+        version: '3.2.0 (Auth Protected)'
     });
 });
 
-// FCM Routes
-router.post('/fcm/register', notificationController.registerToken);
-router.post('/fcm/unregister', notificationController.unregisterToken);
-// Map status updates (e.g. denied) to same handler or specific status handler if exists
-router.post('/fcm/status', notificationController.registerToken); // Reusing register logic for status update
-router.post('/fcm/broadcast', notificationController.broadcastAttendance);
+// ========================================
+// PROTECTED ROUTES (Require Login)
+// ========================================
 
-// Attendance Routes (Transactional Notification)
-const attendanceController = require('../controllers/attendanceController');
-router.post('/attendance/mark', attendanceController.markAttendance);
-router.post('/attendance/status', attendanceController.updateStatus);
+// FCM Routes (Any authenticated user)
+router.post('/fcm/register', verifyToken, notificationController.registerToken);
+router.post('/fcm/unregister', verifyToken, notificationController.unregisterToken);
+router.post('/fcm/status', verifyToken, notificationController.registerToken);
+
+// Attendance Routes (Any authenticated user for their own, MD can update any)
+router.post('/attendance/mark', verifyToken, attendanceController.markAttendance);
+router.post('/attendance/status', verifyTokenAndRole(['md', 'owner']), attendanceController.updateStatus);
 
 // Leave Routes
-const leaveController = require('../controllers/leaveController');
-router.post('/leave/apply', leaveController.applyLeave);
-router.get('/leave/history/:employeeId', leaveController.getHistory); // If used
-router.post('/leave/approve', leaveController.approveLeave); // If used via API (MD app uses direct firebase write currently? No, strict mode implies API usage for standard notification/balance)
-router.post('/leave/reject', leaveController.rejectLeave);
-router.post('/leave/cancel', leaveController.cancelLeave);
+router.post('/leave/apply', verifyToken, leaveController.applyLeave);
+router.get('/leave/history/:employeeId', verifyToken, leaveController.getHistory);
+router.post('/leave/approve', verifyTokenAndRole(['md', 'owner']), leaveController.approveLeave);
+router.post('/leave/reject', verifyTokenAndRole(['md', 'owner']), leaveController.rejectLeave);
+router.post('/leave/cancel', verifyToken, leaveController.cancelLeave);
 
-// Dashboard Routes (SSOT for employee statistics)
-const dashboardController = require('../controllers/dashboardController');
-router.get('/dashboard/stats', dashboardController.getDashboardStats);
+// Dashboard Routes (MD/Owner/HR only)
+router.get('/dashboard/stats', verifyTokenAndRole(['md', 'owner', 'hr']), dashboardController.getDashboardStats);
 
-// Export Routes
-const exportController = require('../controllers/exportController');
-router.get('/export/attendance', exportController.exportAttendanceReport);
+// Export Routes (MD/Owner/HR only)
+router.get('/export/attendance', verifyTokenAndRole(['md', 'owner', 'hr']), exportController.exportAttendanceReport);
 
-// Auth Routes (Admin Only)
-router.post('/auth/create-employee', authController.createEmployee);
-router.post('/auth/archive-employee', authController.archiveEmployee);
-router.post('/auth/delete-employee', authController.deleteEmployee);
+// ========================================
+// ADMIN ROUTES (Owner/MD Only)
+// ========================================
 
-// System Routes
-router.post('/system/migrate', migrationController.runMigration);
+// FCM Broadcast (MD/Owner only - sends to all users)
+router.post('/fcm/broadcast', verifyTokenAndRole(['md', 'owner']), notificationController.broadcastAttendance);
+
+// User Management (Owner/MD only)
+router.post('/auth/create-employee', verifyTokenAndRole(['md', 'owner']), authController.createEmployee);
+router.post('/auth/archive-employee', verifyTokenAndRole(['md', 'owner']), authController.archiveEmployee);
+router.post('/auth/delete-employee', verifyTokenAndRole(['owner']), authController.deleteEmployee);
+
+// System Routes (Owner only)
+router.post('/system/migrate', verifyTokenAndRole(['owner']), migrationController.runMigration);
 
 module.exports = router;

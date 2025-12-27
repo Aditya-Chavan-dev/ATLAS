@@ -189,15 +189,7 @@ export default function Home() {
                                 {new Date(todayStatus.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
 
-                            {/* Test Mode Button - Hidden in Prod */}
-                            {currentUser?.email?.includes('chavan') && (
-                                <button
-                                    onClick={() => setIsModalOpen(true)}
-                                    className="mt-6 text-xs text-slate-300 hover:text-blue-500 underline decoration-dashed"
-                                >
-                                    Force Check-in Again
-                                </button>
-                            )}
+
                         </div>
                     )}
                 </div>

@@ -1,34 +1,54 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { ref, onValue } from 'firebase/database'
 import { database } from './firebase/config'
 import './styles/MDTheme.css' // Import MD Theme
 import './styles/MDComponents.css' // Import MD Component Styles
-import MDLayout from './layouts/MDLayout'
-import HRLayout from './layouts/HRLayout'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ROLES } from './config/roleConfig'
-import EmployeeLayout from './layouts/EmployeeLayout'
-import EmployeeHome from './employee/pages/Home'
-import EmployeeHistory from './employee/pages/History'
-import EmployeeLeave from './employee/pages/Leave'
-import EmployeeProfile from './employee/pages/Profile'
-import Login from './pages/Login'
-import InstallPage from './pages/InstallPage'
-import MDDashboard from './md/pages/Dashboard'
-import MDHistory from './md/pages/History'
-import MDApprovals from './md/pages/Approvals'
-import MDProfiles from './md/pages/Profiles'
-
-import MDExport from './md/pages/Export'
-import MDEmployeeManagement from './md/pages/EmployeeManagement'
 import { useAuth } from './context/AuthContext'
 import { requestNotificationPermission, setupForegroundListener } from './services/fcm'
-// Demo mode - completely isolated from production
-import DemoApp from '../demo/DemoApp'
-// Metrics dashboard - owner-only analytics
-import MetricsDashboard from './pages/MetricsDashboard'
+import Login from './pages/Login'
+import PWAUpdater from './components/PWAUpdater'
+import ErrorBoundary from './components/ErrorBoundary'
+import { DashboardSkeleton } from './components/ui/Skeleton'
+import logger from './utils/logger'
+
+// ----------------------------------------------------------------------
+// LAZY LOADED MODULES (Code Splitting)
+// ----------------------------------------------------------------------
+// Each of these will generate a separate JS chunk, downloaded only when needed.
+
+// 1. Employee Bundle
+const EmployeeLayout = lazy(() => import('./layouts/EmployeeLayout'))
+const EmployeeHome = lazy(() => import('./employee/pages/Home'))
+const EmployeeHistory = lazy(() => import('./employee/pages/History'))
+const EmployeeLeave = lazy(() => import('./employee/pages/Leave'))
+const EmployeeProfile = lazy(() => import('./employee/pages/Profile'))
+
+// 2. MD/Admin Bundle
+const MDLayout = lazy(() => import('./layouts/MDLayout'))
+const MDDashboard = lazy(() => import('./md/pages/Dashboard'))
+const MDHistory = lazy(() => import('./md/pages/History'))
+const MDApprovals = lazy(() => import('./md/pages/Approvals'))
+const MDProfiles = lazy(() => import('./md/pages/Profiles'))
+const MDExport = lazy(() => import('./md/pages/Export'))
+const MDEmployeeManagement = lazy(() => import('./md/pages/EmployeeManagement'))
+
+// 3. Specialized Bundles
+const MetricsDashboard = lazy(() => import('./pages/MetricsDashboard'))
+const HRLayout = lazy(() => import('./layouts/HRLayout'))
+const InstallPage = lazy(() => import('./pages/InstallPage'))
+
+// ----------------------------------------------------------------------
+
+// Loading Fallback (Skeleton Loader for better UX)
+const LoadingScreen = () => (
+    <div className="min-h-screen bg-slate-50 p-6">
+        <DashboardSkeleton />
+    </div>
+)
 
 // Smart redirect component for MD landing page
 function MDLandingRedirect() {
@@ -36,33 +56,13 @@ function MDLandingRedirect() {
     const [checking, setChecking] = useState(true)
 
     useEffect(() => {
-        const attendanceRef = ref(database, 'attendance')
-        const unsubscribe = onValue(attendanceRef, (snapshot) => {
-            const data = snapshot.val()
-            if (data) {
-                const hasPending = Object.values(data).some(item =>
-                    item.status === 'pending' ||
-                    item.status === 'correction_pending' ||
-                    item.status === 'edit_pending'
-                )
-                setRedirectPath(hasPending ? '/md/approvals' : '/md/dashboard')
-            } else {
-                setRedirectPath('/md/dashboard')
-            }
-            setChecking(false)
-        }, { onlyOnce: true }) // Only check once on load
-
-        return () => unsubscribe()
+        // SSOT Hardening: We no longer query usage metrics on load.
+        // Direct access to Dashboard is the predictable behavior.
+        setRedirectPath('/md/dashboard')
+        setChecking(false)
     }, [])
 
-    if (checking) {
-        return (
-            <div className="flex items-center justify-center h-screen bg-slate-50">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-            </div>
-        )
-    }
-
+    if (checking) return <LoadingScreen />
     return <Navigate to={redirectPath} replace />
 }
 
@@ -85,7 +85,7 @@ function AppContent() {
         const handleFcmMessage = (event) => {
             const payload = event.detail;
             const title = payload.notification?.title || "Attendance Reminder";
-            console.log('[App] Visual Alert Triggered:', title);
+            logger.info('[App] Visual Alert Triggered:', title);
             alert(`🔔 ${title}\n\n${payload.notification?.body || "Check your attendance."}`);
         };
         window.addEventListener('FCM_MESSAGE_RECEIVED', handleFcmMessage);
@@ -97,108 +97,93 @@ function AppContent() {
     }, [currentUser]);
 
     // Show loading while checking auth
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            </div>
-        )
-    }
+    if (loading) return <LoadingScreen />
 
-    // Not logged in - show Login (and Download page)
-    if (!currentUser) {
-        return (
-            <Routes>
-                <Route path="/" element={<Login />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-        )
-    }
-
-    // Owner & MD Layout - Combined Access
-    // Owner is a superset of MD (can access Metrics + everything MD can do)
-    if (isMD || isOwnerRole) {
-        return (
-            <Routes>
-                {/* Owner-Specific Route */}
-                {isOwnerRole && (
-                    <Route path="/metrics" element={<MetricsDashboard />} />
-                )}
-
-                {/* MD Layout (Accessible to MD & Owner) */}
-                <Route path="/md" element={<MDLayout />}>
-                    <Route index element={<MDLandingRedirect />} />
-                    <Route path="dashboard" element={<MDDashboard />} />
-                    <Route path="history" element={<MDHistory />} />
-                    <Route path="approvals" element={<MDApprovals />} />
-                    <Route path="employees" element={<MDEmployeeManagement />} />
-                    <Route path="profiles" element={<MDProfiles />} />
-                    <Route path="export" element={<MDExport />} />
-                    <Route path="*" element={<Navigate to="/md/dashboard" replace />} />
-                </Route>
-
-                {/* Redirects */}
-                {/* Owner defaults to Metrics, MD defaults to Dashboard */}
-                <Route path="/" element={<Navigate to={isOwnerRole ? "/metrics" : "/md"} replace />} />
-                <Route path="*" element={<Navigate to={isOwnerRole ? "/metrics" : "/md"} replace />} />
-            </Routes>
-        )
-    }
-
-    // HR Layout (Export Only)
-    const isHR = userRole === ROLES.HR
-    if (isHR) {
-        return (
-            <Routes>
-                <Route path="/hr" element={<HRLayout />}>
-                    <Route index element={<Navigate to="/hr/export" replace />} />
-                    <Route path="export" element={<MDExport />} />
-                    <Route path="*" element={<Navigate to="/hr/export" replace />} />
-                </Route>
-                <Route path="/" element={<Navigate to="/hr" replace />} />
-                <Route path="*" element={<Navigate to="/hr" replace />} />
-            </Routes>
-        )
-    }
-
-    // Employee Layout
     return (
-        <Routes>
-            <Route path="/" element={<EmployeeLayout />}>
-                <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={<EmployeeHome />} />
-                <Route path="history" element={<EmployeeHistory />} />
-                <Route path="leave" element={<EmployeeLeave />} />
-                <Route path="profile" element={<EmployeeProfile />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+        <Suspense fallback={<LoadingScreen />}>
+            {/* Not logged in - show Login (and Download page) */}
+            {!currentUser && (
+                <Routes>
+                    <Route path="/" element={<Login />} />
+                    {/* Install Page is public but lazy loaded */}
+                    <Route path="/install" element={<InstallPage />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            )}
+
+            {/* Owner & MD Layout */}
+            {currentUser && (isMD || isOwnerRole) && (
+                <Routes>
+                    {/* Owner-Specific Route */}
+                    {isOwnerRole && (
+                        <Route path="/metrics" element={<MetricsDashboard />} />
+                    )}
+
+                    {/* MD Layout (Accessible to MD & Owner) */}
+                    <Route path="/md" element={<MDLayout />}>
+                        <Route index element={<MDLandingRedirect />} />
+                        <Route path="dashboard" element={<MDDashboard />} />
+                        <Route path="history" element={<MDHistory />} />
+                        <Route path="approvals" element={<MDApprovals />} />
+                        <Route path="employees" element={<MDEmployeeManagement />} />
+                        <Route path="profiles" element={<MDProfiles />} />
+                        <Route path="export" element={<MDExport />} />
+                        <Route path="*" element={<Navigate to="/md/dashboard" replace />} />
+                    </Route>
+
+                    {/* Redirects */}
+                    <Route path="/" element={<Navigate to={isOwnerRole ? "/metrics" : "/md"} replace />} />
+                    <Route path="*" element={<Navigate to={isOwnerRole ? "/metrics" : "/md"} replace />} />
+                </Routes>
+            )}
+
+            {/* HR Layout (Export + Attendance for HR staff) */}
+            {currentUser && userRole === ROLES.HR && (
+                <Routes>
+                    <Route path="/hr" element={<HRLayout />}>
+                        <Route index element={<Navigate to="/hr/home" replace />} />
+                        <Route path="home" element={<EmployeeHome />} />
+                        <Route path="export" element={<MDExport />} />
+                        <Route path="*" element={<Navigate to="/hr/home" replace />} />
+                    </Route>
+                    <Route path="/" element={<Navigate to="/hr" replace />} />
+                    <Route path="*" element={<Navigate to="/hr" replace />} />
+                </Routes>
+            )}
+
+            {/* Employee Layout (Default Fallback for regular auth users) */}
+            {currentUser && !isMD && !isOwnerRole && !isOwnerRole && userRole !== ROLES.HR && (
+                <Routes>
+                    <Route path="/" element={<EmployeeLayout />}>
+                        <Route index element={<Navigate to="/dashboard" replace />} />
+                        <Route path="dashboard" element={<EmployeeHome />} />
+                        <Route path="history" element={<EmployeeHistory />} />
+                        <Route path="leave" element={<EmployeeLeave />} />
+                        <Route path="profile" element={<EmployeeProfile />} />
+                    </Route>
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+            )}
+        </Suspense>
     )
 }
 
-import PWAUpdater from './components/PWAUpdater'
-
-// ...
-
 function App() {
     return (
-        <AuthProvider>
-            <ThemeProvider>
-                <Routes>
-                    {/* Public routes - explicitly bypassing auth */}
-                    <Route path="/demo" element={<DemoApp />} />
-                    <Route path="/install" element={<InstallPage />} />
-
-                    {/* Protected routes - require authentication */}
-                    <Route path="/*" element={
-                        <>
-                            <PWAUpdater />
-                            <AppContent />
-                        </>
-                    } />
-                </Routes>
-            </ThemeProvider>
-        </AuthProvider>
+        <ErrorBoundary>
+            <AuthProvider>
+                <ThemeProvider>
+                    <Routes>
+                        <Route path="/*" element={
+                            <>
+                                <PWAUpdater />
+                                <AppContent />
+                            </>
+                        } />
+                    </Routes>
+                </ThemeProvider>
+            </AuthProvider>
+        </ErrorBoundary>
     )
 }
 

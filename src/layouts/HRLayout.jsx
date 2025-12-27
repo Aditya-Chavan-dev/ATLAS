@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { FileText, LogOut, Sun, Moon } from 'lucide-react'
+import { FileText, LogOut, Sun, Moon, Home } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -15,6 +15,7 @@ export default function HRLayout() {
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
 
     const navigation = [
+        { name: 'Home', href: '/hr/home', icon: Home },
         { name: 'Reports', href: '/hr/export', icon: FileText },
     ]
 

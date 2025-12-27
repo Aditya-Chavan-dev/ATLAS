@@ -27,6 +27,10 @@
     ],
     "rewrites": [
       {
+        "source": "/demo/**",
+        "destination": "/demo.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
@@ -52,5 +56,9 @@
   },
   "database": {
     "rules": "database.rules.json"
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs18"
   }
 }

@@ -4,6 +4,7 @@ import { database } from '../../firebase/config'
 import clsx from 'clsx'
 import { ArrowLeft } from 'lucide-react'
 import { getEmployeeStats } from '../../utils/employeeStats'
+import logger from '../../utils/logger'
 
 // Sub-components
 import ProfileList from '../components/ProfileList'
@@ -28,7 +29,7 @@ export default function MDProfiles() {
                 return nameA.localeCompare(nameB);
             })
 
-            console.log(`[Profiles] Loaded employees: ${validEmployees.length}`)
+            logger.info(`[Profiles] Loaded employees: ${validEmployees.length}`)
 
             setEmployees(validEmployees)
             if (validEmployees.length > 0 && !selectedEmployeeId) {

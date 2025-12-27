@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ROLES } from '../../config/roleConfig'
 import { getEmployeeStats } from '../../utils/employeeStats'
 import { getTodayISO } from '../../utils/date'
+import logger from '../../utils/logger'
 
 // UI Components
 import MDToast from '../components/MDToast'
@@ -67,10 +68,10 @@ export default function MDDashboard() {
             const report = getEmployeeStats(data, todayStr)
 
             // 🔍 MANDATORY LOGS (Architecture Lock Requirement)
-            console.log(`[Dashboard] Raw employees fetched: ${report.rawCount}`)
-            console.log(`[Dashboard] Valid employees: ${report.stats.totalEmployees}`)
-            console.log(`[Dashboard] Attendance records for today (${todayStr}): ${report.liveFeed.length}`)
-            console.log(`[Dashboard] Stats computed at: ${new Date().toISOString()}`)
+            logger.info(`[Dashboard] Raw employees fetched: ${report.rawCount}`)
+            logger.info(`[Dashboard] Valid employees: ${report.stats.totalEmployees}`)
+            logger.info(`[Dashboard] Attendance records for today (${todayStr}): ${report.liveFeed.length}`)
+            logger.info(`[Dashboard] Stats computed at: ${new Date().toISOString()}`)
 
             // Log Diagnostics for excluded users
             if (report.diagnostics.ignoredProfiles.length > 0) {
@@ -126,12 +127,7 @@ export default function MDDashboard() {
         }
     }
 
-    // Helper: Avatar Colors
-    const getAvatarColor = (name) => {
-        const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-purple-600', 'bg-orange-600', 'bg-pink-600', 'bg-cyan-600']
-        const index = (name?.charCodeAt(0) || 0) % colors.length
-        return colors[index]
-    }
+    // Avatar color helper uses the function defined at the top of the file
 
     const containerVariants = {
         hidden: { opacity: 0 },

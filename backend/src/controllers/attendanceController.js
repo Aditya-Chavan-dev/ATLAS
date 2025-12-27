@@ -50,51 +50,81 @@ exports.markAttendance = async (req, res) => {
     }
 
     try {
-        // 1. Check for duplicate (Idempotency - LEAK #8 fix)
+        // 1. ATOMIC TRANSACTION (Fixes Race Condition & Idempotency)
+        // We use a transaction to safely check-and-write in one atomic operation.
         const attendanceRef = db.ref(`employees/${uid}/attendance/${dateStr}`);
-        const existingSnap = await attendanceRef.once('value');
 
-        if (existingSnap.exists()) {
-            const existing = existingSnap.val();
-            // If already approved, reject duplicate attempt
-            if (existing.status === 'approved' || existing.status === 'Present') {
-                return res.status(409).json({
-                    error: 'Attendance already marked and approved for this date',
-                    existing: existing
-                });
-            }
+        let transactionResult;
+        let finalSnapshot;
+
+        try {
+            transactionResult = await attendanceRef.transaction((currentData) => {
+                // If data exists, check if it's already final/approved
+                if (currentData) {
+                    if (currentData.status === 'approved' || currentData.status === 'Present') {
+                        // Abort transaction - already final
+                        return undefined;
+                    }
+                    // If pending/rejected, we MIGHT allow overwrite depending on rules,
+                    // but for strict idempotency ("Double Tap"), we should abort if *any* record exists 
+                    // unless it's a specific "retry" case. 
+                    // Let's assume STRICT Idempotency: If Record Exists, Abort.
+                    return undefined;
+                }
+
+                // DATA DOES NOT EXIST (or we are overwriting - behavior decision)
+                // Returning the new object creates/overwrites the data
+
+                // STRICT FLOW: Check for Holiday/Sunday (Calculated inside transaction scope implies safety)
+                const isHoliday = isNationalHoliday(dateStr);
+                const isSun = isSunday(dateStr);
+
+                let status = 'pending';
+                let statusNote = null;
+
+                if (isHoliday || isSun) {
+                    status = 'pending_co';
+                    statusNote = isHoliday ? 'Worked on National Holiday' : 'Worked on Sunday';
+                }
+
+                // 2. SERVER-SIDE TIMESTAMP (Fixes Time Integrity LEAK #2)
+                // Use ISO string generated on SERVER, ignore client timestamp
+                const serverTimestamp = new Date().toISOString();
+
+                return {
+                    status: status,
+                    timestamp: serverTimestamp,
+                    locationType,
+                    siteName: siteName || null,
+                    mdNotified: false,
+                    specialNote: statusNote
+                };
+            });
+        } catch (txError) {
+            console.error('[Attendance] Transaction Failed:', txError);
+            throw txError;
         }
 
-        // 2. SERVER-SIDE TIMESTAMP (LEAK #2 fix - do not trust client)
-        const serverTimestamp = new Date().toISOString();
+        if (!transactionResult.committed) {
+            // Transaction aborted because data existed (returned undefined)
+            // Fetch what is there to show the user
+            const existingSnap = await attendanceRef.once('value');
+            const existing = existingSnap.val();
 
-        // 3. Fetch user profile for name
+            return res.status(409).json({
+                error: 'Attendance already marked for this date',
+                existing: existing
+            });
+        }
+
+        // Transaction Valid & Committed
+        const newRecord = transactionResult.snapshot.val();
+        console.log(`[Attendance] Transaction Committed for ${uid}:`, newRecord.status);
+
+        // 3. Fetch user profile for name (Post-Transaction)
         const userSnap = await db.ref(`employees/${uid}/profile`).once('value');
         const userData = userSnap.val() || {};
         const employeeName = userData.name || 'Employee';
-
-        // STRICT FLOW: Check for Holiday/Sunday
-        const isHoliday = isNationalHoliday(dateStr);
-        const isSun = isSunday(dateStr);
-
-        let status = 'pending';
-        let statusNote = null;
-
-        if (isHoliday || isSun) {
-            status = 'pending_co'; // Special status for CO Request
-            statusNote = isHoliday ? 'Worked on National Holiday' : 'Worked on Sunday';
-        }
-
-        const updateData = {
-            status: status,
-            timestamp: serverTimestamp, // Always use server time
-            locationType,
-            siteName: siteName || null,
-            mdNotified: false,
-            specialNote: statusNote
-        };
-
-        await attendanceRef.update(updateData);
         console.log(`[Attendance] Marked for ${employeeName} (${uid})`);
 
         // 2. Notify MDs

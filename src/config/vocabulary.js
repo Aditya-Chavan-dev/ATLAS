@@ -81,6 +81,7 @@ export const LOCATION_TYPE = {
 
 export const USER_ROLE = {
     EMPLOYEE: 'employee',
+    HR: 'hr',
     MD: 'md',
     OWNER: 'owner',
 };
