@@ -30,6 +30,37 @@ app.use(cors({
 
 app.use(express.json());
 
+// ============================================
+// SECURITY: Rate Limiting
+// ============================================
+const rateLimit = require('express-rate-limit');
+
+// General API limit: 100 requests per 15 minutes
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100,
+    message: { error: 'Too many requests, please try again later.', code: 'RATE_LIMITED' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Strict limit for sensitive operations: 20 requests per 15 minutes
+const strictLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: { error: 'Too many sensitive requests, please slow down.', code: 'RATE_LIMITED_STRICT' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Apply general limiter to all API routes
+app.use('/api', generalLimiter);
+
+// Apply strict limiter to sensitive routes
+app.use('/api/auth', strictLimiter);
+app.use('/api/fcm/broadcast', strictLimiter);
+app.use('/api/system', strictLimiter);
+
 // Mount API Routes
 app.use('/api', apiRoutes);
 
