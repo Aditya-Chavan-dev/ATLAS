@@ -52,6 +52,44 @@ exports.markAttendance = async (req, res) => {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // ------------------------------------------------------------------
+    // SECURITY: STRICT TIME-WINDOW ENFORCEMENT
+    // ------------------------------------------------------------------
+    // Rule 1: No Future Dates
+    // Rule 2: No Stale Dates (> 48 hours in past)
+    // Exception: Admins/MDs can bypass (e.g. for corrections)
+
+    // Check Role
+    const userRole = req.user.role ? req.user.role.toLowerCase() : 'employee';
+    const canBypass = ['admin', 'md', 'owner'].includes(userRole);
+
+    if (!canBypass) {
+        const { getTodayDateIST } = require('../utils/dateUtils');
+        const todayStr = getTodayDateIST(); // YYYY-MM-DD in IST
+
+        // Simple String Comparison works for ISO dates (YYYY-MM-DD)
+        if (dateStr > todayStr) {
+            return res.status(403).json({
+                error: 'Future attendance is not allowed. Please mark for today only.',
+                code: 'Did you invent a Time Machine?'
+            });
+        }
+
+        // Calculate 48-hour window
+        // We need to parse dates to compare age
+        const current = new Date(todayStr);
+        const target = new Date(dateStr);
+        const diffTime = Math.abs(current - target);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (target < current && diffDays > 2) {
+            return res.status(403).json({
+                error: 'Attendance window closed. Cannot mark attendance older than 48 hours.',
+                code: 'LATE_SUBMISSION'
+            });
+        }
+    }
+
     try {
         // 1. ATOMIC TRANSACTION (Fixes Race Condition & Idempotency)
         // We use a transaction to safely check-and-write in one atomic operation.
