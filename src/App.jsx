@@ -40,6 +40,7 @@ const MDEmployeeManagement = lazy(() => import('./md/pages/EmployeeManagement'))
 const MetricsDashboard = lazy(() => import('./pages/MetricsDashboard'))
 const HRLayout = lazy(() => import('./layouts/HRLayout'))
 const InstallPage = lazy(() => import('./pages/InstallPage'))
+const AccessRevoked = lazy(() => import('./pages/AccessRevoked'))
 
 // ----------------------------------------------------------------------
 
@@ -67,7 +68,7 @@ function MDLandingRedirect() {
 }
 
 function AppContent() {
-    const { currentUser, userRole, loading } = useAuth()
+    const { currentUser, userRole, loading, isSuspended } = useAuth()
     const isMD = userRole === ROLES.MD
     const isOwnerRole = userRole === ROLES.OWNER
 
@@ -98,6 +99,18 @@ function AppContent() {
 
     // Show loading while checking auth
     if (loading) return <LoadingScreen />
+
+    // 🔒 SUSPENDED USER TRAP
+    if (currentUser && isSuspended) {
+        return (
+            <Suspense fallback={<LoadingScreen />}>
+                <Routes>
+                    <Route path="/access-revoked" element={<AccessRevoked />} />
+                    <Route path="*" element={<Navigate to="/access-revoked" replace />} />
+                </Routes>
+            </Suspense>
+        )
+    }
 
     return (
         <Suspense fallback={<LoadingScreen />}>
@@ -161,6 +174,8 @@ function AppContent() {
                         <Route path="leave" element={<EmployeeLeave />} />
                         <Route path="profile" element={<EmployeeProfile />} />
                     </Route>
+                    {/* Prevent access to /access-revoked if active */}
+                    <Route path="/access-revoked" element={<Navigate to="/" replace />} />
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
             )}

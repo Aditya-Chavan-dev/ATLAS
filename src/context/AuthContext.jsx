@@ -43,6 +43,7 @@ export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null)
     const [userRole, setUserRole] = useState(null)
     const [userProfile, setUserProfile] = useState(null)
+    const [isSuspended, setIsSuspended] = useState(false) // New State for soft lockout
     const [loading, setLoading] = useState(true)
     const [authError, setAuthError] = useState(null)
 
@@ -89,23 +90,31 @@ export const AuthProvider = ({ children }) => {
                 }
 
                 // 1. Status Check
-                if (profile.status === 'REVOKED') {
-                    console.warn(`⛔ Access REVOKED for ${email}`)
-                    setAuthError('Your access has been revoked by the administrator.')
+                const status = (profile.status || 'ACTIVE').toUpperCase()
+
+                // Hard Revocation (Deleted/Revoked) -> Logout
+                if (status === 'REVOKED' || status === 'DELETED') {
+                    console.warn(`⛔ Access ${status} for ${email}`)
+                    setAuthError('Your access has been revoked or account deleted.')
                     await logout()
                     return
                 }
 
-                if (profile.status === 'SUSPENDED') {
+                // Soft Revocation (Suspended) -> Redirect to /access-revoked
+                if (status === 'SUSPENDED') {
                     console.warn(`⛔ Access SUSPENDED for ${email}`)
-                    setAuthError('Your account is currently suspended.')
-                    setUserRole(null) // Lockout
+                    setIsSuspended(true)
+                    setUserRole(null) // Remove role to block normal access
                     setUserProfile(profile)
+                    // Do NOT logout - let UI redirect to /access-revoked
                     return
                 }
 
+                // ACTIVE State
+                setIsSuspended(false) // Reset suspension
+
                 // 2. Role Resolution
-                if (profile.role && profile.status === 'ACTIVE') {
+                if (profile.role && status === 'ACTIVE') {
                     logger.info(`✅ Role Resolved: ${profile.role}`)
                     setUserRole(profile.role)
                     setUserProfile(profile)
@@ -219,6 +228,7 @@ export const AuthProvider = ({ children }) => {
     const value = {
         currentUser,
         userRole,
+        isSuspended,
         userProfile,
         loading,
         authError,
