@@ -26,6 +26,7 @@ import {
     serverTimestamp
 } from 'firebase/database'
 import { auth, database } from '../firebase/config'
+import { config } from '../config'
 import { ROLES, isOwnerEmail } from '../config/roleConfig'
 import logger from '../utils/logger'
 
@@ -73,7 +74,7 @@ export const AuthProvider = ({ children }) => {
                 // 0. Owner Auto-Repair (Critical Recovery)
                 if (isOwnerEmail(email)) {
                     if (profile.role !== ROLES.OWNER || profile.status !== 'ACTIVE') {
-                        console.warn('👑 Detecting Owner Discrepancy. Auto-Repairing...')
+                        logger.warn('👑 Detecting Owner Discrepancy. Auto-Repairing...')
                         try {
                             await set(userRef, {
                                 ...profile,
@@ -84,7 +85,7 @@ export const AuthProvider = ({ children }) => {
                             // We don't need to do anything else, the listener will fire again with the new data
                             return
                         } catch (err) {
-                            console.error('❌ Owner Auto-Repair Failed:', err)
+                            logger.error('❌ Owner Auto-Repair Failed:', err)
                         }
                     }
                 }
@@ -94,7 +95,7 @@ export const AuthProvider = ({ children }) => {
 
                 // Hard Revocation (Deleted/Revoked) -> Logout
                 if (status === 'REVOKED' || status === 'DELETED') {
-                    console.warn(`⛔ Access ${status} for ${email}`)
+                    logger.critical(`⛔ Access ${status} for ${email}. Terminating Session.`)
                     setAuthError('Your access has been revoked or account deleted.')
                     await logout()
                     return
@@ -102,7 +103,7 @@ export const AuthProvider = ({ children }) => {
 
                 // Soft Revocation (Suspended) -> Redirect to /access-revoked
                 if (status === 'SUSPENDED') {
-                    console.warn(`⛔ Access SUSPENDED for ${email}`)
+                    logger.warn(`⛔ Access SUSPENDED for ${email}`)
                     setIsSuspended(true)
                     setUserRole(null) // Remove role to block normal access
                     setUserProfile(profile)

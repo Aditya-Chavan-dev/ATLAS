@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx'
 import { motion, AnimatePresence } from 'framer-motion'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
+import { config } from '../../config'
 
 export default function MDExport() {
     // Default to current month
@@ -25,7 +26,7 @@ export default function MDExport() {
 
         try {
             const [yearStr, monthStr] = month.split('-') // "2025-11" -> ["2025", "11"]
-            const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend-gncd.onrender.com'
+            const API_URL = config.api.url
 
             const response = await fetch(`${API_URL}/api/export/attendance?month=${monthStr}&year=${yearStr}`, {
                 method: 'GET',

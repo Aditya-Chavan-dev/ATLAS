@@ -3,6 +3,7 @@ import { ref, onValue, update, push } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
 import { format } from 'date-fns'
+import { time } from '../../utils/time'
 import {
     CheckCircle, XCircle, Clock, Calendar, MapPin,
     AlertTriangle, Filter, Archive
@@ -116,7 +117,7 @@ export default function MDApprovals() {
                         actionData: {
                             by: currentUser.uid,
                             name: userProfile?.email || 'MD',
-                            at: new Date().toISOString(),
+                            at: time.now(),
                             reason: reason || ''
                         }
                     })

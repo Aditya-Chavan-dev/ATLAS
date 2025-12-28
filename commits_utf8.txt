@@ -1,0 +1,153 @@
+﻿fc1e3e64cb18b297a6580bd0b96182079c3fe91b Refactor project structure: Move to root, add error logging, cleanup
+2fad249d6c03a19d3e077ee8bc90a5b3d9ceae32 Add Excel export endpoint and deployment docs
+a4489d37cfcdd3d24a10e2e08f0c3bc591cd5431 Complete full-stack deployment with Excel export and push notifications
+48e7c9b94e66b3fe61e2b42f52e7950ebfff350f Enhanced Excel export: bold fonts, Sunday yellow highlight, dynamic column widths
+3ba1eefb8fb0e784f09f13c7e30b8eb665a289cd Fix Firebase database import in exportController
+6d8a3c95fd976a5ae263a8a69f17529ffd6cd286 SECURITY: Remove all exposed credentials and hardcoded secrets
+1a3bdc2946f75e48950f1d638f6058323a774ff5 Add Send Reminder button to MD Dashboard
+ccf5a80ed2075f36052fe049d82da34431d6434b Update notifications: Send to ALL employees with banner display
+480ae0f8c034c2a2736c48512355508a8ceff19b Frontend: Update notification message for all employees
+8d9adfabf6dab780207e4a86b943b15140a31618 fix: resolve build failure - remove invalid onBackgroundMessage import
+d6df6bf85f744725370396ea9f01c1736e13e35b security: implement secret protection measures
+2b82e334ebe682d3976172943db236193749fae2 Fix: Correct backend API URL for notifications
+4e00996e22c16a09cd6697bbb3ce171ea02b0e97 docs: Add Issue #9 - Manual trigger notifications fix
+fa41acb13a7a8769c965475662553b68a2dfa8f3 Fix: Send notifications to all employee profiles with proper count
+9d8f07256c3a9b680385c97d928435b4c719d461 BREAKING: Restructure database from /users + /attendance to /employees with nested attendance
+e007646b7f25c6f2ca679558550b98b7b97c809e feat: revamp employee dashboard UI to brown theme mobile-first
+25580333d4885de4656422a52580564405f1a5fe fix(backend): replace corrupt template literal to fix syntax error
+c89b0c917dabc7d7d76e2812ab5954d83179fde2 fix(backend): replace corrupt template literals to fix syntax error
+70fd11662d7b8f47a2c205b6e547d738f73ffcbe Refactor MD Console, replace alerts with Toasts, and fix reminders
+f52a9394f2eb3c388073a98168ee1d687d8bb28d Fix syntax error in notification controller
+f81638fad55f76cda0082291b7691ef5ab8f100e Replace template literal with string concat to fix SyntaxError
+53041250b3dbcdfe4950d775d536324a5bf33bf8 Lock Node version to 20.x for stable Render deployment
+4b54aa67a53b16ec99f7ca1da9829585381fbcd2 Remove accidental markdown fences from js file
+b9e15c1a847cef3bdc7fbba0ac283756631894ea Simplify Export: Monthly Attendance Only
+ba73e2fe6d5789be6f72df893c06b0bca02cce1c Enhance Employee History UI: Monthly Stats + Timeline Cards
+6070994e8f17a5a8066d45ed61ec1f2873742cfa Fix Notification Trigger: Align DB Paths & Add Robust Scanning
+85f850afbd3d18a75709ca1b4a659be4711def92 Enhance History UI: Glassmorphism, Weekly Strip, Gradient Stats
+f69ca94ef6afad098cae367395856b88ea82fc73 Enforce Realtime Sources: Remove mock stats from Dashboard
+14f8b34d751fb985673d21b53c93ecc5e234a3ca Final Deployment Trigger
+d939c4b64b175ac1ce80d55a78fb3721aa2a06f1 Responsive UI: PC Sidebar & Mobile Bottom Nav
+f5d821265326dd025ef44827f300b0f8e6439eb3 feat: Refactor Notification System (Render) & Remove History Calendar
+79ae4f59b52c53432b35f7851aa0bd8c9a54a28a Fix notification system: Refactor services and fix AuthContext ReferenceError
+b9d4709bc5853564e13ad6c799e0a505f32a93c1 Implement bidirectional notification system: Backend controller and frontend refactoring
+cbe80ce6a5229acb929a0e602bb676140a257651 feat: implement floating notifications, refine PWA install flow, and cleanup docs
+d55636067c5fd4e3545376c19a33fd809c061d66 fix: restore missing state in usePWAInstall hook
+09e4ed0822c487967a4c980a9da14e1b154a3205 feat: robust one-tap PWA installation flow
+f930f9394596c8951176109886232e987c2f9ec8 fix: implement truly one-tap PWA installation and remove friction modals
+effbf0a377133654367535b6510896f8ef657346 feat(backend): register leave routes and implement strict logic
+2642706626af8bd9db0a0607b64374636b205976 fix(backend): export leave controller functions
+586e28136bb1e19e5c89ea8b709aa2390f06f6ab feat: implement strict leave and attendance logic with zero-false-confirmation UI
+2bb9851531a48a65a90b1b92541f0e2352a99d91 fix(frontend): enforce strict transactional leave submission in Leave.jsx
+0411124c426107e333fd6bef4b8f326932d10f8a fix(backend): correct leave controller export syntax
+caa75c056e2e358be1b9092a8c6d3e64e5132d09 fix(backend): block conflicting leave requests with explicit errors
+76bfec66915cf7225d0fab58b4e75fd7ddf129e4 chore(config): update national holidays list 2025
+51b171af461304bbc60a19915b22a8a85af5778c feat(backend): implement strict banking-grade attendance broadcast system
+1824f9816820d30d441c4d656b0c686c7c39d9ae feat(ui): update notification controls and alerts
+daf713c56679bb8b77b039d6da3859a0670f2dd0 refactor(notify): critical rewrite of notification system for banking-grade reliability
+1451db352602cf5c74273600f355c8331500478c chore: wipe all notification logic and ui components
+958c72e7f4917cf7e14b0c2cfc6deda6464a6d33 fix(backend): remove notification routes causing crash
+1d77be77d6152bd948d904556190dc92384db442 feat: master implementation of strict broadcast notification system
+4652379a98b5273945f023b530e4afabaa8484c4 fix(backend): restore notificationService.js to resolve module not found error in leaveController
+7f01ee4a1b4694c01a07c4e3c2ec476273ca1e8e fix(backend): relax md role check casing and location
+471adf7ad52bb13b27d3f5c48e201da4b101b799 chore(backend): add deep security logging
+beb04adc0f8932301999627059f7895e514dfc17 chore(backend): temporarily bypass security check for debugging broadcast
+4d1de473b526818603d12eef7378b3e1bcbf166d feat(backend): migrate notification system to use 'users' node for consistency
+5818b8e71a7176cbda69849e6cae00a88a29d4b8 feat: centralize dashboard metrics logic to backend
+aff43dfbea67aba5b51b661bbec2eddf32f7cabb feat: backend-driven notifications, dark mode & layout fixes
+33cfbb5827e86413c97c2e3668799052c5ff1aec feat: enhance export UI and fix xlsx logic
+12f59cbec72a664e5e5faaf5f74e954505b5bf1a feat: add comprehensive history matrix view
+431d602de15d5e6b6c9f0c02faa7b359c5007032 feat: refine history matrix UI for clarity
+d45fe2c7045a467ff8553928b5400af29fb84ea3 feat: implement precise history indicators O/S/A/L/P
+413d9112c801971a5de8faaee323cae466622b9a feat: realtime history fetching and download button UI update
+898150237e1af93b4a2e5a2685cf24a52535877c feat: stack history filters vertically for cleaner UI
+5c341630776115526cf4de729c3848d855f2b1fd feat: refine mobile bottom nav to be cleaner (docked + auto-hiding labels)
+56f1d610af2e9b23a81f772a4ee448d4418a9be7 style: lift bottom nav for better safe area handling while keeping cleaner design
+4b06aed49aa4beb11a3f3425642c61deda07c984 feat: add page transitions with framer-motion
+925f7e7db047da9f80ac39767978d8332d9bb842 feat(md-console): Enhance UI visuals and interactions
+45827c878f41e2bcf8feed38288231841b60584f feat: Enterprise Security & Strict Notification System
+556a3184033cc0006bd4ebd343795a7a14de30a9 fix: Employee visibility, Auth flow & Mobile Logout
+b48e438e991b59a2bce3cae5cd44b85b32a7207d fix: Add missing /fcm/status route to backend
+c2fd5c2fa13cdd378573c77860bbbdb0be34beaf feat: Add migration logic (backend route and script)
+6afdc61f66b40a98d6da17bef5219646ccdd00d5 feat: System Migration and Schema Update (Employees/Attendance)
+332ec8305db3404d85cfdfbb259cd4b7af4e912f feat: Filter anonymous users from MD Dashboard
+f9ccf230fd2bb9e3069b919dff83077b82eb88ce fix: Filter deleted/invalid users from Employee List
+df55127cac8eec0be499efc185b75363812ca318 fix: Correct Backend Broadcast counting and remove Dashboard sections
+176a14131734f5696643d88311affee67fd7a90c fix: Relax phone requirement for broadcast
+d8503a1948deb27ffcb422cb2fb7d512598838fd fix(rules): Update DB rules to match lowercase roles and allow cleanup
+069c58ef22fb30823f6ced95676e738798d0db14 feat: Add archive employee endpoint
+e99663424615567086984a6b443404827a694da6 feat: Implement Soft Delete logic with backend Revoke Access
+4fc21c78ec2942132a26adf429ced1eb5b192c57 fix(sw): Handle FCM Data-Only payloads in unified service worker
+13969abb19cdd13ce547374015dc84b6c9b4f9b3 refactor: Migrate FCM storage to token-centric deviceTokens and update broadcast logic
+324d6ab81b9bb1b6ce67f9926bb895c95b814cf6 fix(rules): Implement strict rules for deviceTokens
+d5a2241e3f5470fd4a60ecbce9bd262a6d09ad1b fix(broadcast): Remove role filtering to broadcast to ALL enabled tokens
+18b2ab7f2bb2cb767a904d07e15a2d073817e659 chore: Remove duplicate firebase-messaging-sw.js
+a0ecad6d637f8c73308074b1eba923fed7e34050 fix(fcm): Strict prompt adherence
+53b17b873d4c722e1ffb1194ce5055fec60fb2fa feat: add FCM push notification support with service worker
+50c60f8c53a7cab46b7af7333058ca44ccb023d1 fix(fcm): production-grade push notification fixes
+5908d21c5edbe9df5518e8b362f6bd721d9e8826 docs: remove API key from FCM fix summary
+614f9f76fbebba02815f6170b01ea373d9bf084c docs: add comprehensive security and API key rotation guides
+55574b555b2e3f0ebcf90b76baf56882e4f43ddb docs: add security implementation guides
+5f03709ee9f10d782c57bfc3bdfdbd1502f00783 fix: exclude MD from employee counts across all pages
+b830000a1ca796a9033c2ff835b0511f49088b26 fix: comprehensive refactor of employee counting system
+69b713740cb15388aa576b87337d105ff0b72660 feat: add comprehensive diagnostic logging for zero count bug
+7cf3202e0bb6a630466d3cafb4d90062d25cb529 fix: CRITICAL - case-insensitive role comparison to show all employees
+20be1c248209fd2211fcadda4946568382d41edc fix: broadcast now counts actual employees from database
+0bb15aa4385014a98da121f50c2e900c0b52acc8 fix: made employee filtering robust (optional email) to ensure ALL 5 employees are shown
+02ba815955afd987f4426ecafa27c9ea573fecbc fix: restore strict email check with robust data merging to ensure 5th employee is shown
+8889e542448ef16df836a1de33c8937939bde918 feat: detailed broadcast reporting with email lists
+10ba5bd007a7d8c363e5a71281f09a9e8204ad4e refactor: centralized employee counting and single source of truth
+1d6b08edb554aabee6bb7eba9a5c8219ad911630 fix(notify): add notification block to payload to ensure visibility
+90fdecf37ce0c1dd64c9fdf071259bae69bb9dba feat(notify): enable in-app alert validation for message receipt
+3d0797319e2bd04eb4059f044218040cc225d090 fix(auth): enforce persistent session by awaiting persistence set before login
+4782add01d59e77e72f20d564dad0f8c70be406f feat(ui): enhance broadcast report with rich profile data and improved layout
+1470b6931f6479d60f06d30c932e63e4b3342e60 feat(perf): implement backend wake-up, health check, and token caching
+22fff604e69e2d9cc82f6714d5ccebf6cdd3012c fix(backend): add Safety Fallback to DB if cache is empty during broadcast
+9a91963439e9e9a6383b9aca6c5353dd267f1f7a feat(debug): add Test My Device capability
+0e01cb7be65f5802e7615a0a979e8c7619401c1d chore(security): sanitize sw.js by reverting to placeholders
+167030c741bc3f8ce1bcfc1da5fc4251994ac89c refactor(ui): rollback dashboard report to pre-beautified state
+d1aba1fa1a8baac3340e49b1f5e8a6b4ac292516 feat(notify): enable click-to-terminate navigation on notifications
+0fc4abd6b89064f091b9c877698dd28ff4fbbd1b feat(notify): force re-notification sound on every broadcast
+5f8c517a8da97889819782b954f8d49bcb8ad24b fix(backend): standardize module.exports to resolve load crash
+8822e21f17fe7f60733635929b1a6d4502fcebf6 fix(auth): committed pending auth persistence fix and synced repo
+da26f18a9e5c6d76c642969612f5787a9e556aa8 refactor(ui): remove manual install instructions from install page
+9a706ec4c2186c6669bac916272c28e78f48d927 refactor(core): implement strict SSOT architecture
+ad11f8f09922bcac63d0db8dff215740dee178ee feat: implement optimistic UI updates for instant attendance marking
+2d995a77304ea24701b2a1cd17b355a8042df4ac Security: Demo mode isolation hardening
+4047a23a40355af2e885885c55675fb13e9e595a Fix: Migrate Excel export to /employees SSOT path
+6a3cb73a5cbb29e9ab085ed12a49f2baabeeb9e4 Fix: Correct dashboard controller method name in routes
+406428f77bd12de44c2a4e4b1b9643a3fdb0cfa2 Style: Update Excel format to match MD reference
+4353a5a0c7f6850350797b1efdd7193e08d01c80 Fix: Update frontend export to use backend calendar matrix API
+3ef6508dc6f0145c199a004a2b38f7b61281c37f Fix: Restore date-fns format import for Export page
+27885544c69d50c2a90a4077004eafb80751da6e Fix: Add Firebase domain to CORS whitelist
+cfbb77fa4cbb51b35a0b4946d33e9e019740b2e1 Fix: Add missing export route to API
+bc7fbdfb52a8cfc84f17a1f82b4cbb8e0f2e8914 Fix: Add exceljs dependency to backend
+50cdea451717c7a4efc8f991ad0c1c37006243bb Fix: Enhanced CORS config with dynamic origin handling
+d4f41d740125ed0c3c7a6508a5a7d1d53a0b9022 Fix: Expose Content-Disposition header for Excel downloads
+6991a3642be90a8d37b41e712d13f3fcfd5e2f1a Fix: Rollback to frontend Excel generation with calendar matrix format
+c93a7cb81c950a9efb6f867a8fbb2596d73fc884 Complete: Frontend Excel generation with calendar matrix
+8620d66c318deb181bb10a1c8b6d57e70e5f0451 Style: Full row yellow highlighting for Sundays in Excel
+8dfeae725189890b105a4090cedfb55316c76c9d Chore: Update dependencies and cleanup test files
+009b5c4abb932d4070bdeceaef4fa1088bf0fdca Refactor: Enforce production-grade Excel export rules
+ff913b45660075d6d8f8ebc868f4d1daff7bdfe0 Fix: Add missing Excel export route to API
+5d486d846ed1f7b817280091c7ab214c65e488a5 Fix: Add exceljs dependency to backend
+3acb1788928687512d93824e0e39d771548f9061 Fix: Relax Export status check for 'approved' values
+b5ae8ebe04341e97c4d1a1fa31384e0b31bbac4a fix: re-enable archived users and waiting room logic
+e381d4007701c518bb70c870a91aa63488853139 fix: robust re-enable logic and input conditioning
+1944ec60a5aca91fd1395f7df76b0f3fbbd6d5b3 fix: backend logic refresh and security headers
+785c6d6e3d168ce4dd43c43907fa29ea98807461 fix: refactor auth logic to explicit check-then-act pattern
+b977a3331f13fb50c843e1a099c0053cb9ccb702 feat: manage disabled users (list & hard delete)
+ced66bbe3ae15154c4b675de34ecbcec4a4cea7c chore: update revocation policy text
+4db7a84fce0edb0e90de474489a80874763395cb feat: switch to strict hard delete logic
+f9ead9db53e4cadfe3ab45567d73e9f5e0749b8d chore: remove hardcoded owner/hr email
+5d84927f593a9eaaad6773a56091f1879c0a030d chore: remove adityagchavan310 from MD allowlist
+dd4735d2f502094affa2dedc3ea6afdc3ea22a3d chore: restore owner email
+3a69680befb3bc3856aa3db039e37c9f51df169f feat: Implement authoritative role governance and demo isolation
+0c8c7c1f2f25133430ea164e60b3a519d86f8e20 feat: Add auth middleware to protect all API routes
+6f1be22804cad11d2fab72caf0c779ea3442d768 fix(security): CRITICAL - Fix IDOR and restrict CORS
+2f0dcc146a3027507e018a1d2fa987e1819f3970 feat(security): Add rate limiting to prevent DoS attacks
+38e55488a05bfd30afcd472e72314bc47f0cfb89 fix(security): Remove hardcoded API key and align DB rules
+2f6a53fd08e8e023235393cc32569ffaec7a675a fix(security): Sanitize errors and update dependencies
+0f230ebaa414eca146ffedb0bc4902aa080f7e93 feat(ui): Add skeleton loading states for Dashboard and Home
+8a95faa7bfe9c59a3dcbca4611bd66096526c1ed chore: execute clean sweep - remove dead code and zombie files
+5e698d281781be4c3ccba3c3c941027cae39fbe9 feat: implement realtime access revocation, Soft Delete, and Owner Dashboard refactor

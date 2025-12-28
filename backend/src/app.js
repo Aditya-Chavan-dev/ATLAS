@@ -1,9 +1,17 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const hpp = require('hpp');
+const compression = require('compression');
 const apiRoutes = require('./routes/api');
 const { errorHandler } = require('./services/errorHandler');
 
 const app = express();
+
+// SECURITY: Hardening
+app.use(helmet()); // Secure HTTP headers
+app.use(hpp());    // Prevent Parameter Pollution
+app.use(compression()); // Compress responses
 
 // SECURITY: Restrict CORS to allowed origins only
 const allowedOrigins = [

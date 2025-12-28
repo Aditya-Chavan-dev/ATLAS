@@ -1,105 +1,63 @@
-import { Component } from 'react'
+import React from 'react';
+import logger from '../utils/logger';
+import Button from './ui/Button';
 
 /**
- * GLOBAL ERROR BOUNDARY
- * Catches JavaScript errors anywhere in the child component tree,
- * logs them, and displays a fallback UI instead of crashing the whole app.
- * 
- * FAANG Principle: "Fail gracefully, not catastrophically."
+ * Global Error Boundary
+ * Catches render-phase errors to prevent white-screen of death.
  */
-class ErrorBoundary extends Component {
+class ErrorBoundary extends React.Component {
     constructor(props) {
-        super(props)
-        this.state = { hasError: false, error: null, errorInfo: null }
+        super(props);
+        this.state = { hasError: false, error: null };
     }
 
     static getDerivedStateFromError(error) {
-        // Update state so the next render shows the fallback UI
-        return { hasError: true, error }
+        return { hasError: true, error };
     }
 
     componentDidCatch(error, errorInfo) {
-        // Log error to console (In production, send to monitoring service)
-        console.error('[ErrorBoundary] Caught an error:', error)
-        console.error('[ErrorBoundary] Component Stack:', errorInfo.componentStack)
-        this.setState({ errorInfo })
-
-        // TODO: Send to error monitoring service (e.g., Sentry, LogRocket)
-        // logErrorToService(error, errorInfo)
+        // Log to our canonical logger
+        logger.critical('Uncaught UI Error', { error, componentStack: errorInfo.componentStack });
     }
 
     handleReload = () => {
-        // Clear state and reload
-        this.setState({ hasError: false, error: null, errorInfo: null })
-        window.location.reload()
-    }
-
-    handleGoHome = () => {
-        this.setState({ hasError: false, error: null, errorInfo: null })
-        window.location.href = '/'
+        window.location.reload();
     }
 
     render() {
         if (this.state.hasError) {
             return (
-                <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-                        {/* Error Icon */}
-                        <div className="mx-auto w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
-                            <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-6">
+                    <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-xl text-center">
+                        <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                         </div>
-
-                        {/* Title */}
-                        <h1 className="text-2xl font-bold text-slate-800 mb-2">
-                            Oops! Something went wrong
+                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                            Something went wrong
                         </h1>
-
-                        {/* Description */}
-                        <p className="text-slate-600 mb-6">
-                            We hit an unexpected error. Don't worry, your data is safe.
+                        <p className="text-slate-600 dark:text-slate-400 mb-6">
+                            The application encountered an unexpected error. We've logged this issue.
                         </p>
 
-                        {/* Error Details (Collapsed by Default) */}
-                        {this.state.error && (
-                            <details className="mb-6 text-left bg-slate-50 rounded-lg p-3">
-                                <summary className="text-sm text-slate-500 cursor-pointer hover:text-slate-700">
-                                    Technical Details
-                                </summary>
-                                <pre className="mt-2 text-xs text-red-600 overflow-auto max-h-32 p-2 bg-slate-100 rounded">
-                                    {this.state.error.toString()}
-                                </pre>
-                            </details>
-                        )}
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-3 justify-center">
-                            <button
-                                onClick={this.handleReload}
-                                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/30"
-                            >
-                                Reload App
-                            </button>
-                            <button
-                                onClick={this.handleGoHome}
-                                className="px-6 py-3 bg-slate-200 text-slate-700 font-semibold rounded-lg hover:bg-slate-300 transition-colors"
-                            >
-                                Go Home
-                            </button>
+                        <div className="p-4 bg-slate-100 dark:bg-slate-950 rounded-xl text-left mb-6 overflow-hidden">
+                            <code className="text-xs font-mono text-red-600 dark:text-red-400 block break-words">
+                                {this.state.error && this.state.error.toString()}
+                            </code>
                         </div>
 
-                        {/* Footer */}
-                        <p className="mt-6 text-xs text-slate-400">
-                            If this keeps happening, please contact support.
-                        </p>
+                        <Button onClick={this.handleReload} className="w-full">
+                            Reload Application
+                        </Button>
                     </div>
                 </div>
-            )
+            );
         }
 
-        return this.props.children
+        return this.props.children;
     }
 }
 
-export default ErrorBoundary
+export default ErrorBoundary;

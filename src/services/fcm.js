@@ -6,9 +6,10 @@ import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import app from "../firebase/config"; // Keep app import for getMessaging(app)
 import logger from '../utils/logger';
 import ApiService from "./api"; // Wrapper for backend calls
+import { config } from '../config';
 
 const messaging = getMessaging(app);
-const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+const VAPID_KEY = config.firebase.vapidKey;
 
 /**
  * Request Notification Permission & Sync Status

@@ -15,16 +15,18 @@ import { getDatabase } from 'firebase/database';
 import { getMessaging, onMessage } from 'firebase/messaging';
 import { useNavigate } from 'react-router-dom';
 
+import { config } from '../config';
+
 // Firebase configuration - using environment variables
 // These are injected at build time by Vite
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID
+    apiKey: config.firebase.apiKey,
+    authDomain: config.firebase.authDomain,
+    databaseURL: config.firebase.databaseURL,
+    projectId: config.firebase.projectId,
+    storageBucket: config.firebase.storageBucket,
+    messagingSenderId: config.firebase.messagingSenderId,
+    appId: config.firebase.appId
 };
 
 // Validate required config
@@ -34,14 +36,6 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
     throw new Error('Firebase configuration is incomplete. Check your .env file.');
 }
 
-
-
-// Log config for debugging (remove in production)
-console.log('Firebase Config:', {
-    apiKey: firebaseConfig.apiKey ? '✓ Set' : '✗ Missing',
-    authDomain: firebaseConfig.authDomain ? '✓ Set' : '✗ Missing',
-    projectId: firebaseConfig.projectId ? '✓ Set' : '✗ Missing',
-});
 
 // Ensure environment variables are loaded correctly
 if (!firebaseConfig.apiKey || !firebaseConfig.authDomain) {

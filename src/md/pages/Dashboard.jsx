@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import ApiService from '../../services/api'
 import { format } from 'date-fns'
+import { time } from '../../utils/time'
 import clsx from 'clsx'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
@@ -72,7 +73,7 @@ export default function MDDashboard() {
             logger.info(`[Dashboard] Raw employees fetched: ${report.rawCount}`)
             logger.info(`[Dashboard] Valid employees: ${report.stats.totalEmployees}`)
             logger.info(`[Dashboard] Attendance records for today (${todayStr}): ${report.liveFeed.length}`)
-            logger.info(`[Dashboard] Stats computed at: ${new Date().toISOString()}`)
+            logger.info(`[Dashboard] Stats computed at: ${time.now()}`)
 
             // Log Diagnostics for excluded users
             if (report.diagnostics.ignoredProfiles.length > 0) {
@@ -161,7 +162,7 @@ export default function MDDashboard() {
             <div className="sticky top-0 z-20 -mx-4 px-4 py-3 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 flex justify-between items-center transition-colors duration-300">
                 <div>
                     <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Overview</h1>
-                    <p className="text-xs text-slate-500 font-medium">{format(new Date(), 'EEEE, d MMMM')}</p>
+                    <p className="text-xs text-slate-500 font-medium">{time.format(time.now(), 'EEEE, d MMMM')}</p>
                 </div>
                 <button
                     onClick={toggleTheme}

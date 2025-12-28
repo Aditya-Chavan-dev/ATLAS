@@ -15,6 +15,7 @@ import RefinedModal from '../components/ui/RefinedModal'
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth'
 import { auth, database } from '../firebase/config'
 import { ref, get, child, query, orderByChild, equalTo, set, remove } from 'firebase/database'
+import { AppError, ERROR_CODES } from '../utils/AppError'
 
 function Login() {
     const { loginWithGoogle, currentUser, userProfile, loading } = useAuth()
@@ -87,7 +88,7 @@ function Login() {
             setResendTimer(60)
             showMessage('OTP Sent', `Verification code sent to ${formattedNumber}`, 'success')
         } catch (err) {
-            console.error('Error sending OTP:', err)
+            logger.error('Error sending OTP:', err)
             setError(err.message || 'Failed to send OTP. Please try again.')
 
             // Reset reCAPTCHA on error
@@ -195,7 +196,8 @@ function Login() {
                 showMessage('Success', 'Login successful!', 'success')
             }
         } catch (err) {
-            console.error('Error verifying OTP:', err)
+            const appError = new AppError('OTP Verification Failed', ERROR_CODES.AUTH_FAILED, err)
+            appError.log(logger)
             setError('Invalid OTP. Please try again.')
             setOtp(['', '', '', '', '', ''])
         } finally {
@@ -208,7 +210,7 @@ function Login() {
         try {
             await loginWithGoogle()
         } catch (error) {
-            console.error("Login failed:", error)
+            logger.error("Login failed:", error)
             setError(error.message || 'Login failed. Please try again.')
         }
     }

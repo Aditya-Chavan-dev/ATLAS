@@ -1,5 +1,6 @@
 // Enterprise History Page
 import { useState, useEffect } from 'react'
+import { time } from '../../utils/time'
 import { ref, onValue } from 'firebase/database'
 import { database } from '../../firebase/config'
 import { useAuth } from '../../context/AuthContext'
@@ -19,7 +20,7 @@ const STATUS_GROUPS = {
 export default function History() {
     const { currentUser } = useAuth()
     const [history, setHistory] = useState([])
-    const [currentDate, setCurrentDate] = useState(new Date())
+    const [currentDate, setCurrentDate] = useState(time.toDate(time.now()))
     const [loading, setLoading] = useState(true)
 
     // Formatted Month (e.g., "December 2024")

@@ -1,6 +1,8 @@
 import { auth } from '../firebase/config';
+import { config } from '../config';
+import logger from '../utils/logger';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://atlas-backend-gncd.onrender.com'; // Default to Render Production
+const API_URL = config.api.url; // Default to Render Production
 
 /**
  * Retry configuration for network resilience
@@ -24,14 +26,14 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 const getAuthToken = async () => {
     const user = auth.currentUser;
     if (!user) {
-        console.warn('[API] No authenticated user for token');
+        logger.warn('[API] No authenticated user for token');
         return null;
     }
     try {
         const token = await user.getIdToken(/* forceRefresh */ false);
         return token;
     } catch (error) {
-        console.error('[API] Failed to get auth token:', error);
+        logger.error('[API] Failed to get auth token:', error);
         return null;
     }
 }
@@ -59,7 +61,7 @@ class ApiService {
             if (!response.ok && RETRY_CONFIG.retryableStatuses.includes(response.status)) {
                 if (retryCount < RETRY_CONFIG.maxRetries) {
                     const delay = RETRY_CONFIG.baseDelayMs * Math.pow(2, retryCount)
-                    console.warn(`[API] Retrying ${endpoint} in ${delay}ms (attempt ${retryCount + 1}/${RETRY_CONFIG.maxRetries})`)
+                    logger.warn(`[API] Retrying ${endpoint} in ${delay}ms (attempt ${retryCount + 1}/${RETRY_CONFIG.maxRetries})`)
                     await sleep(delay)
                     return this.request(endpoint, method, body, retryCount + 1)
                 }
@@ -76,12 +78,12 @@ class ApiService {
             // Network errors (offline, DNS failure, etc.) - retry
             if (error.name === 'TypeError' && error.message.includes('fetch') && retryCount < RETRY_CONFIG.maxRetries) {
                 const delay = RETRY_CONFIG.baseDelayMs * Math.pow(2, retryCount)
-                console.warn(`[API] Network error, retrying ${endpoint} in ${delay}ms (attempt ${retryCount + 1}/${RETRY_CONFIG.maxRetries})`)
+                logger.warn(`[API] Network error, retrying ${endpoint} in ${delay}ms (attempt ${retryCount + 1}/${RETRY_CONFIG.maxRetries})`)
                 await sleep(delay)
                 return this.request(endpoint, method, body, retryCount + 1)
             }
 
-            console.error(`API Error (${endpoint}):`, error);
+            logger.error(`API Error (${endpoint}):`, error);
             throw error;
         }
     }

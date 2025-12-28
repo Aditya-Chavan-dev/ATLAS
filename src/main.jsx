@@ -4,28 +4,33 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import './index.css'
 import { initializeGlobalErrorHandlers } from './lib/logger'
-
-import { registerSW } from 'virtual:pwa-register'
+import { config } from './config'
+import logger from './utils/logger'
 
 // Initialize error logging
 initializeGlobalErrorHandlers()
 
-// Register Service Worker explicitly
-const updateSW = registerSW({
-  onNeedRefresh() {
-    console.log('New content available, verify to update.')
-  },
-  onOfflineReady() {
-    console.log('App is ready for offline work.')
-    // This implies SW is registered and active, which is good for PWA installability
-  },
-  immediate: true
-})
+// Only register Service Worker if NOT in development
+if (!config.isDev && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => {
+        logger.info('SW registered:', registration);
+      })
+      .catch(error => {
+        logger.error('SW registration failed:', error);
+      });
+  });
+}
+
+import ErrorBoundary from './components/ErrorBoundary'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>,
 )

@@ -1,5 +1,6 @@
 // Enterprise Dashboard
 import { useState, useEffect } from 'react'
+import { time } from '../../utils/time'
 import {
     ClockIcon,
     MapPinIcon,
@@ -40,8 +41,8 @@ export default function Home() {
     useEffect(() => {
         if (!currentUser) return
 
-        const todayStr = new Date().toISOString().split('T')[0]
-        const currentMonth = new Date().toISOString().slice(0, 7) // 2024-12
+        const todayStr = time.today()
+        const currentMonth = time.currentMonth()
 
         // Use new schema path: /employees/{uid}/attendance
         const attendanceRef = ref(database, `employees/${currentUser.uid}/attendance`)
@@ -76,7 +77,7 @@ export default function Home() {
     // Confetti Effect
     useEffect(() => {
         if (todayStatus?.status === 'Present') {
-            const todayStr = new Date().toISOString().split('T')[0]
+            const todayStr = time.today()
             const storageKey = `confetti_seen_${todayStr}`
             const hasSeen = localStorage.getItem(storageKey)
 
@@ -99,7 +100,7 @@ export default function Home() {
 
         // Update UI immediately with optimistic data
         if (optimisticData && optimisticData.__optimistic) {
-            const todayStr = new Date().toISOString().split('T')[0]
+            const todayStr = time.today()
             setTodayStatus({
                 ...optimisticData,
                 date: todayStr
@@ -120,7 +121,7 @@ export default function Home() {
     }
 
     // Date Formatting
-    const todayDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })
+    const todayDate = time.format(time.now(), 'EEEE, MMM d, yyyy')
     const getGreeting = () => {
         const hour = new Date().getHours()
         if (hour < 12) return 'Good Morning'

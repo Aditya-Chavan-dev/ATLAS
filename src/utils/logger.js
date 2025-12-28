@@ -5,46 +5,50 @@
  * FAANG Principle: "Logs should be useful, not noise."
  */
 
-const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development'
+import { config } from '../config';
+
+const isDev = config.isDev
+
+const getTimestamp = () => new Date().toISOString() // Internal usage allowed here to avoid circular dep with Time utils if we used it
 
 const logger = {
     /**
      * Info logs - Only shown in development
      */
-    info: (...args) => {
+    info: (msg, ...args) => {
         if (isDev) {
-            console.log('[INFO]', ...args)
+            console.log(`%c[INFO] ${getTimestamp()}: ${msg}`, 'color: #3b82f6', ...args)
         }
     },
 
     /**
      * Debug logs - Only shown in development
      */
-    debug: (...args) => {
+    debug: (msg, ...args) => {
         if (isDev) {
-            console.log('[DEBUG]', ...args)
+            console.log(`%c[DEBUG] ${getTimestamp()}: ${msg}`, 'color: #a855f7', ...args)
         }
     },
 
     /**
      * Warning logs - Always shown
      */
-    warn: (...args) => {
-        console.warn('[WARN]', ...args)
+    warn: (msg, ...args) => {
+        console.warn(`[WARN] ${getTimestamp()}: ${msg}`, ...args)
     },
 
     /**
      * Error logs - Always shown
      */
-    error: (...args) => {
-        console.error('[ERROR]', ...args)
+    error: (msg, ...args) => {
+        console.error(`[ERROR] ${getTimestamp()}: ${msg}`, ...args)
     },
 
     /**
      * Critical logs - Always shown, for system-critical issues
      */
-    critical: (...args) => {
-        console.error('[CRITICAL]', ...args)
+    critical: (msg, ...args) => {
+        console.error(`%c[CRITICAL] ${getTimestamp()}: ${msg}`, 'background: red; color: white; padding: 2px 5px; border-radius: 3px;', ...args)
         // TODO: Send to error monitoring service (Sentry, LogRocket, etc.)
     }
 }
