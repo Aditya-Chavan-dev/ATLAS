@@ -1,7 +1,5 @@
 import { set } from 'idb-keyval';
 
-import { set } from 'idb-keyval';
-
 export const SYNC_TOKEN_KEY = 'atlas_fc_token';
 export const SYNC_REFRESH_KEY = 'atlas_fc_refresh';
 
