@@ -1,5 +1,6 @@
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { clientsClaim } from 'workbox-core';
+import { get } from 'idb-keyval';
 
 // ============================================================================
 // ATLAS UNIFIED SERVICE WORKER
@@ -14,6 +15,137 @@ self.skipWaiting();
 clientsClaim();
 
 console.log('[ATLAS SW] PWA caching initialized');
+
+// 1.1 BACKGROUND SYNC (Offline Durability)
+// ============================================================================
+import { registerRoute } from 'workbox-routing';
+import { NetworkOnly } from 'workbox-strategies';
+import { BackgroundSyncPlugin } from 'workbox-background-sync';
+
+import { get } from 'idb-keyval';
+
+// Key used in src/utils/tokenSync.js
+const SYNC_TOKEN_KEY = 'atlas_fc_token';
+const SYNC_REFRESH_KEY = 'atlas_fc_refresh';
+
+// Helper: Exchange Refresh Token for New Access Token (Manual / Google API)
+const refreshAccessToken = async (refreshToken) => {
+    try {
+        const apiKey = firebaseConfig.apiKey; // Available in scope
+        const endpoint = `https://securetoken.googleapis.com/v1/token?key=${apiKey}`;
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `grant_type=refresh_token&refresh_token=${refreshToken}`
+        });
+        const data = await response.json();
+        if (data.id_token) {
+            console.log('[ATLAS SW] Token Refreshed Manually');
+            return data.id_token;
+        }
+        throw new Error(data.error?.message || 'Refresh Failed');
+    } catch (e) {
+        console.error('[ATLAS SW] Manual Refresh Error:', e);
+        return null;
+    }
+};
+
+const bgSyncPlugin = new BackgroundSyncPlugin('attendanceQueue', {
+    maxRetentionTime: 24 * 60, // Retry for 24 Hours
+    onSync: async ({ queue }) => {
+        let entry;
+        try {
+            // 1. Fetch Tokens from IDB
+            let accessToken = await get(SYNC_TOKEN_KEY);
+            const refreshToken = await get(SYNC_REFRESH_KEY);
+
+            // 2. Iterate queue
+            while ((entry = await queue.shiftRequest())) {
+                try {
+                    const request = entry.request;
+                    let finalRequest = request;
+
+                    // PRE-FLIGHT CHECK: If we have a token, inject it.
+                    if (accessToken) {
+                        const newHeaders = new Headers(request.headers);
+                        newHeaders.set('Authorization', `Bearer ${accessToken}`);
+                        finalRequest = new Request(request.url, {
+                            method: request.method,
+                            headers: newHeaders,
+                            body: await request.arrayBuffer(),
+                            mode: request.mode,
+                            credentials: request.credentials
+                        });
+                    }
+
+                    // ATTEMPT 1
+                    let response = await fetch(finalRequest.clone());
+
+                    // If 401 (Unauthorized) & We have Refresh Token -> Try Refreshing
+                    if (response.status === 401 && refreshToken) {
+                        console.log('[ATLAS SW] 401 Detected. Attempting Refresh...');
+                        const newToken = await refreshAccessToken(refreshToken);
+                        if (newToken) {
+                            accessToken = newToken; // Update local var for next requests
+                            // Retry Request
+                            const retryHeaders = new Headers(request.headers);
+                            retryHeaders.set('Authorization', `Bearer ${newToken}`);
+                            const retryRequest = new Request(request.url, {
+                                method: request.method,
+                                headers: retryHeaders,
+                                body: await request.arrayBuffer(), // Needs fresh clone? clone() used above.
+                                // Request object bodies can only be read once. 
+                                // We read entry.request.arrayBuffer() for finalRequest.
+                                // We need to re-read or preserve.
+                                // Actually, 'finalRequest' body was consumed by fetch?
+                                // 'fetch(finalRequest.clone())' handles it.
+                            });
+                            // Wait, constructing Request from arrayBuffer consumes it? 
+                            // No, passing arrayBuffer creates a body.
+                            // Let's just create a new Request from entry.request (which is preserved in IDB)
+                            // Actually, queue.shiftRequest gives us the entry. We haven't modified entry.request.
+
+                            const retryReq2 = new Request(request.url, {
+                                method: request.method,
+                                headers: retryHeaders,
+                                body: await request.clone().arrayBuffer(),
+                                mode: request.mode
+                            });
+
+                            response = await fetch(retryReq2);
+                            console.log('[ATLAS SW] Retry with Refreshed Token:', response.status);
+                        }
+                    }
+
+                    if (!response.ok && response.status !== 401) {
+                        // Other errors (500, etc) - maybe throw to retry later?
+                        // If 4xx (client error), usually we shouldn't retry, but for sync we might.
+                        // Let's log.
+                        console.warn('[ATLAS SW] Request failed:', response.status);
+                    }
+                    console.log('[ATLAS SW] Replay Success');
+
+                } catch (fetchError) {
+                    console.error('[ATLAS SW] Replay Network Error:', fetchError);
+                    await queue.unshiftRequest(entry);
+                    throw fetchError;
+                }
+            }
+        } catch (error) {
+            console.error('[ATLAS SW] Background Sync Crash:', error);
+            throw error;
+        }
+    }
+});
+
+registerRoute(
+    ({ url }) => url.pathname.includes('/api/attendance/mark'),
+    new NetworkOnly({
+        plugins: [bgSyncPlugin]
+    }),
+    'POST'
+);
+console.log('[ATLAS SW] Background Sync registered for Attendance');
 
 // 2. FIREBASE CLOUD MESSAGING (FCM)
 // ============================================================================

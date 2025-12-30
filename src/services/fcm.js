@@ -45,10 +45,18 @@ export const requestNotificationPermission = async (uid) => {
             });
 
             if (token) {
+                // Generate/Retrieve Unique Device ID
+                let deviceId = localStorage.getItem('atlas_device_id');
+                if (!deviceId) {
+                    deviceId = crypto.randomUUID();
+                    localStorage.setItem('atlas_device_id', deviceId);
+                }
+
                 // 4. Send to Backend: INSTALLED + ON
                 await ApiService.post('/api/fcm/register', {
                     uid,
                     token,
+                    deviceId, // Unique per browser profile
                     platform: 'web',
                     permission: 'granted',
                     timestamp: new Date().toISOString()

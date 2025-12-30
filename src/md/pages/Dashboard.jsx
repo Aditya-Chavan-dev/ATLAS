@@ -24,6 +24,7 @@ import MDToast from '../components/MDToast'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { DashboardSkeleton } from '../../components/ui/Skeleton'
+import ConnectionStatus from '../../components/ConnectionStatus'
 
 // Utility
 const getAvatarColor = (name) => {
@@ -164,12 +165,15 @@ export default function MDDashboard() {
                     <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Overview</h1>
                     <p className="text-xs text-slate-500 font-medium">{time.format(time.now(), 'EEEE, d MMMM')}</p>
                 </div>
-                <button
-                    onClick={toggleTheme}
-                    className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 active:scale-95 transition-all shadow-sm"
-                >
-                    {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                </button>
+                <div className="flex items-center gap-2">
+                    <ConnectionStatus />
+                    <button
+                        onClick={toggleTheme}
+                        className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 active:scale-95 transition-all shadow-sm"
+                    >
+                        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                    </button>
+                </div>
             </div>
 
             {/* 2. Top Deck - Metrics Grid */}

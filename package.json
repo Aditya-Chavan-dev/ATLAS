@@ -25,11 +25,17 @@
     "file-saver": "^2.0.5",
     "firebase": "^12.6.0",
     "framer-motion": "^12.23.26",
+    "idb-keyval": "^6.2.2",
     "lucide-react": "^0.561.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.10.1",
     "tailwind-merge": "^3.4.0",
+    "workbox-background-sync": "^7.4.0",
+    "workbox-core": "^7.4.0",
+    "workbox-precaching": "^7.4.0",
+    "workbox-routing": "^7.4.0",
+    "workbox-strategies": "^7.4.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {

@@ -9,17 +9,21 @@ const attendanceController = require('../controllers/attendanceController');
 const leaveController = require('../controllers/leaveController');
 const dashboardController = require('../controllers/dashboardController');
 const exportController = require('../controllers/exportController');
+const healthController = require('../controllers/healthController'); // [NEW]
 
 // Auth Middleware
 const { verifyToken, verifyTokenAndRole } = require('../middleware/authMiddleware');
 
-// Health Check (Public - no auth needed)
+// Health Check (Deep)
+router.get('/health', healthController.checkHealth);
+
+// Metadata (Public)
 router.get('/', (req, res) => {
     res.json({
         status: 'active',
         service: 'ATLAS Notification Server',
         timestamp: new Date().toISOString(),
-        version: '3.2.0 (Auth Protected)'
+        version: '3.3.0 (Health Verified)'
     });
 });
 

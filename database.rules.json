@@ -35,7 +35,7 @@
                         "timestamp": {
                             ".validate": "newData.isString()"
                         },
-                        ".write": "auth != null && ( (!data.exists() && $uid === auth.uid && root.child('employees').child(auth.uid).child('profile').child('status').val() === 'ACTIVE') || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'hr' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' )"
+                        ".write": "auth != null && ( root.child('employees').child(auth.uid).child('profile').child('role').val() === 'md' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'hr' || root.child('employees').child(auth.uid).child('profile').child('role').val() === 'owner' )"
                     }
                 }
             }

@@ -2,51 +2,22 @@ const { db, admin } = require('../config/firebase');
 const { sendPushNotification } = require('../services/notificationService');
 const notificationService = require('../services/notificationService');
 const { getTodayDateIST, getLeaveDaysCount } = require('../utils/dateUtils');
+const Mutex = require('../utils/mutex');
 
-const checkLeaveOverlap = async (employeeId, start, end) => {
-    const snapshot = await db.ref(`leaves/${employeeId}`).once('value');
-    const leaves = snapshot.val();
-    if (!leaves) return null;
-
-    const startD = new Date(start);
-    const endD = new Date(end);
-    startD.setHours(0, 0, 0, 0);
-    endD.setHours(0, 0, 0, 0);
-
-    return Object.values(leaves).find(leave => {
-        if (['rejected', 'cancelled'].includes(leave.status)) return false;
-        const lStart = new Date(leave.from);
-        const lEnd = new Date(leave.to);
-        lStart.setHours(0, 0, 0, 0);
-        lEnd.setHours(0, 0, 0, 0);
-        return startD <= lEnd && endD >= lStart;
-    });
-};
-
-const checkAttendanceOverlap = async (employeeId, start, end) => {
-    const snapshot = await db.ref('attendance').orderByChild('employeeId').equalTo(employeeId).once('value');
-    const attendance = snapshot.val();
-    if (!attendance) return false;
-
-    const startD = new Date(start);
-    const endD = new Date(end);
-    startD.setHours(0, 0, 0, 0);
-    endD.setHours(0, 0, 0, 0);
-
-    return Object.values(attendance).some(record => {
-        const recordDate = new Date(record.date);
-        recordDate.setHours(0, 0, 0, 0);
-        return recordDate >= startD && recordDate <= endD;
-    });
-};
-// ... (keep logLeaveHistory as is)
-
-
+// ... (helpers) ...
 
 const applyLeave = async (req, res) => {
+    const employeeId = req.user.uid;
+
+    // 0. ACQUIRE LOCK
+    const lock = new Mutex(employeeId);
+    const hasLock = await lock.acquire();
+    if (!hasLock) {
+        return res.status(429).json({ error: 'System busy. Please try again.' });
+    }
+
     try {
-        // SECURITY: Use authenticated user's UID, not user-supplied ID (IDOR prevention)
-        const employeeId = req.user.uid;
+        // SECURITY: Use authenticated user's UID...
         const { employeeName, type, from, to, reason } = req.body;
 
         const TodayIST = getTodayDateIST();
@@ -130,20 +101,31 @@ const applyLeave = async (req, res) => {
         await leaveRef.set(leaveData);
         await logLeaveHistory(employeeId, 'applied', leaveData, employeeId, 'employee');
 
-        // Notify MD (using SSOT /employees path)
-        const usersSnap = await db.ref('employees').orderByChild('profile/role').equalTo('md').once('value');
-        const mds = usersSnap.val() || {};
-        const mdTokens = Object.values(mds).map(u => u.profile?.fcmToken).filter(Boolean);
 
-        await sendPushNotification(mdTokens, '📝 New Leave Request', `${employeeName} applied for ${type} (${totalDays} days)`, {
-            type: 'LEAVE_REQUEST', leaveId
-        });
+        // Notify MD (using SSOT /employees path)
+        try {
+            const usersSnap = await db.ref('employees').orderByChild('profile/role').equalTo('md').once('value');
+            const mds = usersSnap.val() || {};
+            const mdTokens = Object.values(mds).map(u => u.profile?.fcmToken || u.profile?.fcm_token).filter(Boolean); // Support both casing keys if exists
+
+            if (mdTokens.length > 0) {
+                await sendPushNotification(mdTokens, '📝 New Leave Request', `${employeeName} applied for ${type} (${totalDays} days)`, {
+                    type: 'LEAVE_REQUEST', leaveId
+                });
+            }
+        } catch (notifError) {
+            console.warn('[Leave] Notification failed but Leave applied:', notifError);
+            // Swallowing error to prevent API failure
+        }
 
         res.status(201).json({ success: true, leaveId });
 
     } catch (error) {
         console.error('Leave Apply Error:', error);
         res.status(500).json({ error: 'Server error. Please try again later.' });
+    } finally {
+        // RELEASE LOCK
+        await lock.release();
     }
 };
 
@@ -180,20 +162,43 @@ const getPending = async (req, res) => {
 
 const approveLeave = async (req, res) => {
     const { leaveId, employeeId, mdId, mdName } = req.body;
+    // SECURITY: Use requester's UID from token
+    const requesterUid = req.user.uid;
+
     try {
+        // 🔒 SECURITY: ZOMBIE ADMIN CHECK (Fix Failure Mode #6)
+        const roleSnap = await db.ref(`employees/${requesterUid}/profile/role`).once('value');
+        const realRole = (roleSnap.val() || '').toLowerCase();
+
+        if (!['md', 'admin', 'owner'].includes(realRole)) {
+            console.warn(`[Security] Zombie Admin blocked: ${requesterUid} attempted leave approval.`);
+            return res.status(403).json({ error: 'Access Denied: Your role has been revoked.' });
+        }
+
         const leaveRef = db.ref(`leaves/${employeeId}/${leaveId}`);
+
+        // 1. LOCKING PHASE: Prevent Race Conditions (Double Deduction)
+        // Transition 'pending' -> 'processing' atomically
+        const transactionResult = await leaveRef.child('status').transaction((currentStatus) => {
+            if (currentStatus === 'pending') {
+                return 'processing';
+            }
+            return undefined; // Abort if not pending (already approved/rejected/processing)
+        });
+
+        if (!transactionResult.committed) {
+            console.warn(`[Leave] Race Condition/Duplicate Approval Blocked for ${leaveId}`);
+            return res.status(409).json({ error: 'Leave request is already being processed or finalized.' });
+        }
+
         const snapshot = await leaveRef.once('value');
         const leave = snapshot.val();
+        // leave.status is 'processing' now
 
-        if (!leave || leave.status !== 'pending') return res.status(400).json({ error: 'Invalid leave request' });
-
-        // STRICT BALANCE DEDUCTION
-        // Use new schema: employees/{uid}/leaveBalance
+        // 2. DEDUCTION PHASE
         const balanceRef = db.ref(`employees/${employeeId}/leaveBalance`);
+        let insufficientFunds = false;
 
-
-        // Simpler approach: Check then Deduct (Optimistic Locking via Transaction)
-        // Re-implementing correctly:
         try {
             await balanceRef.transaction((current) => {
                 const bal = current || { pl: 17, co: 0 };
@@ -209,10 +214,17 @@ const approveLeave = async (req, res) => {
                 return bal;
             });
         } catch (err) {
-            // Transaction aborted or threw error
-            return res.status(400).json({ error: 'Insufficient balance for approval' });
+            insufficientFunds = true;
+            console.warn(`[Leave] Insufficient funds for ${leaveId}, reverting lock.`);
+
+            // REVERT LOCK
+            await leaveRef.update({ status: 'pending', lockedBy: null });
+
+            return res.status(400).json({ error: 'Insufficient balance to approve leave.' });
         }
 
+        // 3. FINALIZATION PHASE
+        // If we are here, balance is successfully deducted.
         await leaveRef.update({
             status: 'approved',
             actedAt: admin.database.ServerValue.TIMESTAMP,
@@ -222,46 +234,71 @@ const approveLeave = async (req, res) => {
 
         await logLeaveHistory(employeeId, 'approved', leave, mdId, 'MD');
 
-        // Use new schema: employees/{uid}/profile
-        const userSnap = await db.ref(`employees/${employeeId}/profile`).once('value');
-        const user = userSnap.val();
-        if (user && user.fcmToken) {
-            await sendPushNotification([user.fcmToken], '✅ Leave Approved', `Your ${leave.type} request has been approved.`);
+        // 4. NOTIFICATION (Non-Blocking)
+        try {
+            const userSnap = await db.ref(`employees/${employeeId}/profile`).once('value');
+            const user = userSnap.val();
+            if (user && user.fcmToken) {
+                await sendPushNotification([user.fcmToken], '✅ Leave Approved', `Your ${leave.type} request has been approved.`);
+            }
+        } catch (nErr) {
+            console.warn('[Leave] Approval Notification failed:', nErr);
         }
 
-        const attSnap = await db.ref('attendance').orderByChild('employeeId').equalTo(employeeId).once('value');
-        const attData = attSnap.val();
-        if (attData) {
-            const leaveStart = new Date(leave.from);
-            const leaveEnd = new Date(leave.to);
-            leaveStart.setHours(0, 0, 0, 0);
-            leaveEnd.setHours(0, 0, 0, 0);
+        // 5. ATTENDANCE OVERRIDES (Best Effort)
+        try {
+            const attSnap = await db.ref(`employees/${employeeId}/attendance`).once('value');
+            const attData = attSnap.val();
+            if (attData) {
+                const leaveStart = new Date(leave.from);
+                const leaveEnd = new Date(leave.to);
+                leaveStart.setHours(0, 0, 0, 0);
+                leaveEnd.setHours(0, 0, 0, 0);
 
-            const updates = {};
-            Object.entries(attData).forEach(([attId, record]) => {
-                const recDate = new Date(record.date);
-                recDate.setHours(0, 0, 0, 0);
+                const updates = {};
+                Object.entries(attData).forEach(([dateStr, record]) => {
+                    // Check if dateStr matches
+                    if (!dateStr) return;
+                    const recDate = new Date(dateStr);
+                    recDate.setHours(0, 0, 0, 0);
 
-                if (recDate >= leaveStart && recDate <= leaveEnd) {
-                    updates[`attendance/${attId}/status`] = 'leave_override';
-                    updates[`attendance/${attId}/mdReason`] = `Overridden by approved leave ${leaveId}`;
+                    if (recDate >= leaveStart && recDate <= leaveEnd) {
+                        updates[`employees/${employeeId}/attendance/${dateStr}/status`] = 'leave_override';
+                        updates[`employees/${employeeId}/attendance/${dateStr}/mdReason`] = `Overridden by approved leave`;
+                    }
+                });
+
+                if (Object.keys(updates).length > 0) {
+                    await db.ref().update(updates);
                 }
-            });
-
-            if (Object.keys(updates).length > 0) {
-                await db.ref().update(updates);
             }
+        } catch (attErr) {
+            console.error('[Leave] Attendance Override Failed:', attErr);
         }
 
         res.json({ success: true, message: 'Leave approved and attendance overrides applied.' });
+
     } catch (error) {
+        console.error('[Leave Approval] Error:', error);
+        // If we crashed after deduction but before finalization, it is stuck in 'processing'.
+        // Admin intervention required for that edge case, but balance is safe.
         res.status(500).json({ error: 'Server error. Please try again later.' });
     }
 };
 
 const rejectLeave = async (req, res) => {
     const { leaveId, employeeId, mdId, mdName, reason } = req.body;
+    const requesterUid = req.user.uid;
+
     try {
+        // 🔒 SECURITY: ZOMBIE ADMIN CHECK
+        const roleSnap = await db.ref(`employees/${requesterUid}/profile/role`).once('value');
+        const realRole = (roleSnap.val() || '').toLowerCase();
+
+        if (!['md', 'admin', 'owner'].includes(realRole)) {
+            return res.status(403).json({ error: 'Access Denied: Your role has been revoked.' });
+        }
+
         const leaveRef = db.ref(`leaves/${employeeId}/${leaveId}`);
         const snapshot = await leaveRef.once('value');
         const leave = snapshot.val();

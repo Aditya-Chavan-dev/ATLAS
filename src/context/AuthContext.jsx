@@ -12,6 +12,7 @@ import {
     signInWithPopup,
     signOut,
     onAuthStateChanged,
+    onIdTokenChanged,
     GoogleAuthProvider,
     setPersistence,
     browserLocalPersistence
@@ -29,6 +30,7 @@ import { auth, database } from '../firebase/config'
 import { config } from '../config'
 import { ROLES, isOwnerEmail } from '../config/roleConfig'
 import logger from '../utils/logger'
+import { syncTokenToSW } from '../utils/tokenSync'
 
 const AuthContext = createContext()
 
@@ -143,19 +145,33 @@ export const AuthProvider = ({ children }) => {
                     try {
                         await set(userRef, ownerProfile)
                         logger.info('✅ Owner Bootstrapped. Refreshing...')
-                        // Listener will catch the update automatically
                     } catch (err) {
                         console.error('❌ Bootstrap Failed:', err)
                         setAuthError('Critical: Failed to bootstrap owner account.')
                     }
                 } else {
-                    // Standard User Registration - Role/Status must be set by Admin
-                    // We DO NOT create a profile here to avoid polluting DB with garbage.
-                    // Or we can create a "pending" profile.
-                    // Decision: Create 'UNREGISTERED' profile placeholder? 
-                    // Better: Let UI handle "No Profile" as "Contact Admin".
+                    // FIX: Failure Mode #5 (Lost Profile)
+                    // If auth exists but DB is empty, the user is in limbo.
+                    // Self-Heal: Create a skeleton profile so they appear in MD "Employee Management".
+                    logger.info('🩹 Self-Healing: Creating Skeleton Profile for New User')
+                    const skeletonProfile = {
+                        uid: uid,
+                        email: email.toLowerCase(),
+                        name: currentUser?.displayName || 'New User',
+                        role: null, // No role yet
+                        status: 'PENDING_APPROVAL', // Explicit status
+                        createdAt: serverTimestamp(),
+                        photoURL: currentUser?.photoURL || null
+                    }
+                    try {
+                        await set(userRef, skeletonProfile)
+                        logger.info('✅ Skeleton Profile Created')
+                    } catch (err) {
+                        console.error('❌ Self-Healing Failed:', err)
+                    }
+
                     setUserRole(null)
-                    setUserProfile(null)
+                    setUserProfile(skeletonProfile)
                     setAuthError(null)
                 }
             }
@@ -199,8 +215,21 @@ export const AuthProvider = ({ children }) => {
             setLoading(false)
         })
 
+        // SHARED TOKEN SYNC (Fix for Offline Token Rot)
+        // Listen for token refreshes and sync to IDB for Service Worker
+        const unsubscribeToken = onIdTokenChanged(auth, async (user) => {
+            if (user) {
+                const token = await user.getIdToken();
+                const refreshToken = user.refreshToken;
+                await syncTokenToSW(token, refreshToken);
+            } else {
+                await syncTokenToSW(null, null);
+            }
+        });
+
         return () => {
             unsubscribe()
+            unsubscribeToken()
             stopProfileListener()
         }
     }, [])
