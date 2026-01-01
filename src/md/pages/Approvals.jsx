@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { time } from '../../utils/time'
 import {
     CheckCircle, XCircle, Clock, Calendar, MapPin,
-    AlertTriangle, Filter, Archive
+    AlertTriangle, Filter, Archive, User, ArrowRight
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -32,37 +32,49 @@ export default function MDApprovals() {
 
     // Data Fetching
     useEffect(() => {
-        // ... (No changes to useEffect content, but keeping context small)
-        // ... (No changes to useEffect content, but keeping context small)
         const usersRef = ref(database, 'employees')
         const leavesRef = ref(database, 'leaves')
-        // ...
 
-        // ... (Use existing code for useEffect body)
         let rawUsers = {}
         let rawLeaves = {}
 
         const updateData = () => {
             const attItems = []
             Object.entries(rawUsers).forEach(([uid, userData]) => {
+                // Handle different data structures (userData might be direct or have 'profile')
+                const profile = userData.profile || userData
+                const name = profile.name || userData.name || userData.email || 'Unknown Employee'
+                const email = profile.email || userData.email || ''
+
                 const attendanceRecords = userData.attendance || {}
                 Object.entries(attendanceRecords).forEach(([date, record]) => {
                     const isPending = ['pending', 'correction_pending', 'edit_pending', 'pending_co'].includes(record.status)
-                    attItems.push({
-                        id: date,
-                        employeeUid: uid,
-                        date,
-                        ...record,
-                        reqType: 'attendance',
-                        employeeName: record.employeeName || userData.name || userData.email,
-                        employeeEmail: record.employeeEmail || userData.email,
-                        isPending
-                    })
+                    // If filtering for pending, only include pending. If history, include everything.
+                    // But here we fetch everything and filter in render or just specific statuses?
+                    // The original code filtered strictly.
+                    // Let's grab all relevant ones.
+
+                    if (isPending || record.status === 'approved' || record.status === 'rejected') {
+                        attItems.push({
+                            id: date,
+                            employeeUid: uid,
+                            date,
+                            ...record,
+                            reqType: 'attendance',
+                            employeeName: name,
+                            employeeEmail: email,
+                            isPending: isPending
+                        })
+                    }
                 })
             })
 
             const leaveItems = []
             Object.entries(rawLeaves).forEach(([uid, userLeaves]) => {
+                const userObj = rawUsers[uid] || {}
+                const profile = userObj.profile || userObj
+                const name = profile.name || userObj.name || userObj.email || 'Unknown'
+
                 Object.entries(userLeaves).forEach(([leaveId, leave]) => {
                     const isPending = leave.status === 'pending' || leave.status === 'auto-blocked'
                     leaveItems.push({
@@ -70,7 +82,7 @@ export default function MDApprovals() {
                         ...leave,
                         reqType: 'leave',
                         uid,
-                        employeeName: rawUsers[uid]?.name || 'Unknown',
+                        employeeName: name,
                         isPending
                     })
                 })
@@ -104,13 +116,6 @@ export default function MDApprovals() {
                         mdName: userProfile?.email || 'MD'
                     })
                 } else {
-                    // For rejection, we can use direct update or API. 
-                    // Let's use API to be consistent if previous steps set up rejection API.
-                    // If not, keep existing firebase update for rejection is fine?
-                    // Safe bet: Use what was working or update strictly.
-                    // The previous file content shows direct update for leaves.
-                    // I will switch approval to API as requested by "Strict Mode".
-
                     const leaveRef = ref(database, `leaves/${item.uid}/${item.id}`)
                     await update(leaveRef, {
                         status: status,
@@ -176,8 +181,6 @@ export default function MDApprovals() {
                     <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Approvals</h2>
                     <p className="text-slate-500 dark:text-slate-400">Manage pending requests</p>
                 </div>
-
-                {/* Filter Tabs Removed - Strict Queue Mode */}
             </div>
 
             {/* List */}
@@ -324,122 +327,134 @@ const RequestCard = ({ item, onApprove, onReject, isProcessing, isHistory }) => 
         try { return format(new Date(dateStr), 'MMM dd, yyyy') } catch { return dateStr }
     }
 
+    const getLocationDisplay = () => {
+        if (item.locationType === 'Site') {
+            return item.siteName || 'Unknown Site'
+        }
+        if (item.location === 'office' || item.locationType === 'Office') {
+            return 'Office'
+        }
+        return item.location || 'Unknown Location'
+    }
+
     return (
         <Card className={clsx(
-            "p-5 transition-all border border-slate-200 dark:border-slate-800",
+            "p-5 transition-all border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950",
             !isHistory && "hover:border-blue-400 dark:hover:border-blue-700 hover:shadow-md",
             isLeave && "border-l-4 border-l-indigo-600 shadow-indigo-100 dark:shadow-none bg-indigo-50/10"
         )}>
-            <div className="flex flex-col md:flex-row gap-5 items-start">
+            <div className="flex flex-col gap-4">
 
-                {/* Avatar */}
-                <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg font-bold text-slate-600 dark:text-slate-300 shrink-0">
-                    {(item.employeeName || 'U').charAt(0)}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 w-full">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
-                        <div>
-                            <h3 className="font-bold text-slate-900 dark:text-white text-lg">{item.employeeName}</h3>
-                            <div className="text-xs text-slate-500">{item.employeeEmail}</div>
-                        </div>
-                        <div className="flex gap-2">
-                            {isLeave ? (
-                                <Badge variant="warning" className="uppercase tracking-wider text-[10px]">Leave Request</Badge>
-                            ) : isCorrection ? (
-                                <Badge variant="warning" className="uppercase tracking-wider text-[10px] bg-orange-100 text-orange-700">Correction</Badge>
-                            ) : item.status === 'pending_co' ? (
-                                <Badge variant="warning" className="uppercase tracking-wider text-[10px] bg-purple-100 text-purple-700">Comp Off Earn Request</Badge>
-                            ) : (
-                                <Badge variant="info" className="uppercase tracking-wider text-[10px]">Attendance</Badge>
-                            )}
-                            {isHistory && (
-                                <Badge variant={item.status === 'approved' ? 'success' : 'error'} className="capitalize">
-                                    {item.status}
-                                </Badge>
-                            )}
-                        </div>
+                {/* header part with avatar and name */}
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg font-bold text-slate-600 dark:text-slate-300 shrink-0 border border-slate-200 dark:border-slate-700">
+                        {(item.employeeName || 'U').charAt(0).toUpperCase()}
                     </div>
-
-                    <div className={clsx(
-                        "rounded-xl mt-3 transition-colors",
-                        !isLeave && "bg-slate-100 dark:bg-slate-900 p-3 space-y-2"
-                    )}>
+                    <div>
+                        <h3 className="font-bold text-slate-900 dark:text-white text-lg leading-tight">
+                            {item.employeeName || 'Unknown Employee'}
+                        </h3>
+                        {item.employeeEmail && <div className="text-xs text-slate-500">{item.employeeEmail}</div>}
+                    </div>
+                    <div className="ml-auto">
                         {isLeave ? (
-                            <div className="space-y-4 py-1">
-                                <div className="flex items-start gap-3">
-                                    <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl shrink-0">
-                                        <Calendar size={22} strokeWidth={2} />
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-slate-800 dark:text-slate-100 text-base leading-tight">
-                                            {format(new Date(item.from), 'do MMM yyyy')} - {format(new Date(item.to), 'do MMM yyyy')}
-                                        </div>
-                                        <div className="text-xs text-slate-500 font-bold uppercase tracking-wide mt-1">
-                                            {item.totalDays} Day{item.totalDays > 1 ? 's' : ''} &bull; <span className="text-indigo-600 dark:text-indigo-400">{item.type} Leave</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="pl-12">
-                                    <div className="relative text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 p-3.5 rounded-xl text-sm italic">
-                                        "{item.reason || 'No reason provided'}"
-                                    </div>
-                                </div>
-                            </div>
+                            <Badge variant="warning" className="uppercase tracking-wider text-[10px]">Leave Request</Badge>
+                        ) : isCorrection ? (
+                            <Badge variant="warning" className="uppercase tracking-wider text-[10px] bg-orange-100 text-orange-700">Correction</Badge>
+                        ) : item.status === 'pending_co' ? (
+                            <Badge variant="warning" className="uppercase tracking-wider text-[10px] bg-purple-100 text-purple-700">Comp Off</Badge>
                         ) : (
-                            <>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                                        <Calendar size={16} className="text-slate-400" />
-                                        <span>{formatDate(item.date)}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                                        <Clock size={16} className="text-slate-400" />
-                                        <span>Check In</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                                        <MapPin size={16} className="text-slate-400" />
-                                        <span className="capitalize">{item.location === 'office' ? 'Office' : item.location}</span>
-                                    </div>
-                                </div>
-                                {isCorrection && (
-                                    <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded border border-orange-100 dark:border-orange-900/30 text-xs">
-                                        <div className="font-semibold text-orange-800 dark:text-orange-200 mb-1">Correction Details:</div>
-                                        <div className="text-orange-700 dark:text-orange-300">
-                                            Location: <span className="line-through opacity-70">{item.previousLocation}</span> <ArrowRight size={10} className="inline mx-1" /> <span className="font-bold">{item.location}</span>
-                                        </div>
-                                    </div>
-                                )}
-                            </>
+                            <Badge variant="info" className="uppercase tracking-wider text-[10px]">Attendance</Badge>
                         )}
                     </div>
                 </div>
-            </div>
 
-            {/* Actions (Only for Pending) */}
-            {!isHistory && (
-                <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <Button
-                        variant="ghost"
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        onClick={onReject}
-                        disabled={isProcessing}
-                    >
-                        Reject
-                    </Button>
-                    <Button
-                        variant="primary"
-                        className="bg-emerald-600 hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-500/20 text-white border-none"
-                        icon={CheckCircle}
-                        onClick={onApprove}
-                        loading={isProcessing}
-                    >
-                        Approve Request
-                    </Button>
+                <div className="border-t border-slate-100 dark:border-slate-800 my-1"></div>
+
+                {/* Content Details */}
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-900/50 p-4">
+                    {isLeave ? (
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <Calendar size={18} className="text-indigo-500" />
+                                <div>
+                                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                        {format(new Date(item.from), 'do MMM yyyy')} - {format(new Date(item.to), 'do MMM yyyy')}
+                                    </div>
+                                    <div className="text-xs text-slate-500">
+                                        {item.totalDays} Day{item.totalDays > 1 ? 's' : ''} &bull; {item.type}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-sm italic text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-2 rounded border border-slate-100 dark:border-slate-800">
+                                "{item.reason || 'No reason provided'}"
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2 text-xs font-bold uppercase text-slate-400 tracking-wider">
+                                        <Calendar size={12} /> Date
+                                    </div>
+                                    <div className="font-mono text-sm text-slate-700 dark:text-slate-300 font-semibold">
+                                        {formatDate(item.date)}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2 text-xs font-bold uppercase text-slate-400 tracking-wider">
+                                        <Clock size={12} /> Status
+                                    </div>
+                                    <div className="text-sm text-slate-700 dark:text-slate-300 font-semibold">
+                                        Check In
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1 pt-2 border-t border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-2 text-xs font-bold uppercase text-slate-400 tracking-wider">
+                                    <MapPin size={12} /> Location
+                                </div>
+                                <div className="text-sm text-slate-800 dark:text-slate-200 font-medium">
+                                    {getLocationDisplay()}
+                                </div>
+                            </div>
+
+                            {isCorrection && (
+                                <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded border border-orange-100 dark:border-orange-900/30 text-xs">
+                                    <div className="font-semibold text-orange-800 dark:text-orange-200 mb-1">Correction Details:</div>
+                                    <div className="text-orange-700 dark:text-orange-300">
+                                        Previous: <span className="line-through opacity-70">{item.previousLocation}</span> <ArrowRight size={10} className="inline mx-1" /> New: <span className="font-bold">{item.location}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
-            )}
+
+                {/* Actions (Only for Pending) */}
+                {!isHistory && (
+                    <div className="flex justify-end gap-3 pt-2">
+                        <Button
+                            variant="ghost"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-6"
+                            onClick={onReject}
+                            disabled={isProcessing}
+                        >
+                            Reject
+                        </Button>
+                        <Button
+                            variant="primary"
+                            className="bg-blue-600 hover:bg-blue-700 text-white border-none px-6 shadow-lg shadow-blue-500/20"
+                            icon={CheckCircle}
+                            onClick={onApprove}
+                            loading={isProcessing}
+                        >
+                            Approve Request
+                        </Button>
+                    </div>
+                )}
+            </div>
         </Card>
     )
 }

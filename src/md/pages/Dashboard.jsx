@@ -24,7 +24,7 @@ import MDToast from '../components/MDToast'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { DashboardSkeleton } from '../../components/ui/Skeleton'
-import ConnectionStatus from '../../components/ConnectionStatus'
+import ConnectionStatus from '@/components/ConnectionStatus'
 
 // Utility
 const getAvatarColor = (name) => {

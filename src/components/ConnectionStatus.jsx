@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ref, onValue } from 'firebase/database';
-import { database } from '../../firebase/config';
+import { database } from '@/firebase/config';
 import { WifiOff, Activity } from 'lucide-react';
 
 export default function ConnectionStatus() {

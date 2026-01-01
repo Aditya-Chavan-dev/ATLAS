@@ -14,6 +14,36 @@ import PWAUpdater from './components/PWAUpdater'
 import ErrorBoundary from './components/ErrorBoundary'
 import { DashboardSkeleton } from './components/ui/Skeleton'
 import logger from './utils/logger'
+import ApiService from './services/api' // Import ApiService
+
+// ----------------------------------------------------------------------
+// KEEP-ALIVE SYSTEM
+// ----------------------------------------------------------------------
+const KEEP_ALIVE_INTERVAL = 14 * 60 * 1000; // 14 Minutes
+
+const startKeepAlive = () => {
+    logger.info('[KeepAlive] System started');
+    const pingParams = {
+        endpoint: '/api/health', // Assume health endpoint exists or root
+        method: 'GET'
+    };
+
+    const ping = async () => {
+        try {
+            await ApiService.get(pingParams.endpoint);
+            logger.info('[KeepAlive] Ping success');
+        } catch (err) {
+            // It's okay if it fails, we just want to wake up the server
+            logger.debug('[KeepAlive] Ping failed (expected if sleeping):', err.message);
+        }
+    };
+
+    // Initial ping
+    ping();
+
+    return setInterval(ping, KEEP_ALIVE_INTERVAL);
+};
+
 
 // ----------------------------------------------------------------------
 // LAZY LOADED MODULES (Code Splitting)
@@ -74,7 +104,10 @@ function AppContent() {
 
     // Notification Integration (Master Spec Section 9)
     useEffect(() => {
-        if (!currentUser) return;
+        // Start Keep-Alive
+        const keepAliveTimer = startKeepAlive();
+
+        if (!currentUser) return () => clearInterval(keepAliveTimer);
 
         // Auto-Register Token or Sync Denial Status
         requestNotificationPermission(currentUser.uid);
@@ -92,6 +125,7 @@ function AppContent() {
         window.addEventListener('FCM_MESSAGE_RECEIVED', handleFcmMessage);
 
         return () => {
+            clearInterval(keepAliveTimer);
             unsubscribe && unsubscribe();
             window.removeEventListener('FCM_MESSAGE_RECEIVED', handleFcmMessage);
         };

@@ -83,10 +83,7 @@ export default function MDHistory() {
         const dateStr = format(dateObj, 'yyyy-MM-dd')
         const record = user.attendance?.[dateStr]
 
-        // Debug logging (remove after fixing)
-        if (user.name === 'Adi' && dateStr.includes('2024-12')) {
-            console.log('Debug Adi attendance for', dateStr, ':', record)
-        }
+
 
         if (!record) return { type: 'none' }
 
