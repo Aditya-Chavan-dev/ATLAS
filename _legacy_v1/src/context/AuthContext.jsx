@@ -1,0 +1,281 @@
+// AuthContext.jsx
+// AUTHORITATIVE AUTHENTICATION SYSTEM
+// Single Source of Truth: Firebase Realtime Database (/employees/{uid}/profile)
+// 
+// 1. No optimistic role assignment.
+// 2. Strict status checks (ACTIVE only).
+// 3. One-time Owner bootstrapping.
+// 4. Global auth persistence.
+
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
+import {
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged,
+    onIdTokenChanged,
+    GoogleAuthProvider,
+    setPersistence,
+    browserLocalPersistence
+} from 'firebase/auth'
+import {
+    ref,
+    get,
+    set,
+    child,
+    onValue,
+    off,
+    serverTimestamp
+} from 'firebase/database'
+import { auth, database } from '@/firebase/config'
+import { config } from '@/config'
+import { ROLES, isOwnerEmail } from '@/config/roleConfig'
+import logger from '@/utils/logger'
+import { syncTokenToSW } from '@/utils/tokenSync'
+
+const AuthContext = createContext()
+
+export const useAuth = () => {
+    const context = useContext(AuthContext)
+    if (!context) {
+        throw new Error('useAuth must be used within AuthProvider')
+    }
+    return context
+}
+
+export const AuthProvider = ({ children }) => {
+    const [currentUser, setCurrentUser] = useState(null)
+    const [userRole, setUserRole] = useState(null)
+    const [userProfile, setUserProfile] = useState(null)
+    const [isSuspended, setIsSuspended] = useState(false) // New State for soft lockout
+    const [loading, setLoading] = useState(true)
+    const [authError, setAuthError] = useState(null)
+
+    // Track listeners to clean up
+    const profileListenerRef = useRef(null)
+
+    const stopProfileListener = () => {
+        if (profileListenerRef.current) {
+            profileListenerRef.current()
+            profileListenerRef.current = null
+        }
+    }
+
+    // -----------------------------------------------------
+    // CORE: Realtime Profile Sync & Role Enforcement
+    // -----------------------------------------------------
+    const setupProfileListener = (uid, email) => {
+        stopProfileListener()
+        const userRef = ref(database, `employees/${uid}/profile`)
+
+        logger.info('🔒 Establishing Authoritative Connection for', uid)
+
+        const handleSnapshot = async (snapshot) => {
+            if (snapshot.exists()) {
+                const profile = snapshot.val()
+
+                // 0. Owner Auto-Repair (Critical Recovery)
+                if (isOwnerEmail(email)) {
+                    if (profile.role !== ROLES.OWNER || profile.status !== 'ACTIVE') {
+                        logger.warn('👑 Detecting Owner Discrepancy. Auto-Repairing...')
+                        try {
+                            await set(userRef, {
+                                ...profile,
+                                role: ROLES.OWNER,
+                                status: 'ACTIVE',
+                                email: email.toLowerCase() // Ensure consistency
+                            })
+                            // We don't need to do anything else, the listener will fire again with the new data
+                            return
+                        } catch (err) {
+                            logger.error('❌ Owner Auto-Repair Failed:', err)
+                        }
+                    }
+                }
+
+                // 1. Status Check
+                const status = (profile.status || 'ACTIVE').toUpperCase()
+
+                // Hard Revocation (Deleted/Revoked) -> Logout
+                if (status === 'REVOKED' || status === 'DELETED') {
+                    logger.critical(`⛔ Access ${status} for ${email}. Terminating Session.`)
+                    setAuthError('Your access has been revoked or account deleted.')
+                    await logout()
+                    return
+                }
+
+                // Soft Revocation (Suspended) -> Redirect to /access-revoked
+                if (status === 'SUSPENDED') {
+                    logger.warn(`⛔ Access SUSPENDED for ${email}`)
+                    setIsSuspended(true)
+                    setUserRole(null) // Remove role to block normal access
+                    setUserProfile(profile)
+                    // Do NOT logout - let UI redirect to /access-revoked
+                    return
+                }
+
+                // ACTIVE State
+                setIsSuspended(false) // Reset suspension
+
+                // 2. Role Resolution
+                if (profile.role && status === 'ACTIVE') {
+                    logger.info(`✅ Role Resolved: ${profile.role}`)
+                    setUserRole(profile.role)
+                    setUserProfile(profile)
+                    setAuthError(null)
+                } else {
+                    // Pending Activation or Invalid State
+                    console.warn(`⏳ User ${email} is awaiting activation or has invalid state.`)
+                    setUserRole(null)
+                    setUserProfile(profile)
+                }
+
+            } else {
+                logger.info('🆕 New User Detected - Attempting Bootstrap or Registration')
+                // Profile doesn't exist. Check for Owner Bootstrap.
+                if (isOwnerEmail(email)) {
+                    logger.info('👑 Bootstrapping OWNER Account...')
+                    const ownerProfile = {
+                        uid: uid,
+                        email: email.toLowerCase(),
+                        name: 'System Owner',
+                        role: ROLES.OWNER,
+                        status: 'ACTIVE',
+                        createdAt: serverTimestamp()
+                    }
+                    try {
+                        await set(userRef, ownerProfile)
+                        logger.info('✅ Owner Bootstrapped. Refreshing...')
+                    } catch (err) {
+                        console.error('❌ Bootstrap Failed:', err)
+                        setAuthError('Critical: Failed to bootstrap owner account.')
+                    }
+                } else {
+                    // FIX: Failure Mode #5 (Lost Profile)
+                    // If auth exists but DB is empty, the user is in limbo.
+                    // Self-Heal: Create a skeleton profile so they appear in MD "Employee Management".
+                    logger.info('🩹 Self-Healing: Creating Skeleton Profile for New User')
+                    const skeletonProfile = {
+                        uid: uid,
+                        email: email.toLowerCase(),
+                        name: currentUser?.displayName || 'New User',
+                        role: null, // No role yet
+                        status: 'PENDING_APPROVAL', // Explicit status
+                        createdAt: serverTimestamp(),
+                        photoURL: currentUser?.photoURL || null
+                    }
+                    try {
+                        await set(userRef, skeletonProfile)
+                        logger.info('✅ Skeleton Profile Created')
+                    } catch (err) {
+                        console.error('❌ Self-Healing Failed:', err)
+                    }
+
+                    setUserRole(null)
+                    setUserProfile(skeletonProfile)
+                    setAuthError(null)
+                }
+            }
+        }
+
+        onValue(userRef, handleSnapshot, (error) => {
+            console.error('❌ Profile Sync Error:', error)
+            setAuthError('Connection to authorization server failed.')
+        })
+
+        profileListenerRef.current = () => off(userRef, 'value', handleSnapshot)
+    }
+
+    // -----------------------------------------------------
+    // Auth State Listener
+    // -----------------------------------------------------
+    useEffect(() => {
+        // Enforce Persistence
+        setPersistence(auth, browserLocalPersistence).catch(console.error)
+
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                logger.info('🔑 Auth State: Authenticated', user.email)
+                setCurrentUser(user)
+                if (!user.isAnonymous) {
+                    setupProfileListener(user.uid, user.email)
+                } else {
+                    // Anonymous User (Demo Mode) handled separately or ignored here
+                    // DemoApp handles its own context usually, but if we share:
+                    logger.info('🎭 Anonymous User (Demo Mode)')
+                    setUserRole('DEMO_USER') // Virtual role for context
+                    setLoading(false)
+                }
+            } else {
+                logger.info('🔒 Auth State: Signed Out')
+                setCurrentUser(null)
+                setUserRole(null)
+                setUserProfile(null)
+                stopProfileListener()
+            }
+            setLoading(false)
+        })
+
+        // SHARED TOKEN SYNC (Fix for Offline Token Rot)
+        // Listen for token refreshes and sync to IDB for Service Worker
+        const unsubscribeToken = onIdTokenChanged(auth, async (user) => {
+            if (user) {
+                const token = await user.getIdToken();
+                const refreshToken = user.refreshToken;
+                await syncTokenToSW(token, refreshToken);
+            } else {
+                await syncTokenToSW(null, null);
+            }
+        });
+
+        return () => {
+            unsubscribe()
+            unsubscribeToken()
+            stopProfileListener()
+        }
+    }, [])
+
+    const loginWithGoogle = async () => {
+        try {
+            const provider = new GoogleAuthProvider()
+            provider.setCustomParameters({ prompt: 'select_account' })
+            await signInWithPopup(auth, provider)
+        } catch (error) {
+            console.error('Login Failed', error)
+            throw error
+        }
+    }
+
+    const logout = async () => {
+        try {
+            stopProfileListener()
+            await signOut(auth)
+            // State clears in onAuthStateChanged
+        } catch (error) {
+            console.error('Logout Failed', error)
+        }
+    }
+
+    const value = {
+        currentUser,
+        userRole,
+        isSuspended,
+        userProfile,
+        loading,
+        authError,
+        loginWithGoogle,
+        logout
+    }
+
+    return (
+        <AuthContext.Provider value={value}>
+            {!loading && children}
+            {loading && (
+                <div className="flex items-center justify-center min-h-screen bg-slate-50">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                </div>
+            )}
+        </AuthContext.Provider>
+    )
+}
+
+export default AuthContext
