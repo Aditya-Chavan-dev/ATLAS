@@ -1,52 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
-import { database } from '@/lib/firebase/config';
-import { ref, update, query, orderByChild, limitToFirst, get } from 'firebase/database';
+import { useState, useMemo } from 'react';
 import { Search, Shield, AlertCircle, CheckCircle, Mail } from 'lucide-react';
-
-interface Employee {
-    uid: string;
-    name?: string;
-    fullName?: string; // Legacy support
-    email: string;
-    role?: string;
-    status?: string;
-    photoURL?: string;
-}
+import { useOwnerUsers } from '../hooks/useOwnerUsers';
 
 export default function OwnerDashboard() {
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { employees, loading, updateRole, bulkUpdateRole } = useOwnerUsers();
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
-
-    // Load Employees (Similar to Legacy AdminView)
-    useEffect(() => {
-        const loadEmployees = async () => {
-            try {
-                const usersRef = ref(database, 'employees');
-                // Fetch users (Optimized: legacy fetched all, we verify limit)
-                const q = query(usersRef, orderByChild('profile/email'), limitToFirst(500));
-
-                const snapshot = await get(q);
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    const empList = Object.entries(data).map(([uid, val]: [string, any]) => ({
-                        uid,
-                        ...val.profile, // Flatten profile
-                        status: val.profile?.status || 'active'
-                    })).filter(e => e.email); // Must have email
-
-                    setEmployees(empList);
-                }
-            } catch (err) {
-                console.error("Failed to load users", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadEmployees();
-    }, []);
 
     // Filtering
     const filteredEmployees = useMemo(() => {
@@ -74,18 +34,6 @@ export default function OwnerDashboard() {
         }
     };
 
-    // Role Updates
-    const updateRole = async (uid: string, newRole: string) => {
-        // Only implemented for single updates for safety, or bulk 'employee'
-        try {
-            await update(ref(database, `employees/${uid}/profile`), { role: newRole });
-            // Optimistic Update
-            setEmployees(prev => prev.map(e => e.uid === uid ? { ...e, role: newRole } : e));
-        } catch (e) {
-            alert("Failed to update role");
-        }
-    };
-
     const handleBulkRoleUpdate = async (newRole: string) => {
         if (newRole !== 'employee') {
             alert("For safety, you can only bulk assign 'Employee' role. MD/HR/Owner must be assigned individually.");
@@ -93,18 +41,11 @@ export default function OwnerDashboard() {
         }
         if (!confirm(`Are you sure you want to set ${selectedUsers.size} users to 'Employee'?`)) return;
 
-        const updates: any = {};
-        selectedUsers.forEach(uid => {
-            updates[`employees/${uid}/profile/role`] = newRole;
-        });
-
-        try {
-            await update(ref(database), updates);
-            setEmployees(prev => prev.map(e => selectedUsers.has(e.uid) ? { ...e, role: newRole } : e));
+        const success = await bulkUpdateRole(Array.from(selectedUsers), newRole);
+        if (success) {
             setSelectedUsers(new Set()); // Clear selection
             alert("Bulk update complete");
-        } catch (err) {
-            console.error(err);
+        } else {
             alert("Bulk update failed");
         }
     };
@@ -153,8 +94,8 @@ export default function OwnerDashboard() {
                             key={role}
                             onClick={() => setRoleFilter(role)}
                             className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${roleFilter === role
-                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
-                                : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
                                 }`}
                         >
                             {role.charAt(0).toUpperCase() + role.slice(1)}
@@ -236,8 +177,8 @@ export default function OwnerDashboard() {
                                         </td>
                                         <td className="p-4">
                                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${(emp.status || 'active').toLowerCase() === 'active'
-                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                : 'bg-red-50 text-red-700 border-red-200'
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    : 'bg-red-50 text-red-700 border-red-200'
                                                 }`}>
                                                 {(emp.status || 'active').toLowerCase() === 'active' ? <CheckCircle className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
                                                 {(emp.status || 'active').charAt(0).toUpperCase() + (emp.status || 'active').slice(1)}
