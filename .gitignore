@@ -25,3 +25,6 @@ dist-ssr
 
 # Agent workflows (local only, not committed)
 # .agent/workflows/
+
+.env
+.firebase/
