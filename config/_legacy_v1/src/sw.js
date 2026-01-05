@@ -156,14 +156,17 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-comp
 // Firebase Configuration
 // IMPORTANT: These placeholders are replaced at build time by scripts/generate-sw-config.cjs
 // DO NOT hardcode credentials - they are injected during build
+// Firebase Configuration
+// IMPORTANT: These placeholders are replaced at build time by scripts/generate-sw-config.cjs
+// DO NOT hardcode credentials - they are injected during build
 const firebaseConfig = {
-    apiKey: "AIzaSyAeDXg4T16u3lCNDxHfyA7n3WQCrPp4MAA",
+    apiKey: "REPLACED_AT_BUILD_TIME",
     authDomain: "atlas-011.firebaseapp.com",
     databaseURL: "https://atlas-011-default-rtdb.asia-southeast1.firebasedatabase.app",
     projectId: "atlas-011",
     storageBucket: "atlas-011.firebasestorage.app",
     messagingSenderId: "770708381517",
-    appId: "1:770708381517:web:84faf71d62f741494f6104"
+    appId: "REPLACED_AT_BUILD_TIME"
 };
 
 // Initialize Firebase (synchronous, deterministic)

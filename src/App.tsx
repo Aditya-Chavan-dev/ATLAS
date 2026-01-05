@@ -23,8 +23,8 @@ function EmailBasedRoute() {
         return <Navigate to="/login" replace />;
     }
 
-    // Check if email is the owner email (For now, hardcoded security)
-    if (user.email === 'adityagchavan3@gmail.com') {
+    // Check if email is the owner email
+    if (user.email === import.meta.env.VITE_OWNER_EMAIL) {
         return <Navigate to="/owner" replace />;
     }
 
