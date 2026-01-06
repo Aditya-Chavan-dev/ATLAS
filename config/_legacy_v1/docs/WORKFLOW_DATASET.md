@@ -409,26 +409,7 @@ if (isHoliday || isSunday) {
 }
 ```
 
-**Geofencing** (`⚠️ NOT IMPLEMENTED`):  
-Despite GPS coordinates being captured, **no distance calculation occurs**. All submissions default to `"pending"` regardless of location.
-
-**Current Code** (`L80`):
-```javascript
-let status = 'pending'  // Hardcoded—no auto-approval logic
-```
-
-**Expected (but missing) logic**:
-```javascript
-// HYPOTHETICAL (not in code):
-if (latitude && longitude) {
-    const distance = calculateDistance(latitude, longitude, OFFICE_LAT, OFFICE_LON)
-    if (distance < 100 && locationType === "Office") {
-        status = 'approved'  // Auto-approve
-    }
-}
-```
-
-**Current Behavior**: ALL attendance requires manual MD approval.
+**No Auto-Approval**: All attendance marks default to "pending" and require MD approval. There is no automated location-based approval logic.
 
 ---
 
@@ -443,8 +424,6 @@ const updateData = {
     timestamp: serverTimestamp,  // Server-generated (authoritative)
     locationType,  // "Office" | "Site"
     siteName: siteName || null,
-    latitude: latitude || null,  // May be null if GPS denied
-    longitude: longitude || null,
     mdNotified: false,  // Will be set to true after notification sent
     specialNote: statusNote  // Holiday/Sunday note
 }
@@ -462,8 +441,6 @@ await attendanceRef.update(updateData)
     "timestamp": "2025-01-15T09:30:12.456Z",
     "locationType": "Site",
     "siteName": "Mumbai Construction",
-    "latitude": 19.0760,
-    "longitude": 72.8777,
     "mdNotified": false,
     "specialNote": null
   }

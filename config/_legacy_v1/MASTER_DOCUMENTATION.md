@@ -25,7 +25,7 @@
 ## System Overview
 ATLAS is an Enterprise Attendance Management System built as a Progressive Web App (PWA). It facil
 
-itates location-based attendance marking for employees and provides a comprehensive dashboard for Managing Directors (MDs) to approve/reject requests and monitor workforce status in real-time.
+itates secure device-bound attendance marking for employees and provides a comprehensive dashboard for Managing Directors (MDs) to approve/reject requests and monitor workforce status in real-time.
 
 ## Key Features
 - **Google Sign-In Integration**: Uses Firebase Authentication

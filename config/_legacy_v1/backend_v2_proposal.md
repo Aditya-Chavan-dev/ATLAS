@@ -4,15 +4,14 @@ You asked for "Solid Features" that are actually useful. Based on the code audit
 
 ---
 
-## 1. "Ironclad" Geo-Verification (Trust No One)
-**Current State**: The Frontend calculates distance and tells the Backend "I am at Office". The Backend trusts it blindly. (Spoofable).
-**The Fix**: Move the "Truth" to the Backend.
+## 1. Device Verification (Trust No One)
+**Current State**: The system relies on simple login auth. (Shareable credentials).
+**The Fix**: Move the "Trust" to the Device.
 *   **Logic**:
-    1.  App sends `{ lat, lng, type: 'Office' }` payload.
-    2.  Backend fetches `OFFICE_COORDINATES` (Config/DB).
-    3.  Backend calculates distance (Haversine Formula).
-    4.  **Rule**: If dist > 100m, **REJECT** request with 403.
-*   **Value**: Impossible to fake attendance location without spoofing GPS at the OS level. Real accountability.
+    1.  App generates unique `deviceId` on first login.
+    2.  Backend stores `validDeviceId` for user.
+    3.  **Rule**: If `request.deviceId !== user.validDeviceId`, **REJECT** request with 403.
+*   **Value**: Impossible to proxy attendance without physically possessing the employee's device. Real accountability.
 
 ## 2. The Accrual Engine (Fairness Automator)
 **Current State**: Leave deduction is implemented, but *Crediting* seems manual or non-existent in the backend code.
