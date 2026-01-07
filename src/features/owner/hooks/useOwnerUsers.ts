@@ -1,78 +1,85 @@
-import { useState, useEffect, useMemo } from 'react';
+// Hook: Manage Users via Realtime Database (Legacy Architecture)
+import { useState, useEffect } from 'react';
+import { ref, onValue, update, query, orderByChild, limitToFirst } from 'firebase/database';
 import { database } from '@/lib/firebase/config';
-import { ref, update, query, orderByChild, limitToFirst, get } from 'firebase/database';
-
-export interface Employee {
-    uid: string;
-    name?: string;
-    fullName?: string;
-    email: string;
-    role?: string;
-    status?: string;
-    photoURL?: string;
-}
+import type { AppUser, UserRole } from '../types/owner.types';
 
 export function useOwnerUsers() {
-    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [users, setUsers] = useState<AppUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Load Employees
+    // Real-time listener for all users (Realtime DB)
     useEffect(() => {
-        const loadEmployees = async () => {
-            try {
-                const usersRef = ref(database, 'employees');
-                const q = query(usersRef, orderByChild('profile/email'), limitToFirst(500));
+        const usersQuery = query(
+            ref(database, 'employees'),
+            orderByChild('profile/email'),
+            limitToFirst(200)
+        );
 
-                const snapshot = await get(q);
+        const unsubscribe = onValue(usersQuery,
+            (snapshot) => {
                 if (snapshot.exists()) {
                     const data = snapshot.val();
-                    const empList = Object.entries(data).map(([uid, val]: [string, any]) => ({
+                    const userList = Object.entries(data).map(([uid, val]: [string, any]) => ({
                         uid,
-                        ...val.profile, // Flatten profile
-                        status: val.profile?.status || 'active'
-                    })).filter(e => e.email);
+                        email: val.profile?.email || '',
+                        displayName: val.profile?.name || val.profile?.fullName || '',
+                        photoURL: val.profile?.photoURL || '',
+                        role: (val.profile?.role || 'employee') as UserRole,
+                        status: (val.profile?.status || 'active') as 'active' | 'suspended' | 'deleted',
+                        lastSeen: val.profile?.lastSeen
+                    }))
+                        .filter(u => u.email && u.email.includes('@'))
+                        .filter(u => u.status !== 'deleted'); // Soft delete filter
 
-                    setEmployees(empList);
+                    setUsers(userList);
+                } else {
+                    setUsers([]);
                 }
-            } catch (err) {
-                console.error("Failed to load users", err);
+                setLoading(false);
+            },
+            (err) => {
+                console.error("Error fetching users from RTDB:", err);
                 setError("Failed to load users");
-            } finally {
                 setLoading(false);
             }
-        };
-        loadEmployees();
+        );
+
+        return () => unsubscribe();
     }, []);
 
-    // Update Role
-    const updateRole = async (uid: string, newRole: string) => {
+    // Update Role Function
+    const updateRole = async (uid: string, newRole: UserRole) => {
         try {
             await update(ref(database, `employees/${uid}/profile`), { role: newRole });
-            setEmployees(prev => prev.map(e => e.uid === uid ? { ...e, role: newRole } : e));
-            return true;
-        } catch (e) {
-            console.error(e);
-            return false;
+            return { success: true, message: 'Role updated' };
+        } catch (err: any) {
+            console.error("Update failed:", err);
+            return { success: false, message: err.message };
         }
     };
 
-    // Bulk Update
-    const bulkUpdateRole = async (uids: string[], newRole: string) => {
-        const updates: any = {};
-        uids.forEach(uid => {
-            updates[`employees/${uid}/profile/role`] = newRole;
-        });
-
+    // Toggle Status (Suspend/Activate)
+    const toggleStatus = async (uid: string, currentStatus: string) => {
+        const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
         try {
-            await update(ref(database), updates);
-            setEmployees(prev => prev.map(e => uids.includes(e.uid) ? { ...e, role: newRole } : e));
-            return true;
-        } catch (err) {
-            console.error(err);
-            return false;
+            await update(ref(database, `employees/${uid}/profile`), { status: newStatus });
+            return { success: true, message: `User ${newStatus}` };
+        } catch (err: any) {
+            return { success: false, message: err.message };
         }
     };
 
-    return { employees, loading, error, updateRole, bulkUpdateRole };
+    // Soft Delete
+    const deleteUser = async (uid: string) => {
+        try {
+            await update(ref(database, `employees/${uid}/profile`), { status: 'deleted' });
+            return { success: true, message: 'User deleted' };
+        } catch (err: any) {
+            return { success: false, message: err.message };
+        }
+    };
+
+    return { users, loading, error, updateRole, toggleStatus, deleteUser };
 }

@@ -1,0 +1,30 @@
+{
+    "rules": {
+        "attendance": {
+            ".read": "auth != null",
+            ".write": "auth != null", // allowing write for MD actions - in prod restrict to role === 'owner'
+            "$date": {
+                "$uid": {
+                    ".indexOn": [
+                        "status"
+                    ]
+                }
+            }
+        },
+        "users": {
+            "$uid": {
+                ".read": "auth != null",
+                ".write": "auth != null && auth.uid === $uid"
+            }
+        },
+        "employees": {
+            ".read": "auth != null",
+            ".indexOn": [
+                "profile/email"
+            ],
+            "$uid": {
+                ".write": "auth != null"
+            }
+        }
+    }
+}

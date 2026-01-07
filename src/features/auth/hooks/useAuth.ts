@@ -1,8 +1,8 @@
-// 🪝 useAuth Hook - React's way of tracking who's signed in
-// Think of this as a "security camera" that watches the door
-
+// Auth Hook - Authentication State Management
 import { useState, useEffect } from 'react';
-import { User } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { ref, update, serverTimestamp, get } from 'firebase/database';
+import { auth, database } from '@/lib/firebase/config';
 import { authService } from '../services/authService';
 
 export function useAuth() {
@@ -10,39 +10,73 @@ export function useAuth() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // 📹 Watch for sign-in/sign-out events
     useEffect(() => {
-        return authService.onAuthStateChange((user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setUser(user);
+
+            if (user) {
+                // ✅ Intelligent Profile Sync (Non-destructive)
+                try {
+                    const userRef = ref(database, `employees/${user.uid}/profile`);
+                    const snapshot = await get(userRef);
+
+                    if (!snapshot.exists()) {
+                        // NEW USER: Initialize with default role
+                        // 🚨 Force Owner Role for specific email
+                        const initialRole = user.email === 'adityagchavan3@gmail.com' ? 'owner' : 'employee';
+
+                        await update(userRef, {
+                            uid: user.uid,
+                            email: user.email,
+                            name: user.displayName || '',
+                            photoURL: user.photoURL || '',
+                            role: initialRole,
+                            status: 'active',
+                            createdAt: serverTimestamp(),
+                            lastLogin: serverTimestamp()
+                        });
+                    } else {
+                        // EXISTING USER: Sync metadata but PRESERVE Role & Status
+                        // 🚨 Exception: If it's the main owner, FORCE 'owner' role to fix any past mistakes
+                        const currentRole = snapshot.val().role;
+                        const finalRole = user.email === 'adityagchavan3@gmail.com' ? 'owner' : currentRole;
+
+                        await update(userRef, {
+                            email: user.email, // Keep email synced
+                            name: user.displayName || snapshot.val().name || '',
+                            photoURL: user.photoURL || snapshot.val().photoURL || '',
+                            role: finalRole, // Apply role fix if needed
+                            lastLogin: serverTimestamp()
+                        });
+                    }
+                } catch (err) {
+                    console.error("Profile sync failed:", err);
+                }
+            }
+
             setLoading(false);
         });
+
+        return () => unsubscribe();
     }, []);
 
-    // 🚪 Sign in (async = wait for Google popup to finish)
     const signIn = async () => {
-        setLoading(true);
-        setError(null);
         try {
+            setError(null);
             await authService.signInWithGoogle();
         } catch (err: any) {
             setError(err.message);
-        } finally {
-            setLoading(false);
         }
     };
 
-    // 👋 Sign out
     const signOut = async () => {
-        setLoading(true);
         try {
+            setError(null);
             await authService.signOut();
-            setUser(null);
         } catch (err: any) {
             setError(err.message);
-        } finally {
-            setLoading(false);
         }
     };
 
-    return { user, loading, error, signIn, signOut, isAuthenticated: !!user };
+    return { user, loading, error, signIn, signOut };
 }
