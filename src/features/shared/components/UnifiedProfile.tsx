@@ -64,7 +64,7 @@ export default function UnifiedProfile() {
         try {
             // Allow user to check "attendance/2026-01-01" or full paths
             const finalPath = debugPath.startsWith('/') ? debugPath.slice(1) : debugPath;
-            console.log(`[Debugger] Probing: ${finalPath}`);
+            // console.log(`[Debugger] Probing: ${finalPath}`);
 
             const snap = await get(ref(database, finalPath));
             if (snap.exists()) {

@@ -45,7 +45,7 @@ if (typeof window !== 'undefined' && import.meta.env.PROD) {
         console.warn("Performance monitoring blocked. Continuing...");
     }
 } else {
-    console.log("Dev Mode: Analytics & Performance monitoring disabled.");
+    // console.log("Dev Mode: Analytics & Performance monitoring disabled.");
 }
 
 export const analytics = analyticsInstance;

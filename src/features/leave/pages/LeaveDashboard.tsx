@@ -5,6 +5,7 @@ import { ref, onValue } from 'firebase/database';
 import { Plus, Clock, CheckCircle, XCircle, AlertOctagon, Trash2 } from 'lucide-react';
 import { LeaveApplicationModal } from '../components/LeaveApplicationModal';
 import { LeaveRecord, cancelLeave } from '../services/leaveService';
+import { AttendanceStatus } from '@/types/attendance';
 
 export default function LeaveDashboard() {
     const { user } = useAuth();
@@ -55,9 +56,9 @@ export default function LeaveDashboard() {
 
     const StatusBadge = ({ status }: { status: string }) => {
         switch (status) {
-            case 'approved': return <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-xs font-bold"><CheckCircle className="w-3 h-3" /> Approved</span>;
-            case 'rejected': return <span className="flex items-center gap-1 text-red-600 bg-red-50 px-2 py-1 rounded text-xs font-bold"><XCircle className="w-3 h-3" /> Rejected</span>;
-            case 'pending': return <span className="flex items-center gap-1 text-amber-600 bg-amber-50 px-2 py-1 rounded text-xs font-bold"><Clock className="w-3 h-3" /> Pending</span>;
+            case AttendanceStatus.APPROVED: return <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-xs font-bold"><CheckCircle className="w-3 h-3" /> Approved</span>;
+            case AttendanceStatus.REJECTED: return <span className="flex items-center gap-1 text-red-600 bg-red-50 px-2 py-1 rounded text-xs font-bold"><XCircle className="w-3 h-3" /> Rejected</span>;
+            case AttendanceStatus.PENDING: return <span className="flex items-center gap-1 text-amber-600 bg-amber-50 px-2 py-1 rounded text-xs font-bold"><Clock className="w-3 h-3" /> Pending</span>;
             case 'auto-blocked': return <span className="flex items-center gap-1 text-slate-500 bg-slate-100 px-2 py-1 rounded text-xs font-bold"><AlertOctagon className="w-3 h-3" /> Blocked</span>;
             case 'cancelled': return <span className="flex items-center gap-1 text-slate-400 bg-slate-100 px-2 py-1 rounded text-xs font-bold"><XCircle className="w-3 h-3" /> Cancelled</span>;
             default: return <span className="text-slate-400 text-xs capitalize">{status}</span>;
@@ -126,7 +127,7 @@ export default function LeaveDashboard() {
                                     {/* ... Right Side (Badge + Actions) ... */}
                                     <div className="flex items-center gap-3">
                                         <StatusBadge status={record.status} />
-                                        {record.status === 'pending' && (
+                                        {record.status === AttendanceStatus.PENDING && (
                                             <button
                                                 onClick={() => handleCancel(record.id)}
                                                 className="text-slate-400 hover:text-red-500 transition-colors p-1"

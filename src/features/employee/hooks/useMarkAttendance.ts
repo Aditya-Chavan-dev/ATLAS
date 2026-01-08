@@ -1,12 +1,9 @@
 import { useState } from 'react';
-import { ref, set, get, serverTimestamp } from 'firebase/database';
-import { database } from '@/lib/firebase/config';
 import { useAuth } from '@/features/auth';
-
-interface AttendanceRequest {
-    type: 'office' | 'site';
-    siteName?: string;
-}
+import { AttendanceStatus, LocationType } from '@/types/attendance';
+import { dateUtils } from '@/utils/dateUtils';
+import { ref, get, set, serverTimestamp } from 'firebase/database';
+import { database } from '@/lib/firebase/config';
 
 export function useMarkAttendance() {
     const { user } = useAuth();
@@ -14,65 +11,44 @@ export function useMarkAttendance() {
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
 
-    const submitRequest = async ({ type, siteName }: AttendanceRequest) => {
-        if (!user) {
-            setStatus('error');
-            setMessage('Not authenticated');
-            return;
-        }
-
-        if (type === 'site' && !siteName) {
-            setStatus('error');
-            setMessage('Site name is required');
-            return;
-        }
-
+    const submitRequest = async ({ type, siteName }: { type: LocationType; siteName?: string }) => {
+        if (!user) return;
         setLoading(true);
         setStatus('idle');
+        setMessage('');
 
         try {
-            // New Schema: attendance/{YYYY-MM-DD}/{uid}
-            const today = new Date().toISOString().split('T')[0];
+            const today = dateUtils.getISTDate();
             const attendanceRef = ref(database, `attendance/${today}/${user.uid}`);
 
-            // Check if already pending or approved
+            // 1. Check if already marked (Client-side validation)
             const snapshot = await get(attendanceRef);
             if (snapshot.exists()) {
-                const data = snapshot.val();
-                if (data.status === 'pending') {
-                    setStatus('error');
-                    setMessage('Request already pending approval.');
-                    setLoading(false);
-                    return;
+                const existing = snapshot.val();
+                if (existing.status !== AttendanceStatus.REJECTED) {
+                    throw new Error('Attendance already marked for today');
                 }
-                if (data.status === 'approved') {
-                    setStatus('error');
-                    setMessage('Attendance already approved for today.');
-                    setLoading(false);
-                    return;
-                }
-                // If 'rejected', we allow overwrite (Retry)
             }
 
-            // Create Request
+            // 2. Write to DB
             await set(attendanceRef, {
                 uid: user.uid,
-                name: user.displayName || 'Unknown Employee',
+                name: user.displayName || 'Unknown',
                 photoURL: user.photoURL || '',
                 type,
                 siteName: type === 'site' ? siteName : null,
-                status: 'pending',
+                status: AttendanceStatus.PENDING,
                 timestamp: serverTimestamp(),
-                rejectionReason: null // Clear any previous rejection
+                userAgent: navigator.userAgent
             });
 
             setStatus('success');
-            setMessage('Request sent to MD successfully');
-            setLoading(false);
+            setMessage('Attendance marked successfully');
         } catch (err: any) {
-            console.error('Attendance Request Error:', err);
+            console.error('Attendance Error:', err);
             setStatus('error');
             setMessage(err.message || 'Failed to submit request');
+        } finally {
             setLoading(false);
         }
     };

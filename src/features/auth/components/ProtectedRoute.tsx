@@ -29,10 +29,6 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     }
 
     // Role Based Access Control
-    // 🚨 Emergency Override: The main owner always has access
-    if (user?.email === 'adityagchavan3@gmail.com') {
-        return <>{children}</>;
-    }
 
     if (allowedRoles && profile) {
         if (!allowedRoles.includes(profile.role)) {

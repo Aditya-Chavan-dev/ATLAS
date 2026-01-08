@@ -64,6 +64,8 @@ function RoleDispatcher() {
             return <Navigate to="/employee" replace />;
         case 'md':
             return <Navigate to="/md" replace />;
+        case 'hr':
+            return <Navigate to="/hr" replace />;
         default:
             return <Navigate to="/employee" replace />; // Default fallback
     }
@@ -117,6 +119,18 @@ function App() {
                 >
                     <Route index element={<MDDashboard />} />
                     <Route path="leaves" element={<LeaveApprovals />} />
+                </Route>
+
+                {/* 🤝 HR Portal (Restricted) */}
+                <Route
+                    path="/hr"
+                    element={
+                        <ProtectedRoute allowedRoles={['hr', 'owner']}>
+                            <OwnerLayout /> {/* HR shares Owner Layout for now */}
+                        </ProtectedRoute>
+                    }
+                >
+                    <Route index element={<OwnerDashboard />} />
                 </Route>
 
                 {/* Catch-all */}

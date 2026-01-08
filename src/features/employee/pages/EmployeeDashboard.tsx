@@ -1,17 +1,19 @@
+import { dateUtils } from '@/utils/dateUtils';
 import { useState, useEffect } from 'react';
 import { useEmployeeStats } from '../hooks/useEmployeeStats';
 import { useMarkAttendance } from '../hooks/useMarkAttendance';
+import { AttendanceStatus } from '@/types/attendance';
 import AttendanceRequestModal from '../components/AttendanceRequestModal';
 import { Clock, CalendarDays, Briefcase, Award, CheckCircle, XCircle, MapPin } from 'lucide-react';
 
 export default function EmployeeDashboard() {
     const { stats, loading, todayStatus } = useEmployeeStats();
     const { submitRequest, loading: marking, status: markStatus, message } = useMarkAttendance();
-    const [currentTime, setCurrentTime] = useState(new Date());
+    const [currentTime, setCurrentTime] = useState(Date.now());
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
         return () => clearInterval(timer);
     }, []);
 
@@ -35,10 +37,10 @@ export default function EmployeeDashboard() {
                 </div>
                 <div className="text-right hidden md:block">
                     <div className="text-2xl font-mono font-bold text-slate-700">
-                        {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        {dateUtils.formatISTTime(currentTime)}
                     </div>
                     <div className="text-sm text-slate-400 font-medium">
-                        {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                        {dateUtils.formatISTDate(currentTime)}
                     </div>
                 </div>
             </div>
@@ -55,14 +57,14 @@ export default function EmployeeDashboard() {
                     {/* Icon Status */}
                     <div className={`
                         w-24 h-24 rounded-full flex items-center justify-center shadow-inner
-                        ${statusObj === 'approved' ? 'bg-emerald-100 text-emerald-600' :
-                            statusObj === 'rejected' ? 'bg-red-100 text-red-600' :
-                                statusObj === 'pending' ? 'bg-amber-100 text-amber-600' :
+                        ${statusObj === AttendanceStatus.APPROVED ? 'bg-emerald-100 text-emerald-600' :
+                            statusObj === AttendanceStatus.REJECTED ? 'bg-red-100 text-red-600' :
+                                statusObj === AttendanceStatus.PENDING ? 'bg-amber-100 text-amber-600' :
                                     'bg-indigo-50 text-indigo-600'}
                     `}>
-                        {statusObj === 'approved' ? <CheckCircle className="w-10 h-10" /> :
-                            statusObj === 'rejected' ? <XCircle className="w-10 h-10" /> :
-                                statusObj === 'pending' ? <Clock className="w-10 h-10 animate-pulse" /> :
+                        {statusObj === AttendanceStatus.APPROVED ? <CheckCircle className="w-10 h-10" /> :
+                            statusObj === AttendanceStatus.REJECTED ? <XCircle className="w-10 h-10" /> :
+                                statusObj === AttendanceStatus.PENDING ? <Clock className="w-10 h-10 animate-pulse" /> :
                                     <Clock className="w-10 h-10" />}
                     </div>
 
@@ -73,9 +75,9 @@ export default function EmployeeDashboard() {
                                 statusObj === 'pending' ? 'text-amber-800' :
                                     'text-slate-800'
                             }`}>
-                            {statusObj === 'approved' ? "You are Present" :
-                                statusObj === 'rejected' ? "Attendance Rejected" :
-                                    statusObj === 'pending' ? "Request Sent" :
+                            {statusObj === AttendanceStatus.APPROVED ? "You are Present" :
+                                statusObj === AttendanceStatus.REJECTED ? "Attendance Rejected" :
+                                    statusObj === AttendanceStatus.PENDING ? "Attendance sent for approval" :
                                         "Mark Attendance"}
                         </h2>
 
@@ -86,7 +88,7 @@ export default function EmployeeDashboard() {
                             }`}>
                             {statusObj === 'approved' ? "Great job! Your attendance is approved." :
                                 statusObj === 'rejected' ? `Reason: ${todayStatus.rejectionReason || 'Contact Admin'}` :
-                                    statusObj === 'pending' ? "Waiting for MD approval..." :
+                                    statusObj === 'pending' ? "Status: Pending" :
                                         "Please confirm your location to start the day."}
                         </p>
                     </div>
@@ -142,7 +144,15 @@ export default function EmployeeDashboard() {
     );
 }
 
-function StatCard({ icon: Icon, label, value, color, bg }: any) {
+interface StatCardProps {
+    icon: React.ElementType;
+    label: string;
+    value: string | number;
+    color: string;
+    bg: string;
+}
+
+function StatCard({ icon: Icon, label, value, color, bg }: StatCardProps) {
     return (
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex flex-col gap-3">

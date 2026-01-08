@@ -1,64 +1,37 @@
-import { useState, useEffect } from 'react';
-import { ref, onValue, update } from 'firebase/database';
-import { database } from '@/lib/firebase/config';
+import { useState } from 'react';
+import { useManageAttendance } from '../hooks/useManageAttendance';
 import RejectionModal from '@/features/owner/components/RejectionModal'; // Reuse for now or move
 import { CheckCircle, Clock, MapPin, Building2, Undo2 } from 'lucide-react';
 
-interface AttendanceRequest {
-    uid: string;
-    name: string;
-    photoURL: string;
-    type: 'office' | 'site';
-    siteName?: string;
-    status: 'pending' | 'approved' | 'rejected';
-    timestamp: number;
-    rejectionReason?: string;
-}
+import { AttendanceRecord, AttendanceStatus } from '@/types/attendance';
+
+// Local alias if needed to match existing code usage, or just refactor usage
+type AttendanceRequest = AttendanceRecord;
 
 export default function MDDashboard() {
-    const [requests, setRequests] = useState<AttendanceRequest[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { requests, loading, updateStatus: commitUpdate } = useManageAttendance();
     const [selectedRequest, setSelectedRequest] = useState<AttendanceRequest | null>(null);
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
 
-    useEffect(() => {
-        const today = new Date().toISOString().split('T')[0];
-        const attendanceRef = ref(database, `attendance/${today}`);
-
-        const unsubscribe = onValue(attendanceRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                const list = Object.values(data) as AttendanceRequest[];
-                setRequests(list.sort((a, b) => b.timestamp - a.timestamp));
-            } else {
-                setRequests([]);
-            }
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, []);
-
-    const updateStatus = async (uid: string, status: 'approved' | 'rejected', reason?: string) => {
-        const today = new Date().toISOString().split('T')[0];
-        const updates: any = {};
-        updates[`attendance/${today}/${uid}/status`] = status;
-        if (reason) updates[`attendance/${today}/${uid}/rejectionReason`] = reason;
-        if (status === 'approved') updates[`attendance/${today}/${uid}/approvedAt`] = Date.now();
-
-        await update(ref(database), updates);
+    // Wrapper to handle UI feedback if needed, although hook handles basics
+    const handleStatusUpdate = async (uid: string, status: typeof AttendanceStatus['APPROVED'] | typeof AttendanceStatus['REJECTED'], reason?: string) => {
+        try {
+            await commitUpdate(uid, status, reason);
+        } catch (e) {
+            alert("Action failed. Please try again.");
+        }
     };
 
     const handleReject = (reason: string) => {
         if (selectedRequest) {
-            updateStatus(selectedRequest.uid, 'rejected', reason);
+            handleStatusUpdate(selectedRequest.uid, AttendanceStatus.REJECTED, reason);
             setIsRejectModalOpen(false);
             setSelectedRequest(null);
         }
     };
 
-    const pendingRequests = requests.filter(r => r.status === 'pending');
-    const approvedRequests = requests.filter(r => r.status === 'approved');
+    const pendingRequests = requests.filter(r => r.status === AttendanceStatus.PENDING);
+    const approvedRequests = requests.filter(r => r.status === AttendanceStatus.APPROVED);
 
     if (loading) return <div className="p-8 text-slate-400">Loading dashboard...</div>;
 
@@ -115,7 +88,7 @@ export default function MDDashboard() {
                                         Reject
                                     </button>
                                     <button
-                                        onClick={() => updateStatus(req.uid, 'approved')}
+                                        onClick={() => handleStatusUpdate(req.uid, AttendanceStatus.APPROVED)}
                                         className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-md shadow-emerald-500/20 transition-all text-sm"
                                     >
                                         Approve
@@ -161,7 +134,7 @@ export default function MDDashboard() {
                                     </td>
                                     <td className="p-4 text-right">
                                         <button
-                                            onClick={() => updateStatus(req.uid, 'rejected', 'Revoked by MD')}
+                                            onClick={() => handleStatusUpdate(req.uid, AttendanceStatus.REJECTED, 'Revoked by MD')}
                                             className="text-slate-400 hover:text-rose-500 transition-colors p-2 hover:bg-rose-50 rounded-lg"
                                             title="Revoke Approval"
                                         >

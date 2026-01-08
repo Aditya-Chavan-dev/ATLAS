@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useAttendanceHistory, HistoryRecord } from '../hooks/useAttendanceHistory';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, MapPin, Clock, Info, CheckCircle, XCircle, AlertCircle, Ban } from 'lucide-react';
+import { dateUtils } from '@/utils/dateUtils';
 
 export default function EmployeeHistory() {
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -58,11 +59,15 @@ export default function EmployeeHistory() {
     // Auto-select today if in current month and no selection
     useEffect(() => {
         if (!selectedDateRecord && isCurrentMonth() && history.length > 0) {
-            const todayStr = new Date().toISOString().split('T')[0];
+            const todayStr = dateUtils.getISTDate();
             const todayRecord = history.find(h => h.date === todayStr);
             if (todayRecord) setSelectedDateRecord(todayRecord);
         }
     }, [history]);
+
+    // Note: Calendar traversal logic (prevMonth/nextMonth) still correctly uses standard Date objects
+    // for month manipulation as that is locale-agnostic enough for "Month View".
+    // We only enforce IST when generating "YYYY-MM-DD" strings for DB lookups.
 
     const getStatusColor = (status: string, isSelected: boolean) => {
         if (isSelected) return 'ring-2 ring-offset-2 ring-slate-900 z-10';
@@ -159,8 +164,8 @@ export default function EmployeeHistory() {
                                 <div className="flex items-center gap-2 mt-1">
                                     <StatusIcon status={selectedDateRecord.status} />
                                     <span className={`font-medium capitalize ${selectedDateRecord.status === 'approved' ? 'text-emerald-700' :
-                                            selectedDateRecord.status === 'rejected' ? 'text-red-700' :
-                                                selectedDateRecord.status === 'pending' ? 'text-amber-700' : 'text-slate-500'
+                                        selectedDateRecord.status === 'rejected' ? 'text-red-700' :
+                                            selectedDateRecord.status === 'pending' ? 'text-amber-700' : 'text-slate-500'
                                         }`}>
                                         {selectedDateRecord.status}
                                     </span>
