@@ -5,6 +5,7 @@ import { useMarkAttendance } from '../hooks/useMarkAttendance';
 import { AttendanceStatus } from '@/types/attendance';
 import AttendanceRequestModal from '../components/AttendanceRequestModal';
 import { Clock, CalendarDays, CheckCircle, XCircle, MapPin } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function EmployeeDashboard() {
     const { stats, loading, todayStatus } = useEmployeeStats();
@@ -122,6 +123,20 @@ export default function EmployeeDashboard() {
             {/* Stats Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard icon={CalendarDays} label="Days Present" value={stats.daysAttended} color="text-blue-600" bg="bg-blue-50" />
+
+                {/* Leave Button */}
+                <Link to="/employee/leave" className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group cursor-pointer block">
+                    <div className="flex flex-col gap-3">
+                        <div className="self-start p-2.5 rounded-xl bg-purple-50 text-purple-600 group-hover:bg-purple-100 transition-colors">
+                            <span className="text-xl">✈️</span>
+                        </div>
+                        <div>
+                            <div className="text-sm font-bold text-slate-800 tracking-tight">Manage Leaves</div>
+                            <div className="text-xs text-slate-500 font-medium mt-1">Apply & Check Balance</div>
+                        </div>
+                    </div>
+                </Link>
+
                 <StatCard
                     icon={MapPin}
                     label="Current Status"

@@ -4,8 +4,10 @@ import OwnerLayout from '@/features/owner/layouts/OwnerLayout';
 import OwnerDashboard from '@/features/owner/pages/OwnerDashboard';
 import EmployeeLayout from '@/features/employee/components/EmployeeLayout';
 import EmployeeDashboard from '@/features/employee/pages/EmployeeDashboard';
+import LeaveDashboard from '@/features/leave/pages/LeaveDashboard';
 import MDLayout from '@/features/md/layouts/MDLayout';
 import MDDashboard from '@/features/md/pages/MDDashboard';
+import MDLeaveApprovals from '@/features/md/pages/MDLeaveApprovals';
 import EmployeeHistory from '@/features/employee/pages/EmployeeHistory';
 import EmployeeProfile from '@/features/employee/pages/EmployeeProfile';
 import './App.css';
@@ -100,6 +102,7 @@ function App() {
                 >
                     <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<EmployeeDashboard />} />
+                    <Route path="leave" element={<LeaveDashboard />} />
                     <Route path="history" element={<EmployeeHistory />} />
                     <Route path="profile" element={<EmployeeProfile />} />
                 </Route>
@@ -114,7 +117,7 @@ function App() {
                     }
                 >
                     <Route index element={<MDDashboard />} />
-                    {/* LEAVE APPROVALS REMOVED */}
+                    <Route path="leaves" element={<MDLeaveApprovals />} />
                 </Route>
 
                 {/* 🤝 HR Portal (Restricted) */}

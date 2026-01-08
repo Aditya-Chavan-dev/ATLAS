@@ -30,5 +30,21 @@
                 "profile": {
                     ".read": "auth != null"
                 },
+                "leaveBalance": {
+                    ".read": "auth != null && (auth.uid === $uid || root.child('employees').child(auth.uid).child('profile/role').val() === 'md')",
+                    ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile/role').val() === 'md' || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner')"
+                }
+            }
+        },
+        "leaves": {
+            ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile/role').val() === 'md' || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner')",
+            ".indexOn": [
+                "uid"
+            ],
+            "$uid": {
+                ".read": "auth != null && auth.uid === $uid",
+                ".write": "auth != null && (auth.uid === $uid || root.child('employees').child(auth.uid).child('profile/role').val() === 'md' || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner')"
             }
         }
+    }
+}
