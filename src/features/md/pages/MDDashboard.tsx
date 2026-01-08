@@ -70,6 +70,10 @@ export default function MDDashboard() {
                     <p className="text-slate-500">Manage daily attendance approvals</p>
                 </div>
                 <div className="flex gap-4">
+                    <a href="/md/leaves" className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        Leave Approvals
+                    </a>
                     <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-xl border border-amber-100 font-medium flex items-center gap-2">
                         <Clock className="w-4 h-4" />
                         {pendingRequests.length} Pending

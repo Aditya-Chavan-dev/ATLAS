@@ -30,7 +30,9 @@ export const functions = getFunctions(app);
 let analyticsInstance = null;
 let performanceInstance = null;
 
-if (typeof window !== 'undefined') {
+// Only initialize Analytics/Performance in Production or if explicitly enabled
+// This prevents "ERR_BLOCKED_BY_CLIENT" errors in local dev due to ad-blockers
+if (typeof window !== 'undefined' && import.meta.env.PROD) {
     try {
         analyticsInstance = getAnalytics(app);
     } catch (e) {
@@ -42,6 +44,8 @@ if (typeof window !== 'undefined') {
     } catch (e) {
         console.warn("Performance monitoring blocked. Continuing...");
     }
+} else {
+    console.log("Dev Mode: Analytics & Performance monitoring disabled.");
 }
 
 export const analytics = analyticsInstance;

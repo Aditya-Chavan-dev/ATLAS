@@ -10,6 +10,12 @@ export default defineConfig({
     build: {
         outDir: 'dist', // Output directory for build
     },
+    server: {
+        headers: {
+            'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+            'Cross-Origin-Embedder-Policy': 'unsafe-none',
+        },
+    },
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),

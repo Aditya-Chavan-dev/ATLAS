@@ -6,6 +6,10 @@ import EmployeeLayout from '@/features/employee/components/EmployeeLayout';
 import EmployeeDashboard from '@/features/employee/pages/EmployeeDashboard';
 import MDLayout from '@/features/md/layouts/MDLayout';
 import MDDashboard from '@/features/md/pages/MDDashboard';
+import LeaveDashboard from '@/features/leave/pages/LeaveDashboard';
+import LeaveApprovals from '@/features/md/pages/LeaveApprovals';
+import EmployeeHistory from '@/features/employee/pages/EmployeeHistory';
+import EmployeeProfile from '@/features/employee/pages/EmployeeProfile';
 import './App.css';
 
 // 🛡️ Logic to decide where a user goes
@@ -97,9 +101,9 @@ function App() {
                 >
                     <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<EmployeeDashboard />} />
-                    <Route path="history" element={<div className="p-8">History Coming Soon</div>} />
-                    <Route path="leave" element={<div className="p-8">Leave Coming Soon</div>} />
-                    <Route path="profile" element={<div className="p-8">Profile Coming Soon</div>} />
+                    <Route path="history" element={<EmployeeHistory />} />
+                    <Route path="leave" element={<LeaveDashboard />} />
+                    <Route path="profile" element={<EmployeeProfile />} />
                 </Route>
 
                 {/* 👔 MD Portal (Restricted) */}
@@ -112,6 +116,7 @@ function App() {
                     }
                 >
                     <Route index element={<MDDashboard />} />
+                    <Route path="leaves" element={<LeaveApprovals />} />
                 </Route>
 
                 {/* Catch-all */}

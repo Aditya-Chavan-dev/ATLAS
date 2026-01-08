@@ -66,3 +66,18 @@ We have **Two** distinct Truths, depending on what you are asking about:
 2.  **For TIME (The "Watch"):**
     *   **The Server Clock (Google NTP)** is God.
     *   We **never** trust the user's phone clock (which can be changed). We calculate "True Time" by comparing the server clock against the device's uptime.
+
+---
+
+### **New Feature: Employee History**
+
+**Description:**
+A personal timeline for employees to view their own attendance records for the past 30 days.
+
+**Why?**
+Currently, employees only see "Today's Status". They need to verify if their previous days were approved or rejected (especially if they were offline).
+
+**Implementation Strategy:**
+*   **Challenge:** Database structure (`attendance/{date}/{uid}`) makes "get all for user" hard.
+*   **Solution:** **Client-Side Aggregation**. The app will parallel-fetch the specific path for the user for the last 30 days (e.g., `attendance/2023-10-01/uid`, `attendance/2023-10-02/uid`...).
+*   **Performance:** 30 parallel light reads is negligible for Firebase.
