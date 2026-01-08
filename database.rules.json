@@ -30,17 +30,5 @@
                 "profile": {
                     ".read": "auth != null"
                 },
-                "leaveBalance": {
-                    ".read": "auth != null && (auth.uid === $uid || root.child('employees').child(auth.uid).child('profile/role').val() === 'md')"
-                }
-            }
-        },
-        "leaves": {
-            ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile/role').val() === 'md' || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner')",
-            ".write": false,
-            "$uid": {
-                ".read": "auth != null && auth.uid === $uid"
             }
         }
-    }
-}

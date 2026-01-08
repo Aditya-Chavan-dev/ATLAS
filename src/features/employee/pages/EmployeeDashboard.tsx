@@ -4,7 +4,7 @@ import { useEmployeeStats } from '../hooks/useEmployeeStats';
 import { useMarkAttendance } from '../hooks/useMarkAttendance';
 import { AttendanceStatus } from '@/types/attendance';
 import AttendanceRequestModal from '../components/AttendanceRequestModal';
-import { Clock, CalendarDays, Briefcase, Award, CheckCircle, XCircle, MapPin } from 'lucide-react';
+import { Clock, CalendarDays, CheckCircle, XCircle, MapPin } from 'lucide-react';
 
 export default function EmployeeDashboard() {
     const { stats, loading, todayStatus } = useEmployeeStats();
@@ -122,8 +122,6 @@ export default function EmployeeDashboard() {
             {/* Stats Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard icon={CalendarDays} label="Days Present" value={stats.daysAttended} color="text-blue-600" bg="bg-blue-50" />
-                <StatCard icon={Briefcase} label="EL Balance" value={stats.elBalance} color="text-indigo-600" bg="bg-indigo-50" />
-                <StatCard icon={Award} label="PL Balance" value={stats.plBalance} color="text-purple-600" bg="bg-purple-50" />
                 <StatCard
                     icon={MapPin}
                     label="Current Status"
