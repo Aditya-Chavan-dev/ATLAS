@@ -34,22 +34,22 @@ export function ConfirmationModal({ isOpen, onClose, title, message, type = 'inf
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-800"
+                    className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-gray-100"
                 >
                     <div className="p-6">
                         <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h3>
-                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                            <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <p className="text-gray-600 dark:text-gray-300 mb-8">{message}</p>
+                        <p className="text-gray-600 mb-8">{message}</p>
 
                         <div className="flex justify-end gap-3">
                             {secondaryAction && (
                                 <button
                                     onClick={secondaryAction.onClick}
-                                    className="px-4 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium transition-colors"
+                                    className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors"
                                 >
                                     {secondaryAction.label}
                                 </button>
@@ -57,7 +57,7 @@ export function ConfirmationModal({ isOpen, onClose, title, message, type = 'inf
                             {primaryAction && (
                                 <button
                                     onClick={primaryAction.onClick}
-                                    className={`px-4 py-2 rounded-lg text-white font-medium shadow-lg shadow-indigo-500/20 transition-all ${colors[type]}`}
+                                    className={`px-4 py-2 rounded-lg text-white font-medium shadow-sm hover:shadow-md transition-all ${colors[type]}`}
                                 >
                                     {primaryAction.label}
                                 </button>

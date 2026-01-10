@@ -8,6 +8,26 @@ body {
     width: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden;
+    overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
+    @apply bg-gray-50 text-slate-900 antialiased font-sans;
+}
+
+/* Professional Focus States */
+:focus-visible {
+    @apply outline-none ring-2 ring-brand-500/50 ring-offset-1;
+}
+
+/* Custom Scrollbar - Minimal */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
 }

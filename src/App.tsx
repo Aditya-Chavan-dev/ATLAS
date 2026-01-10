@@ -39,12 +39,12 @@ function RoleDispatcher() {
 
     if (!profile) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950">
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
                 <div className="text-center px-4">
-                    <div className="w-12 h-12 bg-gray-200 dark:bg-gray-800 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <div className="w-12 h-12 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
                         <span className="text-xl">👤</span>
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Setting up Profile</h3>
+                    <h3 className="text-lg font-bold text-gray-900">Setting up Profile</h3>
                     <p className="text-sm text-gray-500 mt-1">Please wait while we initialize your account...</p>
                 </div>
             </div>

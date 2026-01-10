@@ -29,7 +29,7 @@ export default function EmployeeDashboard() {
     const statusObj = todayStatus.status; // 'pending' | 'approved' | 'rejected' | null
 
     return (
-        <div className="space-y-8 max-w-5xl mx-auto">
+        <div className="space-y-8 max-w-7xl mx-auto">
             {/* Header with Live Time */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -48,50 +48,49 @@ export default function EmployeeDashboard() {
 
             {/* Hero Action Card */}
             <div className={`
-                rounded-2xl shadow-lg overflow-hidden border transition-all relative
-                ${statusObj === 'approved' ? 'bg-emerald-50 border-emerald-100' :
-                    statusObj === 'rejected' ? 'bg-red-50 border-red-100' :
-                        statusObj === 'pending' ? 'bg-amber-50 border-amber-100' :
-                            'bg-white border-slate-100 shadow-slate-200/50'}
+                rounded-2xl shadow-sm overflow-hidden border transition-all relative
+                ${statusObj === 'approved' ? 'bg-white border-emerald-200 shadow-emerald-500/0' :
+                    statusObj === 'rejected' ? 'bg-white border-red-200 shadow-red-500/0' :
+                        statusObj === 'pending' ? 'bg-white border-amber-200 shadow-amber-500/0' :
+                            'bg-white border-slate-200'}
             `}>
-                <div className="p-8 md:p-12 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="p-8 md:p-10 flex flex-col items-center justify-center text-center space-y-6">
                     {/* Icon Status */}
                     <div className={`
-                        w-24 h-24 rounded-full flex items-center justify-center shadow-inner
-                        ${statusObj === AttendanceStatus.APPROVED ? 'bg-emerald-100 text-emerald-600' :
-                            statusObj === AttendanceStatus.REJECTED ? 'bg-red-100 text-red-600' :
-                                statusObj === AttendanceStatus.PENDING ? 'bg-amber-100 text-amber-600' :
-                                    'bg-indigo-50 text-indigo-600'}
+                        w-20 h-20 rounded-2xl flex items-center justify-center
+                        ${statusObj === AttendanceStatus.APPROVED ? 'bg-emerald-50 text-emerald-600 ring-4 ring-emerald-50/50' :
+                            statusObj === AttendanceStatus.REJECTED ? 'bg-rose-50 text-rose-600 ring-4 ring-rose-50/50' :
+                                statusObj === AttendanceStatus.PENDING ? 'bg-amber-50 text-amber-600 ring-4 ring-amber-50/50' :
+                                    'bg-brand-50 text-brand-600 ring-4 ring-brand-50/50'}
                     `}>
-                        {statusObj === AttendanceStatus.APPROVED ? <CheckCircle className="w-10 h-10" /> :
-                            statusObj === AttendanceStatus.REJECTED ? <XCircle className="w-10 h-10" /> :
-                                statusObj === AttendanceStatus.PENDING ? <Clock className="w-10 h-10 animate-pulse" /> :
-                                    <Clock className="w-10 h-10" />}
+                        {statusObj === AttendanceStatus.APPROVED ? <CheckCircle className="w-8 h-8" /> :
+                            statusObj === AttendanceStatus.REJECTED ? <XCircle className="w-8 h-8" /> :
+                                statusObj === AttendanceStatus.PENDING ? <Clock className="w-8 h-8 animate-pulse" /> :
+                                    <Clock className="w-8 h-8" />}
                     </div>
 
                     {/* Text Status */}
                     <div className="max-w-md mx-auto">
-                        <h2 className={`text-3xl font-bold ${statusObj === 'approved' ? 'text-emerald-800' :
-                            statusObj === 'rejected' ? 'text-red-800' :
-                                statusObj === 'pending' ? 'text-amber-800' :
-                                    'text-slate-800'
-                            }`}>
+                        <h2 className="text-2xl font-bold text-slate-900">
                             {statusObj === AttendanceStatus.APPROVED ? "You are Present" :
                                 statusObj === AttendanceStatus.REJECTED ? "Attendance Rejected" :
-                                    statusObj === AttendanceStatus.PENDING ? "Attendance sent for approval" :
+                                    statusObj === AttendanceStatus.PENDING ? "Attendance Pending" :
                                         "Mark Attendance"}
                         </h2>
 
-                        <p className={`mt-2 font-medium ${statusObj === 'approved' ? 'text-emerald-600' :
-                            statusObj === 'rejected' ? 'text-red-600' :
-                                statusObj === 'pending' ? 'text-amber-700' :
-                                    'text-slate-500'
-                            }`}>
-                            {statusObj === 'approved' ? "Great job! Your attendance is approved." :
-                                statusObj === 'rejected' ? `Reason: ${todayStatus.rejectionReason || 'Contact Admin'}` :
-                                    statusObj === 'pending' ? "Status: Pending" :
-                                        "Please confirm your location to start the day."}
-                        </p>
+                        <div className="mt-2 inline-flex items-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold
+                                ${statusObj === 'approved' ? 'bg-emerald-50 text-emerald-700' :
+                                    statusObj === 'rejected' ? 'bg-rose-50 text-rose-700' :
+                                        statusObj === 'pending' ? 'bg-amber-50 text-amber-700' :
+                                            'bg-slate-100 text-slate-600'}
+                            `}>
+                                {statusObj === 'approved' ? "Approved" :
+                                    statusObj === 'rejected' ? `Rejected: ${todayStatus.rejectionReason || 'Contact Admin'}` :
+                                        statusObj === 'pending' ? "Awaiting Approval" :
+                                            "Not Started"}
+                            </span>
+                        </div>
                     </div>
 
                     {/* Action Button */}
@@ -99,21 +98,21 @@ export default function EmployeeDashboard() {
                         <button
                             onClick={() => setIsModalOpen(true)}
                             className={`
-                                relative overflow-hidden group px-10 py-4 rounded-xl font-bold text-lg transition-all shadow-xl
+                                relative overflow-hidden group px-6 py-2.5 rounded-lg font-medium text-sm transition-all shadow-sm
                                 ${statusObj === 'rejected'
-                                    ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/30'
-                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/30'}
+                                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200'
+                                    : 'bg-brand-600 hover:bg-brand-700 text-white shadow-brand-200'}
                             `}
                         >
-                            <span className="relative z-10 flex items-center gap-3">
+                            <span className="relative z-10 flex items-center gap-2">
                                 {statusObj === 'rejected' ? 'Try Again' : 'Mark Present'}
-                                <span className="text-white/60">→</span>
+                                <span className="opacity-80">→</span>
                             </span>
                         </button>
                     )}
 
                     {message && (
-                        <div className={`mt-4 text-sm font-medium ${markStatus === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <div className={`mt-4 text-sm font-medium ${markStatus === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {message}
                         </div>
                     )}

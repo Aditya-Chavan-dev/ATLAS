@@ -36,14 +36,14 @@ export default function MDDashboard() {
     if (loading) return <div className="p-8 text-slate-400">Loading dashboard...</div>;
 
     return (
-        <div className="space-y-8 max-w-6xl mx-auto">
+        <div className="space-y-8 max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">MD Portal</h1>
                     <p className="text-slate-500">Manage daily attendance approvals</p>
                 </div>
                 <div className="flex gap-4">
-                    <a href="/md/leaves" className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                    <a href="/md/leaves" className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold shadow-sm hover:bg-indigo-700 transition-colors flex items-center gap-2">
                         <CheckCircle className="w-4 h-4" />
                         Leave Approvals
                     </a>
@@ -67,7 +67,7 @@ export default function MDDashboard() {
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {pendingRequests.map((req) => (
-                            <div key={req.uid} className="bg-white p-5 rounded-2xl border border-amber-100 shadow-lg shadow-amber-500/5 hover:shadow-amber-500/10 transition-all flex flex-col gap-4">
+                            <div key={req.uid} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col gap-4">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden">
                                         {req.photoURL ? <img src={req.photoURL} className="w-full h-full object-cover" /> : <div className="text-slate-400 text-xs">IMG</div>}
@@ -89,7 +89,7 @@ export default function MDDashboard() {
                                     </button>
                                     <button
                                         onClick={() => handleStatusUpdate(req.uid, AttendanceStatus.APPROVED)}
-                                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-md shadow-emerald-500/20 transition-all text-sm"
+                                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm hover:shadow-md transition-all text-sm"
                                     >
                                         Approve
                                     </button>

@@ -17,28 +17,28 @@ export default function EmployeeLayout() {
     ];
 
     return (
-        <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
             {/* Mobile Sidebar Overlay */}
             {isSidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm"
+                    className="fixed inset-0 bg-slate-900/20 z-40 md:hidden backdrop-blur-sm"
                     onClick={() => setIsSidebarOpen(false)}
                 />
             )}
 
             {/* Sidebar */}
             <aside className={`
-                fixed md:relative z-50 flex flex-col w-64 h-full bg-slate-900 text-white transition-transform duration-300 ease-in-out
+                fixed md:relative z-50 flex flex-col w-64 h-full bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
             `}>
                 {/* Brand */}
-                <div className="flex items-center gap-3 p-6 border-b border-white/10">
-                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                        <Briefcase className="w-6 h-6 text-white" />
+                <div className="flex items-center gap-3 p-6 h-16 border-b border-gray-100">
+                    <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center">
+                        <Briefcase className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-lg font-bold tracking-wide">ATLAS</h1>
-                        <p className="text-xs text-slate-400 font-medium tracking-wider">EMPLOYEE</p>
+                        <h1 className="text-base font-bold text-slate-900 tracking-tight">ATLAS</h1>
+                        <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Employee</p>
                     </div>
                 </div>
 
@@ -54,26 +54,28 @@ export default function EmployeeLayout() {
                                     setIsSidebarOpen(false);
                                 }}
                                 className={`
-                                    w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
+                                    w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group text-sm font-medium
                                     ${isActive
-                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/20 font-medium'
-                                        : 'text-slate-400 hover:text-white hover:bg-white/5'}
+                                        ? 'bg-brand-50 text-brand-700'
+                                        : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'}
                                 `}
                             >
-                                <tab.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
-                                <span className="text-sm">{tab.label}</span>
+                                <tab.icon className={`w-4 h-4 ${isActive ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                                <span>{tab.label}</span>
                             </button>
                         );
                     })}
                 </nav>
 
                 {/* User Footer */}
-                <div className="p-4 border-t border-white/10 bg-slate-900/50 space-y-3">
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/5">
-                        <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-xs font-bold">ME</div>
+                <div className="p-4 border-t border-gray-100 bg-gray-50/50 space-y-3">
+                    <div className="flex items-center gap-3 px-3 py-2">
+                        <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold ring-2 ring-white">
+                            ME
+                        </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-white truncate">My Account</p>
-                            <p className="text-xs text-slate-400 truncate">Employee</p>
+                            <p className="text-sm font-medium text-slate-900 truncate">My Account</p>
+                            <p className="text-xs text-slate-500 truncate">Logged In</p>
                         </div>
                     </div>
                     <button
@@ -81,10 +83,10 @@ export default function EmployeeLayout() {
                             await useAuthHook.signOut();
                             navigate('/login');
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-2 text-rose-400 hover:text-white hover:bg-rose-500/10 rounded-lg transition-colors text-sm font-medium"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors text-sm font-medium"
                     >
                         <LogOut className="w-4 h-4" />
-                        Log Out
+                        Sign Out
                     </button>
                 </div>
             </aside>
@@ -92,21 +94,26 @@ export default function EmployeeLayout() {
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
                 {/* Top Header (Mobile Only) */}
-                <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200 z-30">
+                <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200 z-30">
                     <div className="flex items-center gap-2">
-                        <h1 className="text-lg font-bold text-slate-800">ATLAS</h1>
+                        <div className="w-6 h-6 bg-brand-600 rounded flex items-center justify-center">
+                            <Briefcase className="w-4 h-4 text-white" />
+                        </div>
+                        <h1 className="text-base font-bold text-slate-900">ATLAS</h1>
                     </div>
                     <button
                         onClick={() => setIsSidebarOpen(true)}
-                        className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+                        className="p-2 text-slate-500 hover:bg-gray-100 rounded-lg"
                     >
-                        <Menu className="w-6 h-6" />
+                        <Menu className="w-5 h-5" />
                     </button>
                 </header>
 
                 {/* Page Content */}
-                <div className="flex-1 overflow-auto p-4 md:p-8 relative">
-                    <Outlet />
+                <div className="flex-1 overflow-auto p-4 md:p-8 bg-gray-50 relative">
+                    <div className="max-w-7xl mx-auto w-full">
+                        <Outlet />
+                    </div>
                 </div>
             </main>
         </div>
