@@ -30,6 +30,7 @@ import { DemoProvider } from './context/DemoContext'
 import DemoContainer from './components/DemoContainer'
 import DemoLoginPage from './components/DemoLoginPage'
 import { useDemoMetrics } from './hooks/useDemoMetrics'
+import { useDemoSession } from './hooks/useDemoSession'
 import './styles/DemoTheme.css'
 
 // Loading screen component
@@ -187,11 +188,18 @@ function DemoErrorScreen({ error, onRetry }) {
 // Inner component that has access to metrics
 function DemoAppInner() {
     const { logVisit } = useDemoMetrics()
+    // Initialize session (CRITICAL: Must be called here)
+    const { loading, error } = useDemoSession()
 
     // Log visit event on mount
     useEffect(() => {
-        logVisit()
-    }, [logVisit])
+        if (!loading && !error) {
+            logVisit()
+        }
+    }, [logVisit, loading, error])
+
+    if (loading) return <DemoLoadingScreen />
+    if (error) return <DemoErrorScreen error={error} onRetry={() => window.location.reload()} />
 
     return <DemoContainer />
 }
