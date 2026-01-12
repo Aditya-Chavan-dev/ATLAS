@@ -212,8 +212,8 @@ function DemoApp() {
             await signInAnonymously(auth)
 
             console.log('✅ Demo auth initialized (anonymous)')
-            // Show login page instead of going directly to demo
-            setAuthState('login')
+            // Go directly to demo, skipping simulated login
+            setAuthState('authenticated')
 
         } catch (err) {
             console.error('❌ Demo auth failed:', err)
