@@ -9,6 +9,12 @@ export default defineConfig({
     publicDir: path.resolve(__dirname, 'config/public'), // Public assets directory
     build: {
         outDir: 'dist', // Output directory for build
+        rollupOptions: {
+            input: {
+                main: path.resolve(__dirname, 'index.html'),
+                demo: path.resolve(__dirname, 'demo.html'),
+            },
+        },
     },
     server: {
         headers: {

@@ -6,6 +6,7 @@
             "$date": {
                 "$uid": {
                     ".read": "auth != null && auth.uid === $uid",
+                    ".write": "auth != null && (auth.uid === $uid || root.child('employees').child(auth.uid).child('profile/role').val() === 'md' || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner' || root.child('employees').child(auth.uid).child('profile/role').val() === 'hr')",
                     ".indexOn": [
                         "status"
                     ]
@@ -15,7 +16,7 @@
         "users": {
             "$uid": {
                 ".read": "auth != null && auth.uid === $uid",
-                ".write": false
+                ".write": "auth != null && (auth.uid === $uid || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner')"
             }
         },
         "employees": {
