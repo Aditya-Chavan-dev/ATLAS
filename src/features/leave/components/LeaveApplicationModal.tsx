@@ -4,6 +4,7 @@ import { LEAVE_TYPES, LeaveType } from '../types/leaveConstants';
 import { differenceInDays } from 'date-fns';
 import { applyForLeave } from '../services/leaveService';
 import { LeaveBalance } from '../types/types';
+import { useUserProfile } from '@/features/auth'; // Import useUserProfile
 
 interface Props {
     isOpen: boolean;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function LeaveApplicationModal({ isOpen, onClose, uid, balance, onSuccess }: Props) {
+    const { profile } = useUserProfile(); // Fetch Profile
     const [type, setType] = useState<LeaveType>(LEAVE_TYPES.PL);
     const [from, setFrom] = useState('');
     const [to, setTo] = useState('');
@@ -52,7 +54,9 @@ export default function LeaveApplicationModal({ isOpen, onClose, uid, balance, o
                 throw new Error(`Insufficient ${type} Balance. Please use 'Request Additional Leave' (LWP) if urgently needed.`);
             }
 
-            await applyForLeave(uid, {
+            const employeeName = profile?.name || profile?.fullName || 'Employee';
+
+            await applyForLeave(employeeName, {
                 uid,
                 type,
                 from,

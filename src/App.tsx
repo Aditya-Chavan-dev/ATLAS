@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { LoginPage, MaintenancePage, useAuth, useUserProfile, ProtectedRoute } from '@/features/auth';
+import { LoginPage, useAuth, ProtectedRoute } from '@/features/auth';
 import OwnerLayout from '@/features/owner/layouts/OwnerLayout';
 import OwnerDashboard from '@/features/owner/pages/OwnerDashboard';
 import EmployeeLayout from '@/features/employee/components/EmployeeLayout';

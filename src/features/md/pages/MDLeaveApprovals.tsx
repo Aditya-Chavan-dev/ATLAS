@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ref, onValue } from 'firebase/database';
 import { database } from '@/lib/firebase/config';
 import { ExtendedLeaveRequest } from '@/features/leave/types/types';
-import { approveLeave, cancelLeave } from '@/features/leave/services/leaveService';
+import { approveLeave, rejectLeave } from '@/features/leave/services/leaveService';
 import { useAuth } from '@/features/auth'; // Using auth hook instead of store if store is gone
 import { ArrowLeft, CheckCircle, XCircle, Calendar, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -75,7 +75,7 @@ export default function MDLeaveApprovals() {
         const reason = prompt("Enter Rejection Reason:");
         if (!reason) return;
         try {
-            await cancelLeave(req.uid, req, reason); // Reuse cancel for reject (same cleanup)
+            await rejectLeave(user.uid, req, reason);
         } catch (e) {
             alert("Rejection Failed: " + e);
         }

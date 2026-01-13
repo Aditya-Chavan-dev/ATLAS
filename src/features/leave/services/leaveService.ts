@@ -2,10 +2,11 @@ import { apiClient } from '@/lib/api';
 import { LeaveRequest } from '../types/types';
 
 // --- ACTION: Apply (Secure) ---
-export const applyForLeave = async (uid: string, request: Omit<LeaveRequest, 'id' | 'status' | 'appliedAt'>) => {
+// --- ACTION: Apply (Secure) ---
+export const applyForLeave = async (employeeName: string, request: Omit<LeaveRequest, 'id' | 'status' | 'appliedAt'>) => {
     // Endpoint: /api/leave/apply
     return await apiClient('/leave/apply', 'POST', {
-        employeeName: request.employeeName || 'Unknown', // Backend needs this
+        employeeName: employeeName || 'Unknown',
         from: request.from,
         to: request.to,
         type: request.type,
@@ -25,10 +26,22 @@ export const approveLeave = async (approverUid: string, leave: LeaveRequest) => 
 };
 
 // --- ACTION: Cancel (Secure) ---
-export const cancelLeave = async (uid: string, leave: LeaveRequest, reason: string) => {
+export const cancelLeave = async (leave: LeaveRequest, reason: string) => {
     // Endpoint: /api/leave/cancel
     await apiClient('/leave/cancel', 'POST', {
         leaveId: leave.id,
+        reason
+    });
+};
+
+// --- ACTION: Reject (Secure) ---
+export const rejectLeave = async (mdUid: string, leave: LeaveRequest, reason: string) => {
+    // Endpoint: /api/leave/reject
+    await apiClient('/leave/reject', 'POST', {
+        leaveId: leave.id,
+        employeeId: leave.uid,
+        mdId: mdUid,
+        mdName: 'MD',
         reason
     });
 };

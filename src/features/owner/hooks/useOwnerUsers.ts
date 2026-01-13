@@ -1,8 +1,7 @@
 // Hook: Manage Users via Realtime Database (Legacy Architecture)
 import { useState, useEffect } from 'react';
 import { ref, onValue, update, query, orderByChild, limitToFirst } from 'firebase/database';
-import { httpsCallable } from 'firebase/functions';
-import { database, functions } from '@/lib/firebase/config';
+import { database } from '@/lib/firebase/config';
 import type { AppUser, UserRole } from '../types/owner.types';
 
 export function useOwnerUsers() {
