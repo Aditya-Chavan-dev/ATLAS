@@ -1,7 +1,6 @@
-// Protected route component - requires authentication
+import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { useUserProfile } from '../hooks/useUserProfile';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -10,15 +9,45 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
     const { user, loading: authLoading } = useAuth();
-    const { profile, loading: profileLoading } = useUserProfile();
-    // const location = useLocation(); // Unused for now
+    const [claimsRole, setClaimsRole] = useState<string | null>(null);
+    const [checkingClaims, setCheckingClaims] = useState(true);
 
-    if (authLoading || (user && profileLoading)) {
+    useEffect(() => {
+        let mounted = true;
+
+        async function checkClaims() {
+            if (!user) {
+                if (mounted) setCheckingClaims(false);
+                return;
+            }
+
+            try {
+                // FORCE REFRESH: Trust nothing cached.
+                const tokenResult = await user.getIdTokenResult(true);
+                const role = (tokenResult.claims.role as string) || 'employee';
+                if (mounted) {
+                    setClaimsRole(role);
+                    setCheckingClaims(false);
+                }
+            } catch (e) {
+                console.error("Token verification failed", e);
+                if (mounted) setCheckingClaims(false); // Fail closed
+            }
+        }
+
+        if (!authLoading) {
+            checkClaims();
+        }
+
+        return () => { mounted = false; };
+    }, [user, authLoading]);
+
+    if (authLoading || checkingClaims) {
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Verifying access...</p>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                    <p className="text-slate-600 font-mono text-sm">Verifying Security Token...</p>
                 </div>
             </div>
         );
@@ -28,24 +57,21 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
         return <Navigate to="/login" replace />;
     }
 
-    // Role Based Access Control
+    // STRICT: Claims-based logic
+    if (allowedRoles) {
+        // Fallback: If no claim, assume 'employee'
+        const role = claimsRole || 'employee';
 
-    if (allowedRoles && profile) {
-        if (!allowedRoles.includes(profile.role)) {
-            // Redirect based on their ACTUAL role
-            if (profile.role === 'employee') {
+        if (!allowedRoles.includes(role)) {
+            // Redirect unauthorized users
+            // If they are Admin trying to access, say, a super-owner route?
+            if (role === 'employee') {
                 return <Navigate to="/employee/dashboard" replace />;
-            } else if (['owner', 'md', 'hr'].includes(profile.role)) {
-                // If they have admin rights but tried to access an employee route (rare) or forbidden route
-                // Actually if they are MD and try to access owner route, it's fine if allowedRoles includes MD.
-                // If they are Employee and try to access Owner route, they hit this block.
+            } else {
                 return <Navigate to="/owner" replace />;
             }
         }
     }
-
-    // Special Case: If user is on root or login, this component isn't used there usually.
-    // But if they are an Employee trying to access Owner routes (which likely require 'owner'/'md'), they get bounced above.
 
     return <>{children}</>;
 }

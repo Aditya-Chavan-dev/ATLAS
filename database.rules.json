@@ -1,51 +1,54 @@
 {
     "rules": {
         "attendance": {
-            ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile/role').val() === 'md' || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner' || root.child('employees').child(auth.uid).child('profile/role').val() === 'hr')",
-            ".write": false,
+            ".read": "auth != null && (auth.token.role === 'owner' || auth.token.role === 'md' || auth.token.role === 'hr')",
+            ".write": false, // STRICT: Only Backend (Cloud Functions) can write here
             "$date": {
                 "$uid": {
-                    ".read": "auth != null && auth.uid === $uid",
-                    ".write": "auth != null && (auth.uid === $uid || root.child('employees').child(auth.uid).child('profile/role').val() === 'md' || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner' || root.child('employees').child(auth.uid).child('profile/role').val() === 'hr')",
-                    ".indexOn": [
-                        "status"
-                    ]
+                    ".read": "auth != null && auth.uid === $uid"
                 }
             }
         },
         "users": {
             "$uid": {
                 ".read": "auth != null && auth.uid === $uid",
-                ".write": "auth != null && (auth.uid === $uid || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner')"
+                ".write": "auth != null && (auth.uid === $uid || auth.token.role === 'owner')"
             }
         },
         "employees": {
-            ".read": "auth != null",
+            ".read": "auth != null && (auth.token.role === 'owner' || auth.token.role === 'md' || auth.token.role === 'hr')", // ADMITTED: Admins need list access
             ".indexOn": [
                 "profile/email"
             ],
             "$uid": {
-                ".read": "auth != null && (auth.uid === $uid || root.child('employees').child(auth.uid).child('profile/role').val() === 'md' || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner')",
-                ".write": "auth != null && (auth.uid === $uid || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner')",
-                ".validate": "root.child('employees').child(auth.uid).child('profile/role').val() === 'owner' || newData.child('profile/role').val() === 'employee'",
+                // Self read OR Admin read (via Claim)
+                ".read": "auth != null && (auth.uid === $uid || auth.token.role === 'owner' || auth.token.role === 'md' || auth.token.role === 'hr')",
+                // Write blocked for users. Only Admins or Backend.
+                // Actually, allowing Owner write is fine, but careful.
+                ".write": "auth != null && auth.token.role === 'owner'",
                 "profile": {
-                    ".read": "auth != null"
+                    ".read": "auth != null && (auth.uid === $uid || auth.token.role === 'owner' || auth.token.role === 'md' || auth.token.role === 'hr')"
                 },
                 "leaveBalance": {
-                    ".read": "auth != null && (auth.uid === $uid || root.child('employees').child(auth.uid).child('profile/role').val() === 'md')",
-                    ".write": "auth != null && (root.child('employees').child(auth.uid).child('profile/role').val() === 'md' || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner')"
+                    ".read": "auth != null && (auth.uid === $uid || auth.token.role === 'owner' || auth.token.role === 'md')",
+                    ".write": false // STRICT: Only Backend can update balance.
                 }
             }
         },
         "leaves": {
-            ".read": "auth != null && (root.child('employees').child(auth.uid).child('profile/role').val() === 'md' || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner')",
+            // Admin read all
+            ".read": "auth != null && (auth.token.role === 'owner' || auth.token.role === 'md')",
             ".indexOn": [
                 "uid"
             ],
             "$uid": {
                 ".read": "auth != null && auth.uid === $uid",
-                ".write": "auth != null && (auth.uid === $uid || root.child('employees').child(auth.uid).child('profile/role').val() === 'md' || root.child('employees').child(auth.uid).child('profile/role').val() === 'owner')"
+                ".write": false // STRICT: Only Backend can apply/approve/cancel.
             }
+        },
+        "audit_logs": {
+            ".read": "auth != null && auth.token.role === 'owner'",
+            ".write": false // STRICT: Only Backend can write logs.
         }
     }
 }

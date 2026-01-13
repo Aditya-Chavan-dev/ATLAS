@@ -15,14 +15,28 @@ import './App.css';
 // 🛡️ Logic to decide where a user goes
 function RoleDispatcher() {
     const { user, loading: authLoading } = useAuth();
-    const { profile, loading: profileLoading } = useUserProfile();
+    const [role, setRole] = useState<string | null>(null);
+    const [checking, setChecking] = useState(true);
 
-    if (authLoading || profileLoading) {
+    useEffect(() => {
+        if (authLoading) return;
+        if (!user) {
+            setChecking(false);
+            return;
+        }
+
+        user.getIdTokenResult().then(token => {
+            setRole((token.claims.role as string) || 'employee');
+            setChecking(false);
+        }).catch(() => setChecking(false));
+    }, [user, authLoading]);
+
+    if (authLoading || checking) {
         return (
             <div className="flex items-center justify-center h-screen w-full bg-slate-50">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-8 h-8 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-sm font-semibold text-slate-500">Initializing System...</p>
+                    <p className="text-sm font-semibold text-slate-500">Authenticating Secure Session...</p>
                 </div>
             </div>
         );
@@ -32,43 +46,19 @@ function RoleDispatcher() {
         return <Navigate to="/login" replace />;
     }
 
-    // 🚨 Emergency Override for Owner
-    if (user && user.email === 'adityagchavan3@gmail.com') {
-        return <Navigate to="/owner" replace />;
-    }
-
-    if (!profile) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50">
-                <div className="text-center px-4">
-                    <div className="w-12 h-12 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
-                        <span className="text-xl">👤</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-900">Setting up Profile</h3>
-                    <p className="text-sm text-gray-500 mt-1">Please wait while we initialize your account...</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (profile.status === 'suspended' || profile.status === 'deleted') {
-        return <MaintenancePage />;
-    }
-
-    // Role Routing
-    switch (profile.role) {
+    // Secure Routing based on Verification
+    switch (role) {
         case 'owner':
             return <Navigate to="/owner" replace />;
-        case 'employee':
-            return <Navigate to="/employee" replace />;
         case 'md':
             return <Navigate to="/md" replace />;
         case 'hr':
             return <Navigate to="/hr" replace />;
         default:
-            return <Navigate to="/employee" replace />; // Default fallback
+            return <Navigate to="/employee" replace />;
     }
 }
+
 
 function App() {
     return (

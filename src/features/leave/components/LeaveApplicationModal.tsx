@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Calendar, AlertTriangle, Info } from 'lucide-react';
 import { LEAVE_TYPES, LeaveType } from '../types/leaveConstants';
-import { calculateLeaveDays, applyForLeave } from '../services/leaveService';
+import { differenceInDays } from 'date-fns';
+import { applyForLeave } from '../services/leaveService';
 import { LeaveBalance } from '../types/types';
 
 interface Props {
@@ -30,7 +31,8 @@ export default function LeaveApplicationModal({ isOpen, onClose, uid, balance, o
     // Effect: Calculate Days when dates change
     useEffect(() => {
         if (from && to) {
-            const days = calculateLeaveDays(from, to);
+            // Simple Calendar Days (Backend validates holidays)
+            const days = differenceInDays(new Date(to), new Date(from)) + 1; // Inclusive
             setCalculatedDays(days);
         } else {
             setCalculatedDays(0);
@@ -147,7 +149,7 @@ export default function LeaveApplicationModal({ isOpen, onClose, uid, balance, o
                                 <p className="text-xs opacity-90 mt-0.5">
                                     {(!isLWP && isInsufficient)
                                         ? "Exceeds available balance. Switch to 'LWP' to proceed."
-                                        : "Includes working days only (Holidays excluded)."}
+                                        : "Duration (Subject to Holiday/Sunday deduction on approval)."}
                                 </p>
                             </div>
                         </div>

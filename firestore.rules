@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ZERO TRUST: Deny all reads/writes by default.
+    // The Client should ONLY interact via Cloud Functions or RTDB (if authorized).
+    // The 'users' collection (Whitelist) is Strictly Admin/Backend Only.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

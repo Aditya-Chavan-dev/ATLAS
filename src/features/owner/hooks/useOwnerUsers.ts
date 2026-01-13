@@ -1,7 +1,8 @@
 // Hook: Manage Users via Realtime Database (Legacy Architecture)
 import { useState, useEffect } from 'react';
 import { ref, onValue, update, query, orderByChild, limitToFirst } from 'firebase/database';
-import { database } from '@/lib/firebase/config';
+import { httpsCallable } from 'firebase/functions';
+import { database, functions } from '@/lib/firebase/config';
 import type { AppUser, UserRole } from '../types/owner.types';
 
 export function useOwnerUsers() {
@@ -49,10 +50,14 @@ export function useOwnerUsers() {
         return () => unsubscribe();
     }, []);
 
-    // Update Role Function
+    // Update Role Function (Secure)
     const updateRole = async (uid: string, newRole: UserRole) => {
         try {
-            await update(ref(database, `employees/${uid}/profile`), { role: newRole });
+            const setRole = httpsCallable(functions, 'setRole');
+            await setRole({ targetUid: uid, newRole });
+
+            // Optimistic update or wait for Listener?
+            // Listener will catch it eventually, but let's trust the function.
             return { success: true, message: 'Role updated' };
         } catch (err: any) {
             console.error("Update failed:", err);
