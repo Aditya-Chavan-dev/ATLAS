@@ -49,6 +49,22 @@
         "audit_logs": {
             ".read": "auth != null && auth.token.role === 'owner'",
             ".write": false // STRICT: Only Backend can write logs.
+        },
+        "rate_limits": {
+            ".read": false,
+            ".write": false // STRICT: Only Backend writes rate limit data
+        },
+        "system_alerts": {
+            ".read": "auth != null && auth.token.role === 'owner'",
+            ".write": false // STRICT: Only Backend writes security alerts
+        },
+        "config": {
+            "holidays": {
+                "$year": {
+                    ".read": "auth != null",
+                    ".write": "auth != null && auth.token.role === 'owner'"
+                }
+            }
         }
     }
 }
