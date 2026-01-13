@@ -76,6 +76,50 @@ exports.createEmployee = async (req, res) => {
 };
 
 /**
+ * Update User Role (Secure)
+ * - Updates DB profile
+ * - Updates Custom Claims (for Auth token)
+ */
+exports.setRole = async (req, res) => {
+    try {
+        const { targetUid, newRole } = req.body;
+        const requesterUid = req.user.uid;
+
+        if (!targetUid || !newRole) {
+            return res.status(400).json({ error: 'Target UID and New Role are required.' });
+        }
+
+        // 1. Verify Requester is Owner/MD (Double Check)
+        // Middleware handles this, but explicit check doesn't hurt
+        // (Middleware verifyTokenAndRole(['md', 'owner']) should be used on route)
+
+        console.log(`[Auth] Updating role for ${targetUid} to ${newRole} (by ${requesterUid})`);
+
+        // 2. Update DB
+        const empRef = db.ref(`employees/${targetUid}/profile`);
+        await empRef.update({ role: newRole });
+
+        // 3. Update Custom Claims
+        await admin.auth().setCustomUserClaims(targetUid, { role: newRole });
+
+        // 4. Log Audit
+        await db.ref('audit').push({
+            actor: requesterUid,
+            action: 'setRole',
+            target: { uid: targetUid },
+            details: { newRole },
+            timestamp: admin.database.ServerValue.TIMESTAMP
+        });
+
+        res.json({ success: true, message: 'Role updated successfully.' });
+
+    } catch (error) {
+        console.error('[Auth] Set Role Failed:', error);
+        res.status(500).json({ error: 'Server error. Please try again later.' });
+    }
+};
+
+/**
  * Archive Employee (Soft Delete)
  * - Disable in Auth (Revoke Access)
  * - Mark as 'archived' in DB

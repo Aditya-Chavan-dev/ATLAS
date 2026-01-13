@@ -69,6 +69,7 @@ router.post('/fcm/broadcast', verifyTokenAndRole(['md', 'owner']), notificationC
 
 // User Management (Owner/MD only)
 router.post('/auth/create-employee', verifyTokenAndRole(['md', 'owner']), authController.createEmployee);
+router.post('/auth/role', verifyTokenAndRole(['md', 'owner']), authController.setRole); // [NEW] Replaces cloud function
 router.post('/auth/archive-employee', verifyTokenAndRole(['md', 'owner']), authController.archiveEmployee);
 router.post('/auth/delete-employee', verifyTokenAndRole(['owner']), authController.deleteEmployee);
 

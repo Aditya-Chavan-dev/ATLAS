@@ -6,6 +6,26 @@ const Mutex = require('../utils/mutex');
 
 // ... (helpers) ...
 
+// Helper: Log Leave History (Audit)
+const logLeaveHistory = async (uid, action, leaveData, actorId, actorRole, details = {}) => {
+    try {
+        await db.ref('audit').push({
+            actor: actorId,
+            actorRole: actorRole,
+            action: `leave_${action}`, // e.g., leave_applied, leave_approved
+            target: { uid, leaveId: leaveData.leaveId },
+            timestamp: admin.database.ServerValue.TIMESTAMP,
+            details: {
+                ...details,
+                leaveType: leaveData.type,
+                days: leaveData.totalDays
+            }
+        });
+    } catch (e) {
+        console.warn('[Audit] Failed to log leave history:', e);
+    }
+};
+
 const applyLeave = async (req, res) => {
     const employeeId = req.user.uid;
 

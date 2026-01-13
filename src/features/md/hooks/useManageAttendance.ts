@@ -30,15 +30,13 @@ export function useManageAttendance() {
     const updateStatus = async (uid: string, status: typeof AttendanceStatus['APPROVED'] | typeof AttendanceStatus['REJECTED'], reason?: string) => {
         const today = dateUtils.getISTDate();
 
-        // Calling Cloud Function (Secure & Atomic)
-        // This handles EL Accrual & Validation server-side
-        const { functions } = await import('@/lib/firebase/config');
-        const { httpsCallable } = await import('firebase/functions');
-        const approveFunc = httpsCallable(functions, 'approveAttendance');
+        // Calling Render Backend (replacing Cloud Function)
+        // Endpoint: /api/attendance/status
+        const { apiClient } = await import('@/lib/api');
 
         try {
-            await approveFunc({
-                uid,
+            await apiClient('/attendance/status', 'POST', {
+                employeeUid: uid,
                 date: today,
                 status,
                 reason

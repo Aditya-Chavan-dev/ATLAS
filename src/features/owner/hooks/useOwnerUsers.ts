@@ -51,13 +51,24 @@ export function useOwnerUsers() {
     }, []);
 
     // Update Role Function (Secure)
-    const updateRole = async (uid: string, newRole: UserRole) => {
-        try {
-            const setRole = httpsCallable(functions, 'setRole');
-            await setRole({ targetUid: uid, newRole });
+    const updateRole = async (targetUid: string, newRole: UserRole) => {
+        // Calling Render Backend (replacing Cloud Function)
+        // Endpoint: /api/auth/role (assuming this endpoint exists, or /api/auth/setRole)
+        // Verification: authController.js has no explicit setRole route exposed in api.js?
+        // Checking api.js:
+        // router.post('/auth/create-employee', ...)
+        // router.post('/auth/archive-employee', ...)
+        // router.post('/auth/delete-employee', ...)
 
-            // Optimistic update or wait for Listener?
-            // Listener will catch it eventually, but let's trust the function.
+        // Wait, I need to check if 'setRole' endpoint exists in Render backend.
+        // I will use apiClient but first I need to ensure the route exists.
+        // If not, I'll add it to authController.js and routes/api.js
+
+        // For now, I'll assume I need to add it.
+        // Putting placeholder here, will fix backend next.
+        const { apiClient } = await import('@/lib/api');
+        try {
+            await apiClient('/auth/role', 'POST', { targetUid, newRole });
             return { success: true, message: 'Role updated' };
         } catch (err: any) {
             console.error("Update failed:", err);

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/features/auth';
-import { AttendanceStatus, LocationType } from '@/types/attendance';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '@/lib/firebase/config';
+import { LocationType } from '@/types/attendance';
+import { apiClient } from '@/lib/api';
+import { dateUtils } from '@/utils/dateUtils'; // Assuming you have this on frontend
 
 export function useMarkAttendance() {
     const { user } = useAuth();
@@ -16,9 +16,15 @@ export function useMarkAttendance() {
         setStatus('idle');
         setMessage('');
 
+        // Get Client-Side Date for reference (Backend uses Server Time anyway)
+        const dateStr = new Date().toISOString().split('T')[0];
+
         try {
-            const mark = httpsCallable(functions, 'markAttendance');
-            await mark({ type, siteName });
+            await apiClient('/attendance/mark', 'POST', {
+                locationType: type,
+                siteName,
+                dateStr
+            });
 
             setStatus('success');
             setMessage('Attendance marked successfully');
