@@ -9,7 +9,10 @@ const { errorHandler } = require('./services/errorHandler');
 const app = express();
 
 // SECURITY: Hardening
-app.use(helmet()); // Secure HTTP headers
+app.use(helmet({
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginEmbedderPolicy: false
+})); // Secure HTTP headers with Auth-friendly COOP/COEP
 app.use(hpp());    // Prevent Parameter Pollution
 app.use(compression()); // Compress responses
 
