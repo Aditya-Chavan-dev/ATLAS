@@ -1,68 +1,39 @@
 {
     "rules": {
+        "employees": {
+            // Only Admin can list all employees
+            ".read": "auth != null && root.child('employees/' + auth.uid + '/profile/role').val() === 'MD'",
+            "$uid": {
+                // Read: MD can read all, User can read self
+                ".read": "auth != null && (root.child('employees/' + auth.uid + '/profile/role').val() === 'MD' || auth.uid === $uid)",
+                // Write: STRICTLY MD Only
+                ".write": "auth != null && root.child('employees/' + auth.uid + '/profile/role').val() === 'MD'",
+                "profile": {
+                    // Validations
+                    ".validate": "newData.hasChildren(['email', 'role', 'status'])"
+                }
+            }
+        },
+        // Blacklists - NO CLIENT ACCESS EVER
+        "ipBlacklist": {
+            ".read": false,
+            ".write": false
+        },
+        "sessionBlacklist": {
+            ".read": false,
+            ".write": false
+        },
+        // Audit - MD Read Only
+        "audit": {
+            ".read": "auth != null && root.child('employees/' + auth.uid + '/profile/role').val() === 'MD'",
+            ".write": false // Only Backend writes
+        },
+        // Attendance & Leaves: Similar logic, check DB role NOT token role
         "attendance": {
-            ".read": "auth != null && (auth.token.role === 'owner' || auth.token.role === 'md' || auth.token.role === 'hr')",
-            ".write": false, // STRICT: Only Backend (Cloud Functions) can write here
+            ".read": "auth != null && (root.child('employees/' + auth.uid + '/profile/role').val() === 'MD' || root.child('employees/' + auth.uid + '/profile/role').val() === 'HR')",
             "$date": {
                 "$uid": {
                     ".read": "auth != null && auth.uid === $uid"
-                }
-            }
-        },
-        "users": {
-            "$uid": {
-                ".read": "auth != null && auth.uid === $uid",
-                ".write": "auth != null && (auth.uid === $uid || auth.token.role === 'owner')"
-            }
-        },
-        "employees": {
-            ".read": "auth != null && (auth.token.role === 'owner' || auth.token.role === 'md' || auth.token.role === 'hr')", // ADMITTED: Admins need list access
-            ".indexOn": [
-                "profile/email"
-            ],
-            "$uid": {
-                // Self read OR Admin read (via Claim)
-                ".read": "auth != null && (auth.uid === $uid || auth.token.role === 'owner' || auth.token.role === 'md' || auth.token.role === 'hr')",
-                // Write blocked for users. Only Admins or Backend.
-                // Actually, allowing Owner write is fine, but careful.
-                ".write": "auth != null && auth.token.role === 'owner'",
-                "profile": {
-                    ".read": "auth != null && (auth.uid === $uid || auth.token.role === 'owner' || auth.token.role === 'md' || auth.token.role === 'hr')"
-                },
-                "leaveBalance": {
-                    ".read": "auth != null && (auth.uid === $uid || auth.token.role === 'owner' || auth.token.role === 'md')",
-                    ".write": false // STRICT: Only Backend can update balance.
-                }
-            }
-        },
-        "leaves": {
-            // Admin read all
-            ".read": "auth != null && (auth.token.role === 'owner' || auth.token.role === 'md')",
-            ".indexOn": [
-                "uid"
-            ],
-            "$uid": {
-                ".read": "auth != null && auth.uid === $uid",
-                ".write": false // STRICT: Only Backend can apply/approve/cancel.
-            }
-        },
-        "audit_logs": {
-            ".read": "auth != null && auth.token.role === 'owner'",
-            ".write": false // STRICT: Only Backend can write logs.
-        },
-        "rate_limits": {
-            ".read": false,
-            ".write": false // STRICT: Only Backend writes rate limit data
-        },
-        "system_alerts": {
-            ".read": "auth != null && auth.token.role === 'owner'",
-            ".write": false // STRICT: Only Backend writes security alerts
-        },
-        "config": {
-            "holidays": {
-                "$year": {
-                    ".read": "auth != null",
-                    ".write": "auth != null && auth.token.role === 'owner'"
                 }
             }
         }
