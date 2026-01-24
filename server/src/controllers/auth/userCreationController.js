@@ -98,6 +98,102 @@ class UserCreationController {
             res.status(500).json({ error: 'Failed to create user. System rolled back.' });
         }
     }
-}
+
+
+    /**
+     * Archive Employee (Soft Delete)
+     * - Disable in Auth (Revoke Access)
+     * - Mark as 'archived' in DB
+     */
+    async archiveEmployee(req, res) {
+        try {
+            const { uid } = req.body;
+
+            if (!uid) {
+                return res.status(400).json({ error: 'UID is required.' });
+            }
+
+            console.log(`[Auth] Archiving user: ${uid} (by ${req.user.uid})`);
+
+            // 1. Disable in Firebase Auth (Prevents Login / Token Refresh)
+            try {
+                await admin.auth().updateUser(uid, {
+                    disabled: true
+                });
+                console.log(`[Auth] User disabled: ${uid}`);
+            } catch (error) {
+                console.warn(`[Auth] Failed to disable auth (User might be deleted already): ${error.message}`);
+            }
+
+            // 2. Update DB Record
+            const updates = {
+                active: false,
+                status: 'archived',
+                archivedAt: new Date().toISOString(),
+                archivedBy: req.user.uid,
+                role: 'ARCHIVED_EMPLOYEE' // Prevent access
+            };
+
+            await db.ref(`employees/${uid}/profile`).update(updates);
+
+            // 3. Log Audit
+            await auditLogger.logAuthzEvent({
+                action: 'user_archived',
+                performedBy: req.user.uid,
+                targetUser: uid
+            });
+
+            res.json({ success: true, message: 'Employee archived successfully.' });
+
+        } catch (error) {
+            console.error('[ARCHIVE FAILED]', error);
+            res.status(500).json({ error: 'Server error. Please try again later.' });
+        }
+    }
+
+    /**
+     * Delete Employee (Hard Delete)
+     * - PERMANENTLY remove from Auth and DB
+     * - OWNER ONLY (Enforced by route middleware)
+     */
+    async deleteEmployee(req, res) {
+        try {
+            const { uid } = req.body;
+
+            if (!uid) {
+                return res.status(400).json({ error: 'UID is required.' });
+            }
+
+            console.log(`[Auth] PERMANENTLY DELETING user: ${uid} (by ${req.user.uid})`);
+
+            // 1. Delete from Firebase Auth
+            try {
+                await admin.auth().deleteUser(uid);
+                console.log(`[Auth] User deleted from Auth: ${uid}`);
+            } catch (error) {
+                if (error.code === 'auth/user-not-found') {
+                    console.log(`[Auth] User already gone from Auth: ${uid}`);
+                } else {
+                    console.error(`[Auth] Failed to delete from Auth:`, error);
+                }
+            }
+
+            // 2. Delete from DB (Canonical Profile)
+            await db.ref(`employees/${uid}`).remove();
+
+            // 3. Log Audit (Global Audit log, since user specific log is gone)
+            await auditLogger.logAuthzEvent({
+                action: 'user_deleted_permanent',
+                performedBy: req.user.uid,
+                targetUser: uid
+            });
+
+            res.json({ success: true, message: 'User permanently deleted.' });
+
+        } catch (error) {
+            console.error('[DELETE FAILED]', error);
+            res.status(500).json({ error: 'Server error. Please try again later.' });
+        }
+    }
 
 module.exports = new UserCreationController();
