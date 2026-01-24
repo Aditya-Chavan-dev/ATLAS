@@ -196,4 +196,6 @@ class UserCreationController {
         }
     }
 
+}
+
 module.exports = new UserCreationController();
