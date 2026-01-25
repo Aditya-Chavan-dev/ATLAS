@@ -1,19 +1,17 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useAttendanceHistory, HistoryRecord } from '../hooks/useAttendanceHistory';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, MapPin, Clock, Info, CheckCircle, XCircle, AlertCircle, Ban } from 'lucide-react';
-import { dateUtils } from '@/utils/dateUtils';
+import { useState, useMemo } from 'react';
+import { useAttendanceHistory } from '../hooks/useAttendanceHistory';
+import { ChevronLeft, ChevronRight, Clock, MapPin, AlertCircle, Calendar } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function EmployeeHistory() {
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [selectedDateRecord, setSelectedDateRecord] = useState<HistoryRecord | null>(null);
     const { history, loading } = useAttendanceHistory(currentDate);
 
-    // Navigation Handlers
+    // Navigation
     const prevMonth = () => {
         const d = new Date(currentDate);
         d.setMonth(d.getMonth() - 1);
         setCurrentDate(d);
-        setSelectedDateRecord(null); // Clear selection on month change
     };
 
     const nextMonth = () => {
@@ -22,7 +20,6 @@ export default function EmployeeHistory() {
         if (d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()) return;
         d.setMonth(d.getMonth() + 1);
         setCurrentDate(d);
-        setSelectedDateRecord(null);
     };
 
     const isCurrentMonth = () => {
@@ -30,195 +27,115 @@ export default function EmployeeHistory() {
         return currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
     };
 
-    // Calendar Logic
-    const calendarData = useMemo(() => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const firstDay = new Date(year, month, 1).getDay(); // 0 = Sun
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
+    // Filter to only show days with records (skip 'absent' filler if hook returns it, depending on hook logic)
+    // The hook in useAttendanceHistory likely returns all days. For a 'List View', we usually only want
+    // Present/Rejected/Pending days, OR we show absent days as 'Absent'.
+    // Let's filter to only "Interesting" days for the list to keep it clean, 
+    // OR show all working days. 
+    // User requested "Transparency", so showing Absent days is good, but maybe dense.
+    // Let's stick to the hook's output but reverse order (Latest Date First).
 
-        // Create a Map for fast lookup: "2024-01-05" -> Record
-        const historyMap = new Map<string, HistoryRecord>();
-        history.forEach(rec => historyMap.set(rec.date, rec));
-
-        const days = [];
-        // Empty slots for start of month
-        for (let i = 0; i < firstDay; i++) {
-            days.push({ id: `empty-${i}`, day: null });
-        }
-        // Actual days
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
-            const record = historyMap.get(dateStr) || { date: dateStr, status: 'absent' as const };
-            days.push({ id: dateStr, day: d, record });
-        }
-
-        return days;
-    }, [currentDate, history]);
-
-    // Auto-select today if in current month and no selection
-    useEffect(() => {
-        if (!selectedDateRecord && isCurrentMonth() && history.length > 0) {
-            const todayStr = dateUtils.getISTDate();
-            const todayRecord = history.find(h => h.date === todayStr);
-            if (todayRecord) setSelectedDateRecord(todayRecord);
-        }
+    const sortedHistory = useMemo(() => {
+        return [...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [history]);
 
-    // Note: Calendar traversal logic (prevMonth/nextMonth) still correctly uses standard Date objects
-    // for month manipulation as that is locale-agnostic enough for "Month View".
-    // We only enforce IST when generating "YYYY-MM-DD" strings for DB lookups.
-
-    const getStatusColor = (status: string, isSelected: boolean) => {
-        if (isSelected) return 'ring-2 ring-offset-2 ring-slate-900 z-10';
-        switch (status) {
-            case 'approved': return 'bg-emerald-100/80 text-emerald-800 hover:bg-emerald-200';
-            case 'rejected': return 'bg-red-100/80 text-red-800 hover:bg-red-200';
-            case 'pending': return 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100';
-            case 'absent': return 'hover:bg-slate-50 text-slate-400';
-            default: return 'bg-slate-50';
-        }
-    };
-
-    const StatusIcon = ({ status }: { status: string }) => {
-        switch (status) {
-            case 'approved': return <CheckCircle className="w-5 h-5 text-emerald-600" />;
-            case 'rejected': return <XCircle className="w-5 h-5 text-red-600" />;
-            case 'pending': return <Clock className="w-5 h-5 text-amber-600" />;
-            default: return <Ban className="w-5 h-5 text-slate-300" />;
-        }
-    };
-
     return (
-        <div className="max-w-md mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
-                <button onClick={prevMonth} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 transition-colors">
-                    <ChevronLeft className="w-5 h-5" />
+        <div className="min-h-screen bg-slate-50 p-4 pb-24 space-y-6">
+            {/* Header / Month Switcher */}
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 sticky top-4 z-10 flex items-center justify-between">
+                <button
+                    onClick={prevMonth}
+                    className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 transition-colors"
+                >
+                    <ChevronLeft className="w-6 h-6" />
                 </button>
-                <div className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                    <CalendarIcon className="w-5 h-5 text-slate-400" />
-                    {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+
+                <div className="flex flex-col items-center">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Attendance Log</span>
+                    <span className="text-lg font-bold text-slate-900">
+                        {format(currentDate, 'MMMM yyyy')}
+                    </span>
                 </div>
+
                 <button
                     onClick={nextMonth}
                     disabled={isCurrentMonth()}
-                    className={`p-2 rounded-xl transition-colors ${isCurrentMonth() ? 'text-slate-200' : 'hover:bg-slate-50 text-slate-400'}`}
+                    className={`p-2 rounded-xl transition-colors ${isCurrentMonth() ? 'opacity-20 cursor-not-allowed' : 'hover:bg-slate-50 text-slate-400'}`}
                 >
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-6 h-6" />
                 </button>
             </div>
 
-            {/* Calendar Grid */}
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-                {/* Weekday Headers */}
-                <div className="grid grid-cols-7 mb-4">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                        <div key={d} className="text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                            {d}
+            {/* List */}
+            {loading ? (
+                <div className="text-center py-10 text-slate-400 animate-pulse">Loading history...</div>
+            ) : sortedHistory.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400 space-y-2">
+                    <Calendar className="w-12 h-12 opacity-20" />
+                    <p>No records found for this month.</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {sortedHistory.map((record) => (
+                        <div
+                            key={record.date}
+                            className={`
+                                relative overflow-hidden rounded-2xl p-4 border transition-all
+                                ${record.status === 'approved' ? 'bg-white border-slate-100 shadow-sm' :
+                                    record.status === 'rejected' ? 'bg-rose-50 border-rose-100' :
+                                        record.status === 'pending' ? 'bg-amber-50 border-amber-100' :
+                                            'bg-slate-50 border-transparent opacity-60'} 
+                            `}
+                        >
+                            <div className="flex justify-between items-start">
+                                {/* Date Box */}
+                                <div className="flex items-center gap-4">
+                                    <div className="flex flex-col items-center justify-center w-12 h-14 bg-slate-100 rounded-xl">
+                                        <span className="text-xs font-bold text-slate-400 uppercase">
+                                            {format(new Date(record.date), 'EEE')}
+                                        </span>
+                                        <span className="text-xl font-bold text-slate-900">
+                                            {format(new Date(record.date), 'dd')}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <div className="font-bold text-slate-900 capitalize flex items-center gap-2">
+                                            {record.status === 'absent' ? 'Absent / No Record' : record.status}
+                                            {record.status === 'rejected' && <AlertCircle className="w-4 h-4 text-rose-500" />}
+                                        </div>
+
+                                        {/* Meta Data */}
+                                        {record.status !== 'absent' && (
+                                            <div className="flex items-center gap-3 mt-1 text-xs font-medium text-slate-500">
+                                                {record.timestamp && (
+                                                    <div className="flex items-center gap-1">
+                                                        <Clock className="w-3.5 h-3.5" />
+                                                        {format(new Date(record.timestamp), 'hh:mm a')}
+                                                    </div>
+                                                )}
+                                                {record.type && (
+                                                    <div className="flex items-center gap-1">
+                                                        <MapPin className="w-3.5 h-3.5" />
+                                                        {record.type === 'site' ? record.siteName : 'Office'}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Rejection Note */}
+                            {record.status === 'rejected' && record.rejectionReason && (
+                                <div className="mt-3 pt-3 border-t border-rose-200/50 text-xs text-rose-700 font-medium">
+                                    Why: {record.rejectionReason}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
-
-                {/* Days */}
-                {loading ? (
-                    <div className="h-64 flex items-center justify-center text-slate-300">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-7 gap-y-4 gap-x-2">
-                        {calendarData.map((item) => {
-                            if (!item.day) return <div key={item.id} />;
-
-                            const isSelected = selectedDateRecord?.date === item.record.date;
-                            return (
-                                <button
-                                    key={item.id}
-                                    onClick={() => setSelectedDateRecord(item.record)}
-                                    className={`
-                                        aspect-square rounded-xl flex items-center justify-center text-sm font-semibold transition-all relative
-                                        ${getStatusColor(item.record.status, isSelected)}
-                                    `}
-                                >
-                                    {item.day}
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-
-            {/* Detail Panel */}
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 min-h-[160px] animate-in slide-in-from-bottom-4 duration-500">
-                {selectedDateRecord ? (
-                    <div className="space-y-4">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <h3 className="text-2xl font-bold text-slate-800">
-                                    {new Date(selectedDateRecord.date).toLocaleDateString('en-US', {
-                                        weekday: 'long',
-                                        day: 'numeric',
-                                        month: 'short'
-                                    })}
-                                </h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <StatusIcon status={selectedDateRecord.status} />
-                                    <span className={`font-medium capitalize ${selectedDateRecord.status === 'approved' ? 'text-emerald-700' :
-                                        selectedDateRecord.status === 'rejected' ? 'text-red-700' :
-                                            selectedDateRecord.status === 'pending' ? 'text-amber-700' : 'text-slate-500'
-                                        }`}>
-                                        {selectedDateRecord.status}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {selectedDateRecord.status !== 'absent' && (
-                            <div className="space-y-3 pt-2">
-                                {/* Time & Location */}
-                                <div className="flex items-center gap-6">
-                                    {selectedDateRecord.timestamp && (
-                                        <div className="flex items-center gap-2 text-slate-600">
-                                            <Clock className="w-4 h-4 text-slate-400" />
-                                            <span className="font-mono text-sm">
-                                                {new Date(selectedDateRecord.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                        </div>
-                                    )}
-                                    {selectedDateRecord.type && (
-                                        <div className="flex items-center gap-2 text-slate-600">
-                                            <MapPin className="w-4 h-4 text-slate-400" />
-                                            <span className="text-sm font-medium">
-                                                {selectedDateRecord.type === 'office' ? 'Office HQ' : selectedDateRecord.siteName}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Rejection Reason */}
-                                {selectedDateRecord.status === 'rejected' && selectedDateRecord.rejectionReason && (
-                                    <div className="bg-red-50 p-3 rounded-xl border border-red-100 flex gap-3 items-start">
-                                        <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <div className="text-xs font-bold text-red-800 uppercase tracking-wide">Manager's Note</div>
-                                            <div className="text-sm text-red-700">{selectedDateRecord.rejectionReason}</div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {selectedDateRecord.status === 'absent' && (
-                            <p className="text-slate-400 text-sm italic">No attendance record found for this day.</p>
-                        )}
-                    </div>
-                ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-center space-y-2 py-4">
-                        <Info className="w-8 h-8 text-slate-300" />
-                        <p className="text-slate-400 font-medium">Select a date to view details</p>
-                    </div>
-                )}
-            </div>
+            )}
         </div>
     );
 }

@@ -1,10 +1,10 @@
 import { LEAVE_TYPES } from './leaveConstants';
 
 export interface LeaveBalance {
-    pl: number;
-    ol: number;
-    el: number;
-    lwp: number; // Counter for unpaid leaves taken
+    cl: number; // Casual Leave
+    sl: number; // Sick Leave
+    el: number; // Earned Leave (Privilege Leave)
+    lwp: number; // Leave Without Pay (Counter)
 }
 
 export interface LeaveRequest {

@@ -1,12 +1,11 @@
-
 export const LEAVE_TYPES = {
-    PL: 'PL' as const, // Provisional Leave (17)
-    OL: 'OL' as const, // Occasional Leave (4)
-    EL: 'EL' as const, // Earned Leave (Dynamic)
-    LWP: 'LWP' as const // Loss of Pay (Excess)
-};
+    CL: 'CL', // Casual Leave
+    SL: 'SL', // Sick Leave
+    EL: 'EL', // Earned Leave
+    LWP: 'LWP' // Leave Without Pay
+} as const;
 
-export type LeaveType = typeof LEAVE_TYPES[keyof typeof LEAVE_TYPES];
+export type LeaveType = keyof typeof LEAVE_TYPES;
 
 
 

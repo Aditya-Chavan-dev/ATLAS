@@ -1,47 +1,40 @@
 {
     "rules": {
         "employees": {
-            // Only Admin can list all employees
             ".read": "auth != null && root.child('employees/' + auth.uid + '/profile/role').val() === 'MD'",
             "$uid": {
-                // Read: MD can read all, User can read self
                 ".read": "auth != null && (root.child('employees/' + auth.uid + '/profile/role').val() === 'MD' || auth.uid === $uid)",
-                // Write: STRICTLY MD Only
                 ".write": "auth != null && root.child('employees/' + auth.uid + '/profile/role').val() === 'MD'",
-                // Validations
-                ".validate": "newData.hasChildren(['email', 'role', 'status'])"
-            },
-            // Allow user to update their own lastLogin and fcmToken
-            "lastLogin": {
-                ".write": "auth != null && auth.uid === $uid"
-            },
-            "fcmToken": {
-                ".write": "auth != null && auth.uid === $uid"
+                "profile": {
+                    ".validate": "newData.hasChildren(['email', 'role', 'status'])",
+                    "lastLogin": {
+                        ".write": "auth != null && auth.uid === $uid"
+                    },
+                    "fcmToken": {
+                        ".write": "auth != null && auth.uid === $uid"
+                    }
+                }
             }
-        }
-    },
-    // Blacklists - NO CLIENT ACCESS EVER
-    "ipBlacklist": {
-        ".read": false,
-        ".write": false
-    },
-    "sessionBlacklist": {
-        ".read": false,
-        ".write": false
-    },
-    // Audit - MD Read Only
-    "audit": {
-        ".read": "auth != null && root.child('employees/' + auth.uid + '/profile/role').val() === 'MD'",
-        ".write": false // Only Backend writes
-    },
-    // Attendance & Leaves: Similar logic, check DB role NOT token role
-    "attendance": {
-        ".read": "auth != null && (root.child('employees/' + auth.uid + '/profile/role').val() === 'MD' || root.child('employees/' + auth.uid + '/profile/role').val() === 'HR')",
-        "$date": {
-            "$uid": {
-                ".read": "auth != null && auth.uid === $uid"
+        },
+        "ipBlacklist": {
+            ".read": false,
+            ".write": false
+        },
+        "sessionBlacklist": {
+            ".read": false,
+            ".write": false
+        },
+        "audit": {
+            ".read": "auth != null && root.child('employees/' + auth.uid + '/profile/role').val() === 'MD'",
+            ".write": false
+        },
+        "attendance": {
+            ".read": "auth != null && (root.child('employees/' + auth.uid + '/profile/role').val() === 'MD' || root.child('employees/' + auth.uid + '/profile/role').val() === 'HR')",
+            "$date": {
+                "$uid": {
+                    ".read": "auth != null && auth.uid === $uid"
+                }
             }
         }
     }
-}
 }
