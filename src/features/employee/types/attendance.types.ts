@@ -29,10 +29,6 @@ export interface LeaveRequest {
 }
 
 export interface EmployeeStats {
-    daysAttended: number;
-    cl: number;
-    sl: number;
-    el: number;
-    lwp: number;
+    daysAttended: number; // Current Month
     lastAttendance?: number;
 }

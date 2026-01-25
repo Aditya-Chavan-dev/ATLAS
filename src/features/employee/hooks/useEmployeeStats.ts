@@ -7,11 +7,7 @@ import type { EmployeeStats } from '../types/attendance.types';
 export function useEmployeeStats() {
     const { user } = useAuth();
     const [stats, setStats] = useState<EmployeeStats>({
-        daysAttended: 0,
-        cl: 0,
-        sl: 0,
-        el: 0,
-        lwp: 0
+        daysAttended: 0
     });
     const [loading, setLoading] = useState(true);
     const [todayStatus, setTodayStatus] = useState<{
@@ -49,20 +45,37 @@ export function useEmployeeStats() {
             }
         });
 
-        // Fetch overall stats (Note: querying total attendance is harder with date-first schema,
-        // we might need a separate index later. for now, we keep the old stats logic 
-        // OR we just count based on a user-index if it existed. 
-        // Since we changed the write path, the old `attendance/${uid}` won't get new writes.
-        // We will defer fixing historical stats until the MD portal aggregating task.
-        // For now, let's just return 0 or mock stats to avoid breakage.)
-        setStats({
-            daysAttended: 0,
-            cl: 0, sl: 0, el: 0, lwp: 0
+        // 2. Fetch Attendance Stats (Count Days Present in Current Month)
+        const attendanceRef = ref(database, `employees/${user.uid}/attendance`);
+
+        const unsubscribeStats = onValue(attendanceRef, (snapshot) => {
+            let presentCount = 0;
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                Object.entries(data).forEach(([dateStr, record]: [string, any]) => {
+                    const recordDate = new Date(dateStr);
+                    // Check if record is in current month AND status is valid
+                    if (recordDate.getMonth() === currentMonth &&
+                        recordDate.getFullYear() === currentYear &&
+                        (record.status === 'Present' || record.status === 'approved' || record.status === 'half-day')) {
+                        presentCount++;
+                    }
+                });
+            }
+
+            setStats({
+                daysAttended: presentCount
+            });
+            setLoading(false);
         });
-        setLoading(false);
 
         return () => {
             unsubscribeToday();
+            unsubscribeStats();
         };
     }, [user]);
 
