@@ -163,15 +163,40 @@ exports.markAttendance = async (req, res) => {
 
             // Transaction Valid & Committed
             const newRecord = transactionResult.snapshot.val();
-            console.log(`[Attendance] Transaction Committed for ${uid}:`, newRecord.status);
 
             // 3. Fetch user profile for name (Post-Transaction)
             const userSnap = await db.ref(`employees/${uid}/profile`).once('value');
             const userData = userSnap.val() || {};
             const employeeName = userData.name || 'Employee';
-            console.log(`[Attendance] Marked for ${employeeName} (${uid})`);
 
-            // 2. Notify MDs
+            // ---------------------------------------------------------
+            // 4. SECURE INBOX PATTERN (For MD Approval)
+            // ---------------------------------------------------------
+            // We write a specific "Task" into the Admin Inbox.
+            // Only MDs have read access to this node.
+            // Structure: pending_admin_inbox/attendance/{YYYY-MM-DD}/{uid}
+
+            const inboxRef = db.ref(`pending_admin_inbox/attendance/${dateStr}/${uid}`);
+
+            const inboxRecord = {
+                uid: uid,
+                name: employeeName,
+                timestamp: newRecord.timestamp, // Server timestamp we just created
+                status: newRecord.status,
+                locationType: newRecord.locationType,
+                siteName: newRecord.siteName,
+                reason: newRecord.specialNote || null,
+                actionRequired: true
+            };
+
+            // We use 'update' to ensure we don't destroy other child keys if they existed (unlikely here)
+            // Just set the whole object.
+            await inboxRef.set(inboxRecord);
+            console.log(`[Inbox] Record created for ${employeeName} in pending_admin_inbox`);
+
+            // ---------------------------------------------------------
+
+            // 5. Notify MDs
             // Fetch all employees to find MDs
             // Scan employees node, check profile.role
             const allUsersSnap = await db.ref('employees').once('value');
@@ -225,7 +250,7 @@ exports.markAttendance = async (req, res) => {
                 }
             }
 
-            res.json({ success: true, message: 'Attendance marked and MDs notified' });
+            res.json({ success: true, message: 'Attendance marked and sent for approval' });
 
         } catch (error) {
             console.error('[Attendance] Mark Error:', error);
