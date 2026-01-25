@@ -15,6 +15,10 @@ export default function EmployeeDashboard() {
     // Live Clock State
     const [now, setNow] = useState(new Date());
 
+    // Location State
+    const [locationType, setLocationType] = useState<'office' | 'site'>('office');
+    const [siteName, setSiteName] = useState('');
+
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
@@ -23,7 +27,16 @@ export default function EmployeeDashboard() {
     const handleMarkAttendance = () => {
         // Strict Mobile: No modals if possible, just direct action or simple confirm
         if (todayStatus.status) return; // Prevent double tap
-        submitRequest({ type: 'office' }); // Defaulting to office for single-tap simplicity
+
+        if (locationType === 'site' && !siteName.trim()) {
+            alert('Please enter the Site Name');
+            return;
+        }
+
+        submitRequest({
+            type: locationType,
+            siteName: locationType === 'site' ? siteName : undefined
+        });
     };
 
     const isMarked = !!todayStatus.status;
@@ -46,26 +59,57 @@ export default function EmployeeDashboard() {
             </header>
 
             {/* 2. Primary Action Area (Thumb Zone) */}
-            <div className="flex-1 flex flex-col items-center justify-center px-4 w-full max-w-sm mx-auto">
+            <div className="flex-1 flex flex-col items-center justify-center px-4 w-full max-w-sm mx-auto space-y-6">
                 {!isMarked ? (
-                    <button
-                        onClick={handleMarkAttendance}
-                        disabled={marking}
-                        className={`
-                            w-64 h-64 rounded-full flex flex-col items-center justify-center gap-4
-                            bg-brand-600 text-white shadow-2xl shadow-brand-200
-                            active:scale-95 transition-transform touch-manipulation
-                            ${marking ? 'opacity-80 animate-pulse' : 'hover:scale-105'}
-                        `}
-                    >
-                        <MapPin className="w-12 h-12" />
-                        <span className="text-2xl font-bold tracking-tight">
-                            {marking ? 'Marking...' : 'MARK IN'}
-                        </span>
-                        <span className="text-xs opacity-80 font-medium uppercase tracking-widest">
-                            Tap to Punch
-                        </span>
-                    </button>
+                    <>
+                        {/* Location Toggle - Only show if not marked */}
+                        <div className="w-full flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+                            <div className="bg-slate-100 p-1 rounded-xl flex shadow-inner">
+                                <button
+                                    onClick={() => setLocationType('office')}
+                                    className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${locationType === 'office' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
+                                >
+                                    Office HQ
+                                </button>
+                                <button
+                                    onClick={() => setLocationType('site')}
+                                    className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${locationType === 'site' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-400'}`}
+                                >
+                                    Remote Site
+                                </button>
+                            </div>
+
+                            {locationType === 'site' && (
+                                <input
+                                    type="text"
+                                    placeholder="Enter Site Name (e.g. Site A)"
+                                    value={siteName}
+                                    onChange={(e) => setSiteName(e.target.value)}
+                                    className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-medium text-slate-900 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all"
+                                    autoFocus
+                                />
+                            )}
+                        </div>
+
+                        <button
+                            onClick={handleMarkAttendance}
+                            disabled={marking}
+                            className={`
+                                w-64 h-64 rounded-full flex flex-col items-center justify-center gap-4
+                                text-white shadow-2xl 
+                                active:scale-95 transition-transform touch-manipulation
+                                ${marking ? 'opacity-80 animate-pulse bg-slate-400 shadow-slate-200' : 'hover:scale-105 bg-brand-600 shadow-brand-200'}
+                            `}
+                        >
+                            <MapPin className="w-12 h-12" />
+                            <span className="text-2xl font-bold tracking-tight">
+                                {marking ? 'Marking...' : 'MARK IN'}
+                            </span>
+                            <span className="text-xs opacity-80 font-medium uppercase tracking-widest">
+                                {locationType === 'office' ? 'At Office HQ' : 'At Site'}
+                            </span>
+                        </button>
+                    </>
                 ) : (
                     <div className={`
                         w-full p-6 rounded-3xl border-2 flex flex-col items-center text-center space-y-3
@@ -91,6 +135,12 @@ export default function EmployeeDashboard() {
                                     todayStatus.timestamp ? `Clocked at ${new Date(todayStatus.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` :
                                         'Waiting for approval...'}
                             </p>
+                            {todayStatus.siteName && (
+                                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/50 border border-black/5 text-xs font-bold text-slate-600">
+                                    <MapPin className="w-3 h-3" />
+                                    {todayStatus.siteName}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
