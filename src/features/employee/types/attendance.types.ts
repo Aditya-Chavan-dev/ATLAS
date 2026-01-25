@@ -2,12 +2,7 @@ export type AttendanceStatus = 'present' | 'absent' | 'leave' | 'holiday' | 'pen
 export type LeaveType = 'EL' | 'PL';
 export type LeaveStatus = 'pending' | 'approved' | 'rejected';
 
-export interface LocationData {
-    latitude: number;
-    longitude: number;
-    address?: string;
-    accuracy?: number;
-}
+// GPS Removed as per policy
 
 export interface AttendanceRecord {
     id?: string;
@@ -16,7 +11,7 @@ export interface AttendanceRecord {
     checkInTime: number;
     checkOutTime?: number;
     status: AttendanceStatus;
-    location: LocationData;
+    // location: LocationData; // Removed
     notes?: string;
     rejectionReason?: string;
 }
@@ -35,7 +30,9 @@ export interface LeaveRequest {
 
 export interface EmployeeStats {
     daysAttended: number;
-    elBalance: number;
-    plBalance: number;
+    cl: number;
+    sl: number;
+    el: number;
+    lwp: number;
     lastAttendance?: number;
 }

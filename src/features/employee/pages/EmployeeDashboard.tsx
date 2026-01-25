@@ -27,7 +27,6 @@ export default function EmployeeDashboard() {
     };
 
     const isMarked = !!todayStatus.status;
-    const isPending = todayStatus.status === 'pending';
     const isApproved = todayStatus.status === 'approved';
     const isRejected = todayStatus.status === 'rejected';
 
@@ -80,8 +79,8 @@ export default function EmployeeDashboard() {
 
                         <div>
                             <h2 className={`text-xl font-bold ${isApproved ? 'text-emerald-900' :
-                                    isRejected ? 'text-rose-900' :
-                                        'text-amber-900'
+                                isRejected ? 'text-rose-900' :
+                                    'text-amber-900'
                                 }`}>
                                 {isApproved ? 'You are Present' :
                                     isRejected ? 'Attendance Rejected' :

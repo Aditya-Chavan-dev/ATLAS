@@ -8,8 +8,10 @@ export function useEmployeeStats() {
     const { user } = useAuth();
     const [stats, setStats] = useState<EmployeeStats>({
         daysAttended: 0,
-        elBalance: 12,
-        plBalance: 7,
+        cl: 0,
+        sl: 0,
+        el: 0,
+        lwp: 0
     });
     const [loading, setLoading] = useState(true);
     const [todayStatus, setTodayStatus] = useState<{
@@ -27,18 +29,19 @@ export function useEmployeeStats() {
         }
 
         // Listen to today's attendance status
-        // New Schema: attendance/{YYYY-MM-DD}/{uid}
+        // Path: employees/{uid}/attendance/{YYYY-MM-DD}
+        // This matches the Backend Write Path
         const today = new Date().toISOString().split('T')[0];
-        const todayRef = ref(database, `attendance/${today}/${user.uid}`);
+        const todayRef = ref(database, `employees/${user.uid}/attendance/${today}`);
 
         const unsubscribeToday = onValue(todayRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
                 setTodayStatus({
                     status: data.status,
-                    type: data.type,
+                    type: data.locationType ? data.locationType.toLowerCase() : 'office',
                     siteName: data.siteName,
-                    rejectionReason: data.rejectionReason,
+                    rejectionReason: data.mdReason,
                     timestamp: data.timestamp
                 });
             } else {
@@ -53,9 +56,8 @@ export function useEmployeeStats() {
         // We will defer fixing historical stats until the MD portal aggregating task.
         // For now, let's just return 0 or mock stats to avoid breakage.)
         setStats({
-            daysAttended: 0, // Placeholder until aggregation logic is fixed
-            elBalance: 12,
-            plBalance: 7
+            daysAttended: 0,
+            cl: 0, sl: 0, el: 0, lwp: 0
         });
         setLoading(false);
 

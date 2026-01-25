@@ -10,8 +10,8 @@ export type LeaveType = keyof typeof LEAVE_TYPES;
 
 
 export const LEAVE_QUOTAS = {
-    [LEAVE_TYPES.PL]: 17,
-    [LEAVE_TYPES.OL]: 4,
-    [LEAVE_TYPES.EL]: 0, // Starts at 0
+    [LEAVE_TYPES.CL]: 6,  // Example quota
+    [LEAVE_TYPES.SL]: 6,  // Example quota
+    [LEAVE_TYPES.EL]: 0,
     [LEAVE_TYPES.LWP]: 0
 };

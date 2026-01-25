@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { ref, get } from 'firebase/database';
+import { ref, onValue } from 'firebase/database';
 import { database } from '@/lib/firebase/config';
 import { useAuth } from '@/features/auth';
 
 export interface HistoryRecord {
     date: string; // YYYY-MM-DD
-    status: 'pending' | 'approved' | 'rejected' | 'absent' | 'loading';
+    status: 'pending' | 'approved' | 'rejected' | 'absent' | 'loading' | 'Present';
     type?: 'office' | 'site';
     siteName?: string;
-    timestamp?: number;
+    timestamp?: string; // ISO String from backend
     rejectionReason?: string;
 }
 
@@ -20,64 +20,50 @@ export function useAttendanceHistory(targetDate: Date) {
     useEffect(() => {
         if (!user) return;
 
-        const fetchHistory = async () => {
-            setLoading(true);
-            const promises = [];
-            const dates: string[] = [];
+        // Path: employees/{uid}/attendance
+        // This contains all history keyed by "YYYY-MM-DD"
+        const attendanceRef = ref(database, `employees/${user.uid}/attendance`);
 
-            // 1. Get number of days in the target month
-            const year = targetDate.getFullYear();
-            const month = targetDate.getMonth(); // 0-indexed
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
+        setLoading(true);
+        const unsubscribe = onValue(attendanceRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
 
-            // 2. Generate path for every day in the month
-            for (let day = 1; day <= daysInMonth; day++) {
-                // Create date string manually to avoid timezone shifts
-                // Format: YYYY-MM-DD
-                const dayStr = day.toString().padStart(2, '0');
-                const monthStr = (month + 1).toString().padStart(2, '0');
-                const dateStr = `${year}-${monthStr}-${dayStr}`;
+                // Convert object to array
+                const allRecords = Object.entries(data).map(([date, record]: [string, any]) => ({
+                    date,
+                    status: record.status,
+                    type: record.locationType ? record.locationType.toLowerCase() : 'office',
+                    siteName: record.siteName,
+                    timestamp: record.timestamp, // Ensure backend sends string or we handle number
+                    rejectionReason: record.mdReason || record.specialNote
+                } as HistoryRecord));
 
-                dates.push(dateStr);
-                const path = `attendance/${dateStr}/${user.uid}`;
-                promises.push(get(ref(database, path)));
+                // Filter by selected month? 
+                // The prompt asked for "Monthly Swipe", so validation logic in UI filters it.
+                // But efficient data loading says: Load all (if small) or query.
+                // For now, load all and filter in memory (Attendance history isn't huge yet).
+
+                const targetMonth = targetDate.getMonth();
+                const targetYear = targetDate.getFullYear();
+
+                const filtered = allRecords.filter(rec => {
+                    const d = new Date(rec.date);
+                    return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+                });
+
+                // Sort: Newest First
+                filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                setHistory(filtered);
+            } else {
+                setHistory([]);
             }
+            setLoading(false);
+        });
 
-            try {
-                // 3. Parallel Fetch
-                const snapshots = await Promise.all(promises);
-
-                // 4. Map to records (Reverse order: Newest first)
-                const records: HistoryRecord[] = snapshots.map((snap, index) => {
-                    const date = dates[index];
-                    if (snap.exists()) {
-                        const data = snap.val();
-                        return {
-                            date,
-                            status: data.status,
-                            type: data.type,
-                            siteName: data.siteName,
-                            timestamp: data.timestamp,
-                            rejectionReason: data.rejectionReason
-                        } as HistoryRecord;
-                    } else {
-                        return {
-                            date,
-                            status: 'absent'
-                        } as HistoryRecord;
-                    }
-                }).reverse(); // Show latest date at top
-
-                setHistory(records);
-            } catch (err) {
-                console.error("Failed to fetch history:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchHistory();
-    }, [user, targetDate.getFullYear(), targetDate.getMonth()]); // Re-run when month changes
+        return () => unsubscribe();
+    }, [user, targetDate.getFullYear(), targetDate.getMonth()]);
 
     return { history, loading };
 }
