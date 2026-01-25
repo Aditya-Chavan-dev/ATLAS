@@ -16,6 +16,7 @@ export default function EmployeeDashboard() {
     const [now, setNow] = useState(new Date());
 
     // Location State
+    const [isSelecting, setIsSelecting] = useState(false);
     const [locationType, setLocationType] = useState<'office' | 'site'>('office');
     const [siteName, setSiteName] = useState('');
 
@@ -24,10 +25,12 @@ export default function EmployeeDashboard() {
         return () => clearInterval(timer);
     }, []);
 
-    const handleMarkAttendance = () => {
-        // Strict Mobile: No modals if possible, just direct action or simple confirm
-        if (todayStatus.status) return; // Prevent double tap
+    const handleInitialClick = () => {
+        if (todayStatus.status) return;
+        setIsSelecting(true);
+    };
 
+    const handleConfirmAttendance = () => {
         if (locationType === 'site' && !siteName.trim()) {
             alert('Please enter the Site Name');
             return;
@@ -36,17 +39,30 @@ export default function EmployeeDashboard() {
         submitRequest({
             type: locationType,
             siteName: locationType === 'site' ? siteName : undefined
+        }).then(() => {
+            // We rely on the hook's success to eventually update 'todayStatus'
+            // But valid submission should close the modal
+            if (!markStatus || markStatus !== 'error') {
+                setIsSelecting(false);
+            }
         });
     };
+
+    // Auto-close modal on success from hook (if message is success and we are selecting)
+    useEffect(() => {
+        if (markStatus === 'success') {
+            setIsSelecting(false);
+        }
+    }, [markStatus]);
 
     const isMarked = !!todayStatus.status;
     const isApproved = todayStatus.status === 'approved';
     const isRejected = todayStatus.status === 'rejected';
 
     return (
-        <div className="flex flex-col min-h-[calc(100vh-80px)] space-y-8 pb-8">
+        <div className="flex flex-col min-h-[calc(100vh-80px)] space-y-8 pb-8 relative">
             {/* 1. Header & Live Clock */}
-            <header className="flex flex-col items-center justify-center pt-8 space-y-2">
+            <header className={`flex flex-col items-center justify-center pt-8 space-y-2 transition-all duration-300 ${isSelecting ? 'opacity-20 blur-sm scale-95' : 'opacity-100 scale-100'}`}>
                 <h1 className="text-4xl font-black text-slate-900 tracking-tight font-mono">
                     {dateUtils.formatISTTime(now.getTime())}
                 </h1>
@@ -62,52 +78,20 @@ export default function EmployeeDashboard() {
             <div className="flex-1 flex flex-col items-center justify-center px-4 w-full max-w-sm mx-auto space-y-6">
                 {!isMarked ? (
                     <>
-                        {/* Location Toggle - Only show if not marked */}
-                        <div className="w-full flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-                            <div className="bg-slate-100 p-1 rounded-xl flex shadow-inner">
-                                <button
-                                    onClick={() => setLocationType('office')}
-                                    className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${locationType === 'office' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
-                                >
-                                    Office HQ
-                                </button>
-                                <button
-                                    onClick={() => setLocationType('site')}
-                                    className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${locationType === 'site' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-400'}`}
-                                >
-                                    Remote Site
-                                </button>
-                            </div>
-
-                            {locationType === 'site' && (
-                                <input
-                                    type="text"
-                                    placeholder="Enter Site Name (e.g. Site A)"
-                                    value={siteName}
-                                    onChange={(e) => setSiteName(e.target.value)}
-                                    className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl font-medium text-slate-900 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition-all"
-                                    autoFocus
-                                />
-                            )}
-                        </div>
-
+                        {/* HERO BUTTON - CLEAN - NO TOGGLES */}
                         <button
-                            onClick={handleMarkAttendance}
-                            disabled={marking}
+                            onClick={handleInitialClick}
                             className={`
                                 w-64 h-64 rounded-full flex flex-col items-center justify-center gap-4
-                                text-white shadow-2xl 
-                                active:scale-95 transition-transform touch-manipulation
-                                ${marking ? 'opacity-80 animate-pulse bg-slate-400 shadow-slate-200' : 'hover:scale-105 bg-brand-600 shadow-brand-200'}
+                                text-white shadow-2xl transition-all duration-300
+                                ${isSelecting
+                                    ? 'scale-90 opacity-20 blur-sm bg-slate-400 cursor-default'
+                                    : 'bg-gradient-to-br from-brand-600 to-indigo-700 shadow-brand-200 hover:scale-105 active:scale-95 cursor-pointer'}
                             `}
                         >
                             <MapPin className="w-12 h-12" />
-                            <span className="text-2xl font-bold tracking-tight">
-                                {marking ? 'Marking...' : 'MARK IN'}
-                            </span>
-                            <span className="text-xs opacity-80 font-medium uppercase tracking-widest">
-                                {locationType === 'office' ? 'At Office HQ' : 'At Site'}
-                            </span>
+                            <span className="text-2xl font-bold tracking-tight">MARK IN</span>
+                            <span className="text-xs opacity-80 font-medium uppercase tracking-widest">Tap to Punch</span>
                         </button>
                     </>
                 ) : (
@@ -144,22 +128,96 @@ export default function EmployeeDashboard() {
                         </div>
                     </div>
                 )}
-
-                {/* Error/Success Toast Message inline */}
-                {markMsg && !isMarked && (
-                    <div className={`mt-4 text-sm font-bold ${markStatus === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                        {markMsg}
-                    </div>
-                )}
             </div>
 
-            {/* 3. Stats Grid (4 Boxes) */}
-            <div className="grid grid-cols-2 gap-4 px-4 w-full max-w-sm mx-auto">
+            {/* 3. Stats Grid (4 Boxes) - Blur when selecting */}
+            <div className={`grid grid-cols-2 gap-4 px-4 w-full max-w-sm mx-auto transition-all duration-300 ${isSelecting ? 'opacity-20 blur-sm' : 'opacity-100'}`}>
                 <StatBox label="Days Present" value={attendanceStats.daysAttended} color="text-slate-900" bg="bg-white" />
                 <StatBox label="Casual Leave" value={balance.cl} color="text-blue-600" bg="bg-blue-50/50" />
                 <StatBox label="Sick Leave" value={balance.sl} color="text-rose-600" bg="bg-rose-50/50" />
                 <StatBox label="Earned Leave" value={balance.el} color="text-purple-600" bg="bg-purple-50/50" />
             </div>
+
+            {/* LOCATION BOTTOM SHEET OVERLAY */}
+            {isSelecting && !isMarked && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-300"
+                        onClick={() => setIsSelecting(false)}
+                    />
+
+                    {/* Sheet Content */}
+                    <div className="relative w-full max-w-sm bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom duration-300 mx-auto">
+                        <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6" />
+
+                        <h2 className="text-2xl font-bold text-slate-900 mb-6 text-center">Confirm Location</h2>
+
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <button
+                                onClick={() => setLocationType('office')}
+                                className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${locationType === 'office'
+                                        ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-lg scale-105 ring-2 ring-brand-500/20'
+                                        : 'border-slate-100 bg-slate-50 text-slate-400 grayscale hover:grayscale-0'
+                                    }`}
+                            >
+                                <div className="p-3 bg-white rounded-xl shadow-sm text-brand-600">
+                                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    </svg>
+                                </div>
+                                <span className="font-bold text-sm">Office HQ</span>
+                            </button>
+
+                            <button
+                                onClick={() => setLocationType('site')}
+                                className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-3 transition-all ${locationType === 'site'
+                                        ? 'border-orange-500 bg-orange-50 text-orange-700 shadow-lg scale-105 ring-2 ring-orange-500/20'
+                                        : 'border-slate-100 bg-slate-50 text-slate-400 grayscale hover:grayscale-0'
+                                    }`}
+                            >
+                                <div className="p-3 bg-white rounded-xl shadow-sm text-orange-600">
+                                    <MapPin className="w-8 h-8" />
+                                </div>
+                                <span className="font-bold text-sm">Remote Site</span>
+                            </button>
+                        </div>
+
+                        {locationType === 'site' && (
+                            <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block ml-1">Site Name</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Project Alpha"
+                                    value={siteName}
+                                    onChange={(e) => setSiteName(e.target.value)}
+                                    className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold text-slate-900 focus:border-orange-500 focus:bg-white outline-none transition-all placeholder:text-slate-300"
+                                    autoFocus
+                                />
+                            </div>
+                        )}
+
+                        <button
+                            onClick={handleConfirmAttendance}
+                            disabled={marking}
+                            className={`w-full py-4 rounded-xl text-lg font-bold text-white shadow-xl transition-all active:scale-95 ${marking ? 'bg-slate-400 cursor-not-allowed' :
+                                    locationType === 'site' ? 'bg-gradient-to-r from-orange-500 to-red-500 shadow-orange-200' :
+                                        'bg-gradient-to-r from-brand-600 to-indigo-600 shadow-brand-200'
+                                }`}
+                        >
+                            {marking ? 'Confirming...' : 'Confirm Punch'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ERROR TOAST (Global Z-Index High) */}
+            {markMsg && !isMarked && (
+                <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[60] bg-white/90 backdrop-blur-md text-slate-900 font-bold px-6 py-3 rounded-full shadow-2xl border border-slate-200 animate-in slide-in-from-top-5 flex items-center gap-2">
+                    {markStatus === 'error' ? <AlertCircle className="w-5 h-5 text-rose-500" /> : <CheckCircle className="w-5 h-5 text-emerald-500" />}
+                    <span className={markStatus === 'error' ? 'text-rose-600' : 'text-emerald-600'}>{markMsg}</span>
+                </div>
+            )}
         </div>
     );
 }
