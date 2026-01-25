@@ -6,6 +6,9 @@ const requiredEnvVars = [
     'FIREBASE_PRIVATE_KEY',
     'FIREBASE_CLIENT_EMAIL',
     'ROOT_OWNER_EMAIL',
+    'PORT',
+    'NODE_ENV',
+    'PENDING_USER_TTL_DAYS',
 ];
 
 export const validateEnv = (): void => {

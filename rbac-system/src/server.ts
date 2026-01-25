@@ -9,7 +9,8 @@ validateEnv();
 import adminRoutes from './routes/adminRoutes';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+// PORT enforced by validateEnv
+const PORT = process.env.PORT;
 
 app.use(express.json());
 
@@ -37,7 +38,9 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     });
 });
 
-const startServer = async () => {
+export { app };
+
+const startApp = async () => {
     await checkDatabaseConnection();
 
     // Note: Database tables must exist for bootstrap to work.
@@ -75,7 +78,10 @@ const startServer = async () => {
     });
 };
 
-startServer().catch((err) => {
-    console.error('❌ Startup failed:', err);
-    process.exit(1);
-});
+// Only start server if run directly (not imported by Firebase)
+if (require.main === module) {
+    startApp().catch((err) => {
+        console.error('❌ Startup failed:', err);
+        process.exit(1);
+    });
+}

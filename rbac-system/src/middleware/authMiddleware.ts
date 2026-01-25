@@ -53,7 +53,7 @@ export const authMiddleware = async (
 
             // Case: User NOT in database -> Create Pending
             if (!user) {
-                const ttlDays = parseInt(process.env.PENDING_USER_TTL_DAYS || '30', 10);
+                const ttlDays = parseInt(process.env.PENDING_USER_TTL_DAYS!, 10);
                 const expiresAt = new Date();
                 expiresAt.setDate(expiresAt.getDate() + ttlDays);
 
