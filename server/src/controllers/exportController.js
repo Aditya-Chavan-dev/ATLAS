@@ -1,5 +1,7 @@
 const ExcelJS = require('exceljs');
 const { admin, db } = require('../config/firebase');
+const { sanitizers } = require('../validation/schemas'); // ✅ Excel injection protection
+
 
 const exportAttendanceReport = async (req, res) => {
     try {
@@ -118,7 +120,9 @@ const exportAttendanceReport = async (req, res) => {
 
         employees.forEach((emp, index) => {
             const cell = headerRow.getCell(index + 2);
-            cell.value = (emp.name || emp.email).toUpperCase();
+            // ✅ CRITICAL: Excel injection prevention
+            const empName = emp.name || emp.email;
+            cell.value = sanitizers.excelSafe(empName).toUpperCase();
             cell.font = { bold: true };
             cell.fill = {
                 type: 'pattern',
@@ -226,7 +230,9 @@ const exportAttendanceReport = async (req, res) => {
                             if (attendanceRecord.locationType === 'Office') {
                                 cell.value = 'OFFICE';
                             } else if (attendanceRecord.locationType === 'Site') {
-                                cell.value = attendanceRecord.siteName ? attendanceRecord.siteName.toUpperCase() : 'SITE';
+                                // ✅ CRITICAL: Excel injection prevention for user-generated site names
+                                const siteName = attendanceRecord.siteName || 'SITE';
+                                cell.value = sanitizers.excelSafe(siteName).toUpperCase();
                             } else {
                                 // Fallback: if status is valid but locationType missing, assume OFFICE
                                 cell.value = 'OFFICE';

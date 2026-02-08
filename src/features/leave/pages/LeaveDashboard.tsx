@@ -130,7 +130,8 @@ export default function LeaveDashboard() {
                                     key={t}
                                     type="button"
                                     onClick={() => setType(t as LeaveType)}
-                                    className={`py-2 rounded-lg text-sm font-bold border transition-all ${type === t
+                                    // Touch Target Law #9: min-h-[44px]
+                                    className={`py-3 rounded-lg text-sm font-bold border transition-all ${type === t
                                         ? 'bg-brand-600 text-white border-brand-600 shadow-md transform scale-105'
                                         : 'bg-slate-50 text-slate-500 border-slate-200'
                                         }`}
@@ -149,7 +150,8 @@ export default function LeaveDashboard() {
                                     required
                                     value={from}
                                     onChange={e => setFrom(e.target.value)}
-                                    className="w-full mt-1 p-3 bg-slate-50 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-medium text-sm"
+                                    // Law #7: text-base
+                                    className="w-full mt-1 p-3 bg-slate-50 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-medium text-base sm:text-sm"
                                 />
                             </div>
                             <div>
@@ -159,7 +161,8 @@ export default function LeaveDashboard() {
                                     required
                                     value={to}
                                     onChange={e => setTo(e.target.value)}
-                                    className="w-full mt-1 p-3 bg-slate-50 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-medium text-sm"
+                                    // Law #7: text-base
+                                    className="w-full mt-1 p-3 bg-slate-50 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-medium text-base sm:text-sm"
                                 />
                             </div>
                         </div>
@@ -169,7 +172,8 @@ export default function LeaveDashboard() {
                             placeholder="Reason (Optional)"
                             value={reason}
                             onChange={e => setReason(e.target.value)}
-                            className="w-full p-3 bg-slate-50 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-medium text-sm"
+                            // Law #7: text-base
+                            className="w-full p-3 bg-slate-50 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all font-medium text-base sm:text-sm"
                         />
 
                         {/* Feedback Message */}
@@ -181,14 +185,16 @@ export default function LeaveDashboard() {
                             </div>
                         )}
 
-                        {/* Action */}
-                        <button
-                            type="submit"
-                            disabled={submitting}
-                            className="w-full py-3.5 bg-brand-600 active:bg-brand-700 text-white rounded-xl font-bold shadow-lg shadow-brand-200 disabled:opacity-50 transition-all"
-                        >
-                            {submitting ? 'Sending...' : 'Submit Request'}
-                        </button>
+                        {/* Action - Sticky on Mobile (Law #8) */}
+                        <div className="sticky bottom-0 -mx-5 -mb-5 p-5 bg-white border-t border-slate-100 pb-safe-bottom z-10 sm:relative sm:border-0 sm:bg-transparent sm:p-0 sm:m-0 sm:pb-0">
+                            <button
+                                type="submit"
+                                disabled={submitting}
+                                className="w-full py-3.5 bg-brand-600 active:bg-brand-700 text-white rounded-xl font-bold shadow-lg shadow-brand-200 disabled:opacity-50 transition-all min-h-[48px]"
+                            >
+                                {submitting ? 'Sending...' : 'Submit Request'}
+                            </button>
+                        </div>
                     </form>
                 </div>
 

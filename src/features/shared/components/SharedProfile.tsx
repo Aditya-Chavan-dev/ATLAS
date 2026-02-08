@@ -101,14 +101,15 @@ export default function SharedProfile({ userData, isEditable = false, onSave }: 
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => setIsEditing(false)}
-                                        className="p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition-colors"
+                                        className="p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                        aria-label="Cancel editing"
                                     >
                                         <X className="w-5 h-5" />
                                     </button>
                                     <button
                                         onClick={handleSave}
                                         disabled={loading}
-                                        className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2"
+                                        className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2 min-h-[44px]"
                                     >
                                         {loading ? 'Saving...' : <><Save className="w-4 h-4" /> Save Changes</>}
                                     </button>
@@ -116,7 +117,7 @@ export default function SharedProfile({ userData, isEditable = false, onSave }: 
                             ) : (
                                 <button
                                     onClick={() => setIsEditing(true)}
-                                    className="px-6 py-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 text-slate-600 font-bold shadow-sm transition-all"
+                                    className="px-6 py-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 text-slate-600 font-bold shadow-sm transition-all min-h-[44px]"
                                 >
                                     Edit Profile
                                 </button>
@@ -135,61 +136,58 @@ export default function SharedProfile({ userData, isEditable = false, onSave }: 
                         Personal Details
                     </h3>
 
-                    <div className="space-y-4">
-                        <div className="group">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Phone Number</label>
-                            {isEditing ? (
-                                <input
-                                    value={formData.phoneNumber}
-                                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                                    className="w-full text-slate-700 font-medium bg-slate-50 px-3 py-2 rounded-lg border-transparent focus:border-indigo-500 focus:bg-white focus:ring-0 transition-all outline-none border"
-                                    placeholder="+91..."
-                                />
-                            ) : (
-                                <div className="text-slate-700 font-medium flex items-center gap-2">
-                                    <Phone className="w-4 h-4 text-slate-400" />
-                                    {formData.phoneNumber || 'Not set'}
-                                </div>
-                            )}
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Phone Number</label>
+                    {isEditing ? (
+                        <input
+                            value={formData.phoneNumber}
+                            onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                            // Law #7: text-base
+                            className="w-full text-slate-700 font-medium bg-slate-50 px-3 py-3 rounded-xl border-transparent focus:border-indigo-500 focus:bg-white focus:ring-0 transition-all outline-none border text-base sm:text-sm"
+                            placeholder="+91..."
+                        />
+                    ) : (
+                        <div className="text-slate-700 font-medium flex items-center gap-2 px-3 py-3">
+                            <Phone className="w-4 h-4 text-slate-400" />
+                            {formData.phoneNumber || 'Not set'}
                         </div>
-
-                        <div className="group">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Email Address</label>
-                            <div className="text-slate-700 font-medium flex items-center gap-2 opacity-75">
-                                <Mail className="w-4 h-4 text-slate-400" />
-                                {displayUser.email}
-                                <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded ml-2">Read-only</span>
-                            </div>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
-                {/* Employment Info */}
-                <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-100 shadow-sm space-y-6">
-                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                        <MapPin className="w-5 h-5 text-purple-500" />
-                        Employment
-                    </h3>
+                <div className="group">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Email Address</label>
+                    <div className="text-slate-700 font-medium flex items-center gap-2 opacity-75 px-3 py-3">
+                        <Mail className="w-4 h-4 text-slate-400" />
+                        {displayUser.email}
+                        <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded ml-2">Read-only</span>
+                    </div>
+                </div>
+            </div>
+            {/* Employment Info */}
+            <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-100 shadow-sm space-y-6">
+                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-purple-500" />
+                    Employment
+                </h3>
 
-                    <div className="space-y-4">
-                        <div className="group">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
-                            <div className="text-slate-700 font-medium flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                {formData.department}
-                            </div>
+                <div className="space-y-4">
+                    <div className="group">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
+                        <div className="text-slate-700 font-medium flex items-center gap-2 px-3 py-3">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                            {formData.department}
                         </div>
+                    </div>
 
-                        <div className="group">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Designation</label>
-                            <div className="text-slate-700 font-medium flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                                {formData.designation}
-                            </div>
+                    <div className="group">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Designation</label>
+                        <div className="text-slate-700 font-medium flex items-center gap-2 px-3 py-3">
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                            {formData.designation}
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
+        </div >
     );
 }

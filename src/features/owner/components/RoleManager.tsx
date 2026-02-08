@@ -1,4 +1,4 @@
-// RoleManager - Exact Replica of Legacy Features
+// RoleManager - Exact Replica of Legacy Features with Mobile-First Responsive Card Layout
 import { useState, useMemo } from 'react';
 import { useOwnerUsers } from '../hooks/useOwnerUsers';
 import { Search, CheckCircle, Mail, Briefcase, Trash2, ChevronLeft, ChevronRight, XCircle } from 'lucide-react';
@@ -24,11 +24,11 @@ export function RoleManager() {
         onConfirm: () => { }
     });
 
-    // 1. Filtering Logic (Matches Legacy)
+    // 1. Filtering Logic
     const filteredUsers = useMemo(() => {
         let data = users;
 
-        // Soft Delete Filter (Always applied)
+        // Soft Delete Filter
         data = data.filter(u => u.status !== 'deleted');
 
         // Text Search
@@ -104,7 +104,7 @@ export function RoleManager() {
     if (loading) return <div className="p-8 text-center text-gray-500">Loading directory...</div>;
 
     return (
-        <div className="flex flex-col h-full gap-4">
+        <div className="flex flex-col h-full gap-4 pb-safe-bottom">
             <ConfirmationModal
                 isOpen={modal.isOpen}
                 onClose={() => setModal(prev => ({ ...prev, isOpen: false }))}
@@ -126,17 +126,19 @@ export function RoleManager() {
                             placeholder="Search by name or email..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                            // Law #7: text-base on mobile
+                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-brand-500 outline-none transition-all text-base sm:text-sm"
                         />
                     </div>
 
-                    {/* Role Tabs */}
-                    <div className="flex gap-2 bg-gray-100 p-1 rounded-lg overflow-x-auto max-w-full">
+                    {/* Role Tabs - Scrollable on mobile */}
+                    <div className="flex gap-2 bg-gray-100 p-1 rounded-lg overflow-x-auto max-w-full w-full md:w-auto scrollbar-hide">
                         {['all', 'owner', 'md', 'hr', 'manager', 'employee', 'suspended'].map(filter => (
                             <button
                                 key={filter}
                                 onClick={() => { setRoleFilter(filter); setCurrentPage(1); }}
-                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${roleFilter === filter
+                                // Law #9: Touch Target
+                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap min-h-[32px] ${roleFilter === filter
                                     ? 'bg-white text-brand-600 shadow-sm'
                                     : 'text-slate-500 hover:text-slate-700'
                                     }`}
@@ -148,9 +150,13 @@ export function RoleManager() {
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
-                <div className="overflow-x-auto flex-1">
+            {/* Content Container */}
+            <div className="bg-transparent md:bg-white rounded-xl md:shadow-sm md:border border-gray-200 overflow-hidden flex-1 flex flex-col">
+
+                {/* Law #5: Responsive Table/Card Hybrid */}
+
+                {/* DESKTOP: TABLE VIEW */}
+                <div className="hidden md:block overflow-x-auto flex-1">
                     <table className="w-full text-left">
                         <thead className="bg-gray-50 border-b border-gray-100">
                             <tr>
@@ -236,37 +242,112 @@ export function RoleManager() {
                             </AnimatePresence>
                         </tbody>
                     </table>
-
-                    {filteredUsers.length === 0 && (
-                        <div className="p-12 text-center text-slate-400 bg-gray-50/50">
-                            No users found matching your filters.
-                        </div>
-                    )}
                 </div>
 
-                {/* Pagination Footer */}
-                {totalPages > 1 && (
-                    <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-                        <button
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={currentPage === 1}
-                            className="flex items-center text-sm text-slate-500 hover:text-slate-900 disabled:opacity-50 transition-colors"
-                        >
-                            <ChevronLeft className="w-4 h-4 mr-1" /> Previous
-                        </button>
-                        <span className="text-sm text-slate-500">
-                            Page <span className="font-semibold text-slate-900">{currentPage}</span> of {totalPages}
-                        </span>
-                        <button
-                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                            disabled={currentPage === totalPages}
-                            className="flex items-center text-sm text-slate-500 hover:text-slate-900 disabled:opacity-50 transition-colors"
-                        >
-                            Next <ChevronRight className="w-4 h-4 ml-1" />
-                        </button>
+                {/* MOBILE: CARD STACK VIEW (Law #5) */}
+                <div className="md:hidden space-y-3 flex-1 overflow-y-auto px-1 pb-20">
+                    <AnimatePresence mode='popLayout'>
+                        {currentData.map((user) => (
+                            <motion.div
+                                key={user.uid}
+                                layout
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="bg-white rounded-xl p-4 shadow-sm border border-gray-200"
+                            >
+                                <div className="flex items-start justify-between gap-4">
+                                    {/* User Info */}
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-12 h-12 rounded-full bg-slate-100 flex-shrink-0 flex items-center justify-center text-slate-500 font-bold border border-slate-200">
+                                            {user.photoURL ? (
+                                                <img src={user.photoURL} alt="" className="w-full h-full object-cover rounded-full" />
+                                            ) : (
+                                                (user.displayName?.[0] || user.email?.[0] || 'U').toUpperCase()
+                                            )}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-slate-900 truncate text-base">{user.displayName || user.name || 'Unknown User'}</p>
+                                            <div className="flex items-center gap-1 text-xs text-slate-500 truncate mt-0.5">
+                                                <Mail className="w-3 h-3" /> {user.email}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Delete - Law #10: Always Visible on Mobile */}
+                                    <button
+                                        onClick={() => handleDelete(user.uid)}
+                                        className="p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg -mr-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                        aria-label="Archive User"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+                                    {/* Role Selector */}
+                                    <div className="flex items-center gap-2">
+                                        <div className={`p-1.5 rounded-md ${user.role === 'owner' ? 'bg-purple-100 text-purple-600' : 'bg-brand-50 text-brand-600'}`}>
+                                            <Briefcase className="w-4 h-4" />
+                                        </div>
+                                        <select
+                                            value={user.role}
+                                            onChange={(e) => handleRoleChange(user.uid, e.target.value)}
+                                            className="bg-transparent text-sm font-bold text-slate-700 border-none focus:ring-0 p-0 pr-6"
+                                        >
+                                            <option value="employee">Employee</option>
+                                            <option value="manager">Manager</option>
+                                            <option value="hr">HR</option>
+                                            <option value="md">Admin</option>
+                                            <option value="owner">Owner</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Status Toggle */}
+                                    <button
+                                        onClick={() => handleStatusToggle(user.uid, user.status)}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${user.status === 'suspended'
+                                            ? 'bg-rose-50 text-rose-700 border-rose-100'
+                                            : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                            }`}>
+                                        {user.status === 'suspended' ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                                        {user.status === 'suspended' ? 'Suspended' : 'Active'}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
+                </div>
+
+                {filteredUsers.length === 0 && (
+                    <div className="p-12 text-center text-slate-400 bg-gray-50/50">
+                        No users found matching your filters.
                     </div>
                 )}
             </div>
+
+            {/* Pagination Footer */}
+            {totalPages > 1 && (
+                <div className="px-4 md:px-6 py-4 border-t border-gray-100 bg-white md:bg-gray-50 flex items-center justify-between rounded-xl md:rounded-none shrink-0 shadow-sm md:shadow-none">
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50 min-h-[44px] px-2"
+                    >
+                        <ChevronLeft className="w-5 h-5 mr-1" /> Previous
+                    </button>
+                    <span className="text-sm text-slate-500">
+                        Page <span className="font-bold text-slate-900">{currentPage}</span> / {totalPages}
+                    </span>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50 min-h-[44px] px-2"
+                    >
+                        Next <ChevronRight className="w-5 h-5 ml-1" />
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

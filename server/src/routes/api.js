@@ -1,93 +1,249 @@
 const express = require('express');
 const router = express.Router();
 
-// Controllers
-const notificationController = require('../controllers/notificationController');
+// ──────────────────────────────────────────────────────────
+// CONTROLLERS
+// ──────────────────────────────────────────────────────────
 
+const notificationController = require('../controllers/notificationController');
 const migrationController = require('../controllers/migrationController');
 const attendanceController = require('../controllers/attendanceController');
 const leaveController = require('../controllers/leaveController');
 const dashboardController = require('../controllers/dashboardController');
 const exportController = require('../controllers/exportController');
-const healthController = require('../controllers/healthController'); // [NEW]
-const employeeController = require('../controllers/employeeController'); // [NEW: Feature-First]
+const healthController = require('../controllers/healthController');
+const employeeController = require('../controllers/employeeController');
+const roleManagementController = require('../controllers/roles/roleManagementController');
+const userCreationController = require('../controllers/auth/userCreationController');
 
-// Auth Middleware
-// Auth Middleware (V2 Secure)
+// ──────────────────────────────────────────────────────────
+// AUTHENTICATION & AUTHORIZATION MIDDLEWARE
+// ──────────────────────────────────────────────────────────
+
 const unifiedAuthMiddleware = require('../auth/middleware/unifiedAuthMiddleware');
 const requireRole = require('../auth/middleware/roleBasedMiddleware');
-const roleManagementController = require('../controllers/roles/roleManagementController'); // [NEW]
-const userCreationController = require('../controllers/auth/userCreationController'); // [NEW]
 
-// Health Check (Deep)
+// ──────────────────────────────────────────────────────────
+// VALIDATION MIDDLEWARE (ZERO-TRUST FRAMEWORK)
+// ──────────────────────────────────────────────────────────
+
+const {
+    validate,
+    authorize,
+    protectAgainstPrototypePollution,
+    validationRateLimiter // ✅ Gap #5 fix
+} = require('../middleware/validate');
+
+const { schemas } = require('../validation/schemas');
+
+// ──────────────────────────────────────────────────────────
+// GLOBAL MIDDLEWARE (Applied to ALL routes)
+// ──────────────────────────────────────────────────────────
+
+// CRITICAL: Prototype pollution protection MUST run FIRST
+router.use(protectAgainstPrototypePollution);
+
+// SECOND: Rate limiting to prevent validation DoS (Gap #5 fix)
+router.use(validationRateLimiter); // ✅ 100 req/15min per IP
+
+// ══════════════════════════════════════════════════════════
+// PUBLIC ROUTES (No Authentication Required)
+// ══════════════════════════════════════════════════════════
+
+// Health Check (Deep DB connectivity test)
 router.get('/health', healthController.checkHealth);
 
-// Metadata (Public)
+// Metadata Endpoint
 router.get('/', (req, res) => {
     res.json({
         status: 'active',
-        service: 'ATLAS Notification Server',
+        service: 'ATLAS Backend API',
         timestamp: new Date().toISOString(),
-        version: '3.3.0 (Health Verified)'
+        version: '4.0.0 (Zero-Trust Validation)',
+        security: 'Maximum Hardening Enabled'
     });
 });
 
-// ========================================
-// PROTECTED ROUTES (Require Login)
-// ========================================
+// ══════════════════════════════════════════════════════════
+// PROTECTED ROUTES (Authentication Required)
+// ══════════════════════════════════════════════════════════
 
-// FCM Routes (Any authenticated user)
-// FCM Routes (Any authenticated user)
-router.post('/fcm/register', unifiedAuthMiddleware, notificationController.registerToken);
-router.post('/fcm/unregister', unifiedAuthMiddleware, notificationController.unregisterToken);
-router.post('/fcm/status', unifiedAuthMiddleware, notificationController.registerToken);
+// ──────────────────────────────────────────────────────────
+// FCM NOTIFICATION ROUTES
+// ──────────────────────────────────────────────────────────
 
-// Attendance Routes (Any authenticated user for their own, MD can update any)
-// Attendance Routes
-router.post('/attendance/mark', unifiedAuthMiddleware, attendanceController.markAttendance);
-router.post('/attendance/status', unifiedAuthMiddleware, requireRole(['MD', 'OWNER']), attendanceController.updateStatus);
+// Register FCM token (any authenticated user)
+router.post('/fcm/register',
+    unifiedAuthMiddleware,
+    notificationController.registerToken
+);
 
-// Leave Routes
-// Leave Routes
-router.post('/leave/apply', unifiedAuthMiddleware, leaveController.applyLeave);
-router.get('/leave/history/:employeeId', unifiedAuthMiddleware, leaveController.getHistory);
-router.post('/leave/approve', unifiedAuthMiddleware, requireRole(['MD', 'OWNER']), leaveController.approveLeave);
-router.post('/leave/reject', unifiedAuthMiddleware, requireRole(['MD', 'OWNER']), leaveController.rejectLeave);
-router.post('/leave/cancel', unifiedAuthMiddleware, leaveController.cancelLeave);
+// Unregister FCM token (any authenticated user)
+router.post('/fcm/unregister',
+    unifiedAuthMiddleware,
+    notificationController.unregisterToken
+);
 
-// Dashboard Routes (MD/Owner/HR only)
-// Dashboard Routes (MD/Owner/HR only)
-router.get('/dashboard/stats', unifiedAuthMiddleware, requireRole(['MD', 'OWNER', 'HR']), dashboardController.getDashboardStats);
+// FCM status (any authenticated user)
+router.post('/fcm/status',
+    unifiedAuthMiddleware,
+    notificationController.registerToken
+);
 
-// Export Routes (MD/Owner/HR only)
-// Export Routes (MD/Owner/HR only)
-router.get('/export/attendance', unifiedAuthMiddleware, requireRole(['MD', 'OWNER', 'HR']), exportController.exportAttendanceReport);
+// ──────────────────────────────────────────────────────────
+// ATTENDANCE ROUTES (VALIDATION HARDENED)
+// Fixes: C1, C11, C16
+// ──────────────────────────────────────────────────────────
 
-// ========================================
-// ADMIN ROUTES (Owner/MD Only)
-// ========================================
+// Mark attendance (any authenticated user for themselves)
+router.post('/attendance/mark',
+    validate(schemas.markAttendance),          // ✅ Input validation + sanitization
+    unifiedAuthMiddleware,                      // ✅ Authentication
+    attendanceController.markAttendance
+);
 
-// ========================================
-// EMPLOYEE DATA (Feature-First)
-// ========================================
-// Solves: Data Iceberg & Glass House
-// Solves: Data Iceberg & Glass House
-router.get('/employees/list', unifiedAuthMiddleware, employeeController.listEmployees);
+// Update attendance status (MD/Owner only)
+router.post('/attendance/status',
+    validate(schemas.updateAttendanceStatus),   // ✅ Input validation
+    unifiedAuthMiddleware,                      // ✅ Authentication
+    requireRole(['MD', 'OWNER']),              // ✅ Role authorization
+    attendanceController.updateStatus
+);
 
-// FCM Broadcast (MD/Owner only - sends to all users)
-// FCM Broadcast (MD/Owner only - sends to all users)
-router.post('/fcm/broadcast', unifiedAuthMiddleware, requireRole(['MD', 'OWNER']), notificationController.broadcastAttendance);
+// ──────────────────────────────────────────────────────────
+// LEAVE ROUTES (VALIDATION + AUTHORIZATION HARDENED)
+// Fixes: C1, C4 (IDOR), C11
+// ──────────────────────────────────────────────────────────
 
-// User Management (Owner/MD only)
-// User Management (Owner/MD only)
-// Uses NEW V2 Controllers
-router.post('/auth/create-employee', unifiedAuthMiddleware, requireRole(['MD', 'OWNER']), userCreationController.createEmployee);
-router.post('/auth/role', unifiedAuthMiddleware, requireRole(['MD', 'OWNER']), roleManagementController.changeUserRole);
-router.post('/auth/archive-employee', unifiedAuthMiddleware, requireRole(['MD', 'OWNER']), userCreationController.archiveEmployee); /* Similar to delete, need to check if these methods exist in new controller or if I should have kept authController */
-router.post('/auth/delete-employee', unifiedAuthMiddleware, requireRole(['OWNER']), userCreationController.deleteEmployee); /* This method is not yet implemented in userCreationController, we actually need to migrate it first or keep authController for now? Wait, check below */
+// Apply for leave (any authenticated user)
+router.post('/leave/apply',
+    validate(schemas.applyLeave),              // ✅ Input validation + sanitization
+    unifiedAuthMiddleware,                      // ✅ Authentication
+    leaveController.applyLeave
+);
 
-// System Routes (Owner only)
-// System Routes (Owner only)
-router.post('/system/migrate', unifiedAuthMiddleware, requireRole(['OWNER']), migrationController.runMigration);
+// Get leave history (with IDOR protection)
+router.get('/leave/history/:employeeId',
+    validate(schemas.getLeaveHistory),          // ✅ UID validation
+    unifiedAuthMiddleware,                      // ✅ Authentication
+    authorize({                                 // ✅ CRITICAL: IDOR protection
+        resourceParam: 'employeeId',
+        allowRoles: ['MD', 'OWNER'],
+        allowSelf: true
+    }),
+    leaveController.getHistory
+);
+
+// Approve/reject leave (MD/Owner only)
+router.post('/leave/approve',
+    unifiedAuthMiddleware,
+    requireRole(['MD', 'OWNER']),
+    leaveController.approveLeave
+);
+
+// Cancel leave (own leave only)
+router.post('/leave/cancel',
+    unifiedAuthMiddleware,
+    leaveController.cancelLeave
+);
+
+// ──────────────────────────────────────────────────────────
+// DASHBOARD ROUTES
+// ──────────────────────────────────────────────────────────
+
+// Get dashboard stats (MD/Owner only)
+router.get('/dashboard/stats',
+    unifiedAuthMiddleware,
+    requireRole(['MD', 'OWNER']),
+    dashboardController.getDashboardStats
+);
+
+// Get pending requests for MD (MD/Owner only)
+router.get('/dashboard/pending',
+    unifiedAuthMiddleware,
+    requireRole(['MD', 'OWNER']),
+    dashboardController.getPendingRequests
+);
+
+// ──────────────────────────────────────────────────────────
+// EXPORT ROUTES (VALIDATION HARDENED)
+// Fixes: H23, C16 (Excel injection in controller)
+// ──────────────────────────────────────────────────────────
+
+// Export attendance report (MD/Owner only)
+router.get('/export',
+    validate(schemas.exportAttendance),         // ✅ Month/year validation
+    unifiedAuthMiddleware,                      // ✅ Authentication
+    requireRole(['MD', 'OWNER']),              // ✅ Role authorization
+    exportController.exportAttendanceReport     // ✅ Excel sanitization applied
+);
+
+// ──────────────────────────────────────────────────────────
+// EMPLOYEE MANAGEMENT ROUTES (Owner only)
+// ──────────────────────────────────────────────────────────
+
+// List all employees (Owner only)
+router.get('/employees',
+    unifiedAuthMiddleware,
+    requireRole(['OWNER']),
+    employeeController.listEmployees
+);
+
+// Get employee details (Owner only)
+router.get('/employees/:employeeId',
+    unifiedAuthMiddleware,
+    requireRole(['OWNER']),
+    employeeController.getEmployeeDetails
+);
+
+// ──────────────────────────────────────────────────────────
+// USER CREATION & ROLE MANAGEMENT (Owner only)
+// ──────────────────────────────────────────────────────────
+
+// Create new user (Owner only)
+router.post('/users/create',
+    unifiedAuthMiddleware,
+    requireRole(['OWNER']),
+    userCreationController.createEmployee
+);
+
+// Delete user (Owner only)
+router.delete('/users/:uid',
+    unifiedAuthMiddleware,
+    requireRole(['OWNER']),
+    userCreationController.deleteEmployee
+);
+
+// Update user role (Owner only)
+router.post('/roles/update',
+    unifiedAuthMiddleware,
+    requireRole(['OWNER']),
+    roleManagementController.updateRole
+);
+
+// List all users with roles (Owner only)
+router.get('/roles/list',
+    unifiedAuthMiddleware,
+    requireRole(['OWNER']),
+    roleManagementController.listUsersWithRoles
+);
+
+// ──────────────────────────────────────────────────────────
+// SYSTEM ROUTES (Owner only)
+// ──────────────────────────────────────────────────────────
+
+// Migration endpoints (Owner only)
+router.post('/migrate/addEmailsToProfiles',
+    unifiedAuthMiddleware,
+    requireRole(['OWNER']),
+    migrationController.addEmailsToProfiles
+);
+
+router.post('/migrate/auditEmailSync',
+    unifiedAuthMiddleware,
+    requireRole(['OWNER']),
+    migrationController.auditEmailSync
+);
 
 module.exports = router;
+
