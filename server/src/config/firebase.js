@@ -1,6 +1,8 @@
 const admin = require('firebase-admin');
 const { createProtectedAdminRef } = require('../utils/demoGuard');
-require('dotenv').config();
+const path = require('path');
+const envPath = path.resolve(process.cwd(), '.env');
+require('dotenv').config({ path: envPath });
 
 console.log('🔧 Initializing Firebase Admin SDK...');
 console.log('Environment check:', {

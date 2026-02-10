@@ -1,3 +1,14 @@
+// Load environment variables FIRST before any other imports
+const path = require('path');
+const fs = require('fs');
+const envPath = path.resolve(__dirname, '../.env');
+
+// Debug logging removed for security
+// console.log('📝 Reading .env from:', envPath);
+
+require('dotenv').config({ path: envPath });
+// console.log('📝 FIREBASE vars in process.env:', Object.keys(process.env).filter(k => k.startsWith('FIREBASE')));
+
 const app = require('./src/app');
 
 const PORT = process.env.PORT || 5000;

@@ -451,7 +451,7 @@ const schemas = {
     updateAttendanceStatus: z.object({
         body: z.object({
             employeeUid: primitives.uid,
-            dateStr: primitives.dateString,
+            date: primitives.dateString,
             status: primitives.strictEnum(['approved', 'rejected']),
             rejectReason: z.string()
                 .max(LIMITS.REASON_MAX, 'Reason too long')

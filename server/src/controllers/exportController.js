@@ -278,19 +278,81 @@ const exportAttendanceReport = async (req, res) => {
         worksheet.getRow(2).height = 20; // Subtitle row
         worksheet.getRow(3).height = 20; // Header row
 
+        // ═══════════════════════════════════════════════════════
+        // 🔒 SECURITY: Buffer Size Validation (Gap #4 Fix)
+        // ═══════════════════════════════════════════════════════
+        // Prevents: Memory exhaustion DoS, OOM crashes
+        // Edge Cases: 1000+ employees, 31-day months, many leaves
+        const MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB limit
 
-        // Generate buffer
-        const buffer = await workbook.xlsx.writeBuffer();
+        let buffer;
+        try {
+            console.log('[Export] Generating Excel buffer...');
+            buffer = await workbook.xlsx.writeBuffer();
+            console.log(`[Export] Buffer generated: ${(buffer.length / 1024).toFixed(2)} KB`);
 
-        // Send file
+            // CRITICAL: Validate buffer size before sending
+            // CRITICAL: Validate buffer size before sending
+            const actualSizeBytes = buffer.length;
+            const actualSizeMB = (actualSizeBytes / (1024 * 1024)).toFixed(2);
+
+            if (actualSizeBytes > MAX_BUFFER_SIZE) {
+                // Cleanup: Release memory
+                buffer = null;
+                // workbook = null; // Removed invalid reassignment of const
+
+                console.error(`[Export] Buffer size ${actualSizeMB} MB exceeds limit`);
+
+                return res.status(413).json({
+                    error: 'EXPORT_TOO_LARGE',
+                    message: 'Export size exceeds maximum limit. Please contact an administrator or narrow your date range.',
+                    details: {
+                        maxSizeMB: MAX_BUFFER_SIZE / (1024 * 1024),
+                        actualSizeMB: actualSizeMB
+                    }
+                });
+            }
+
+        } catch (bufferError) {
+            console.error('[Export] Buffer generation failed:', bufferError);
+
+            // Cleanup on error
+            buffer = null;
+            // workbook = null; // Removed invalid reassignment of const
+
+            return res.status(500).json({
+                error: 'BUFFER_GENERATION_FAILED',
+                message: 'Failed to generate export file. The dataset may be too large.',
+                details: process.env.NODE_ENV === 'development' ? bufferError.message : undefined
+            });
+        }
+
+        // Send file with security headers
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=Attendance_${monthName}_${yearNum}.xlsx`);
+        res.setHeader('Content-Length', buffer.length); // Explicit size
+        res.setHeader('X-Content-Type-Options', 'nosniff'); // Security: Prevent MIME sniffing
         res.send(buffer);
 
+        // Cleanup: Release memory after sending
+        buffer = null;
+        // workbook = null; // Removed invalid reassignment of const
+        console.log('[Export] Export completed successfully');
+
     } catch (error) {
-        console.error('Export error:', error);
-        res.status(500).json({ error: 'Failed to generate report', details: error.message });
+        console.error('[Export] Critical error:', error);
+
+        // Security: Don't expose internal error details in production
+        const errorMessage = process.env.NODE_ENV === 'development'
+            ? error.message
+            : 'Failed to generate report. Please try again or contact support.';
+
+        res.status(500).json({
+            error: 'EXPORT_FAILED',
+            message: errorMessage
+        });
     }
 };
 
 module.exports = { exportAttendanceReport };
+

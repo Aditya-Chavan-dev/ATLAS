@@ -187,7 +187,6 @@ export default function SharedProfile({ userData, isEditable = false, onSave }: 
                     </div>
                 </div>
             </div>
-        </div >
-        </div >
+        </div>
     );
 }

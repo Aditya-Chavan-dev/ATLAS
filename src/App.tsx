@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage, useAuth, ProtectedRoute } from '@/features/auth';
+import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import OwnerLayout from '@/features/owner/layouts/OwnerLayout';
 import OwnerDashboard from '@/features/owner/pages/OwnerDashboard';
 import EmployeeLayout from '@/features/employee/components/EmployeeLayout';
@@ -63,70 +64,72 @@ function RoleDispatcher() {
 
 function App() {
     return (
-        <BrowserRouter>
-            <Routes>
-                <Route path="/login" element={<LoginPage />} />
+        <ErrorBoundary>
+            <BrowserRouter>
+                <Routes>
+                    <Route path="/login" element={<LoginPage />} />
 
-                {/* Root Route: Dispatches to correct portal based on role */}
-                <Route path="/" element={<RoleDispatcher />} />
+                    {/* Root Route: Dispatches to correct portal based on role */}
+                    <Route path="/" element={<RoleDispatcher />} />
 
-                {/* 👑 Owner Portal (Restricted) */}
-                <Route
-                    path="/owner"
-                    element={
-                        <ProtectedRoute allowedRoles={['owner', 'md', 'hr']}>
-                            <OwnerLayout />
-                        </ProtectedRoute>
-                    }
-                >
-                    <Route index element={<OwnerDashboard />} />
-                </Route>
+                    {/* 👑 Owner Portal (Restricted) */}
+                    <Route
+                        path="/owner"
+                        element={
+                            <ProtectedRoute allowedRoles={['owner', 'md', 'hr']}>
+                                <OwnerLayout />
+                            </ProtectedRoute>
+                        }
+                    >
+                        <Route index element={<OwnerDashboard />} />
+                    </Route>
 
-                {/* 👤 Employee Portal (Restricted) */}
-                <Route
-                    path="/employee"
-                    element={
-                        <ProtectedRoute allowedRoles={['employee', 'owner', 'md', 'hr']}>
-                            <EmployeeLayout />
-                        </ProtectedRoute>
-                    }
-                >
-                    <Route index element={<Navigate to="dashboard" replace />} />
-                    <Route path="dashboard" element={<EmployeeDashboard />} />
-                    <Route path="leave" element={<LeaveDashboard />} />
-                    <Route path="history" element={<EmployeeHistory />} />
-                    <Route path="profile" element={<EmployeeProfile />} />
-                </Route>
+                    {/* 👤 Employee Portal (Restricted) */}
+                    <Route
+                        path="/employee"
+                        element={
+                            <ProtectedRoute allowedRoles={['employee', 'owner', 'md', 'hr']}>
+                                <EmployeeLayout />
+                            </ProtectedRoute>
+                        }
+                    >
+                        <Route index element={<Navigate to="dashboard" replace />} />
+                        <Route path="dashboard" element={<EmployeeDashboard />} />
+                        <Route path="leave" element={<LeaveDashboard />} />
+                        <Route path="history" element={<EmployeeHistory />} />
+                        <Route path="profile" element={<EmployeeProfile />} />
+                    </Route>
 
-                {/* 👔 MD Portal (Restricted) */}
-                <Route
-                    path="/md"
-                    element={
-                        <ProtectedRoute allowedRoles={['md', 'owner']}>
-                            <MDLayout />
-                        </ProtectedRoute>
-                    }
-                >
-                    <Route index element={<MDDashboard />} />
-                    <Route path="leaves" element={<MDLeaveApprovals />} />
-                </Route>
+                    {/* 👔 MD Portal (Restricted) */}
+                    <Route
+                        path="/md"
+                        element={
+                            <ProtectedRoute allowedRoles={['md', 'owner']}>
+                                <MDLayout />
+                            </ProtectedRoute>
+                        }
+                    >
+                        <Route index element={<MDDashboard />} />
+                        <Route path="leaves" element={<MDLeaveApprovals />} />
+                    </Route>
 
-                {/* 🤝 HR Portal (Restricted) */}
-                <Route
-                    path="/hr"
-                    element={
-                        <ProtectedRoute allowedRoles={['hr', 'owner']}>
-                            <OwnerLayout /> {/* HR shares Owner Layout for now */}
-                        </ProtectedRoute>
-                    }
-                >
-                    <Route index element={<OwnerDashboard />} />
-                </Route>
+                    {/* 🤝 HR Portal (Restricted) */}
+                    <Route
+                        path="/hr"
+                        element={
+                            <ProtectedRoute allowedRoles={['hr', 'owner']}>
+                                <OwnerLayout /> {/* HR shares Owner Layout for now */}
+                            </ProtectedRoute>
+                        }
+                    >
+                        <Route index element={<OwnerDashboard />} />
+                    </Route>
 
-                {/* Catch-all */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-        </BrowserRouter>
+                    {/* Catch-all */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </BrowserRouter>
+        </ErrorBoundary>
     );
 }
 

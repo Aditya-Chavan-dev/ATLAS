@@ -6,6 +6,33 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ConfirmationModal } from './ConfirmationModal';
 import type { UserRole } from '../types/owner.types';
 
+// Law #11: Extracted Component for Robust Avatar Handling
+const UserAvatar = ({ user, className }: { user: any, className: string }) => {
+    const [imgError, setImgError] = useState(false);
+
+    // XSS Defense: Case-insensitive protocol check
+    const isSafeUrl = user.photoURL &&
+        !user.photoURL.toLowerCase().startsWith('javascript:');
+
+    if (isSafeUrl && !imgError) {
+        return (
+            <img
+                src={user.photoURL}
+                alt={`${(user.displayName || user.name || user.email || 'User').replace(/<[^>]*>/g, '').slice(0, 50)}'s profile photo`}
+                className={className}
+                onError={() => setImgError(true)}
+            />
+        );
+    }
+
+    // Fallback UI
+    return (
+        <div className={`${className} flex items-center justify-center bg-slate-100 text-slate-500 font-bold border-2 border-white shadow-sm`}>
+            {(user.displayName?.[0] || user.email?.[0] || 'U').toUpperCase()}
+        </div>
+    );
+};
+
 export function RoleManager() {
     const { users, loading, updateRole, toggleStatus, deleteUser } = useOwnerUsers();
 
@@ -180,11 +207,7 @@ export function RoleManager() {
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold border-2 border-white shadow-sm">
-                                                    {user.photoURL ? (
-                                                        <img src={user.photoURL} alt="" className="w-full h-full object-cover rounded-full" />
-                                                    ) : (
-                                                        (user.displayName?.[0] || user.email?.[0] || 'U').toUpperCase()
-                                                    )}
+                                                    <UserAvatar user={user} className="w-full h-full object-cover rounded-full" />
                                                 </div>
                                                 <div>
                                                     <p className="font-semibold text-slate-900">{user.displayName || user.name || 'Unknown User'}</p>
@@ -260,11 +283,7 @@ export function RoleManager() {
                                     {/* User Info */}
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className="w-12 h-12 rounded-full bg-slate-100 flex-shrink-0 flex items-center justify-center text-slate-500 font-bold border border-slate-200">
-                                            {user.photoURL ? (
-                                                <img src={user.photoURL} alt="" className="w-full h-full object-cover rounded-full" />
-                                            ) : (
-                                                (user.displayName?.[0] || user.email?.[0] || 'U').toUpperCase()
-                                            )}
+                                            <UserAvatar user={user} className="w-full h-full object-cover rounded-full" />
                                         </div>
                                         <div className="min-w-0">
                                             <p className="font-bold text-slate-900 truncate text-base">{user.displayName || user.name || 'Unknown User'}</p>
