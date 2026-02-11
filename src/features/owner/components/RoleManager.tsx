@@ -11,8 +11,18 @@ const UserAvatar = ({ user, className }: { user: any, className: string }) => {
     const [imgError, setImgError] = useState(false);
 
     // XSS Defense: Case-insensitive protocol check
-    const isSafeUrl = user.photoURL &&
-        !user.photoURL.toLowerCase().startsWith('javascript:');
+    // XSS Defense: Strict Protocol Allowlist
+    const isSafeUrl = useMemo(() => {
+        if (!user.photoURL) return false;
+        try {
+            const url = new URL(user.photoURL.trim());
+            // Only allow http: and https: (and blobs if needed internally)
+            return ['http:', 'https:'].includes(url.protocol.toLowerCase());
+        } catch (e) {
+            // Invalid URL format -> block it
+            return false;
+        }
+    }, [user.photoURL]);
 
     if (isSafeUrl && !imgError) {
         return (

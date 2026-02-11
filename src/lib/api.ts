@@ -131,24 +131,32 @@ export const apiClient = async <T = any>(
             // Parse response safely
             let data: any = null;
             const contentType = response.headers.get('content-type');
-            if (response.ok && contentType && contentType.includes('application/json')) {
+
+            // Handle 204 No Content
+            if (response.status === 204) {
+                return null as T;
+            }
+
+            if (contentType && contentType.includes('application/json')) {
                 try {
                     data = await response.json();
                 } catch (parseError) {
                     console.warn('Failed to parse JSON response:', parseError);
                     throw new Error('Invalid server response format');
                 }
-            } else if (!response.ok) {
-                // Try to parse error body if JSON, otherwise text
-                if (contentType && contentType.includes('application/json')) {
+            } else {
+                // Fallback: successful response but not JSON (e.g. text/plain)
+                if (response.ok) {
                     try {
-                        data = await response.json();
-                    } catch (e) { /* ignore */ }
-                }
-                if (!data) {
-                    // Fallback to text or status if body cannot be parsed
+                        const text = await response.text();
+                        data = { message: text };
+                    } catch (e) {
+                        data = { message: 'Request successful' };
+                    }
+                } else {
+                    // Error response not JSON
                     try {
-                        data = { message: await response.text() };
+                        data = { message: await response.text() || response.statusText };
                     } catch (e) {
                         data = { message: response.statusText };
                     }

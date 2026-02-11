@@ -292,7 +292,6 @@ const exportAttendanceReport = async (req, res) => {
             console.log(`[Export] Buffer generated: ${(buffer.length / 1024).toFixed(2)} KB`);
 
             // CRITICAL: Validate buffer size before sending
-            // CRITICAL: Validate buffer size before sending
             const actualSizeBytes = buffer.length;
             const actualSizeMB = (actualSizeBytes / (1024 * 1024)).toFixed(2);
 
