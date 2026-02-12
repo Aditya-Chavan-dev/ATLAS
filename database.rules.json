@@ -1,6 +1,9 @@
 {
     "rules": {
         "employees": {
+            ".indexOn": [
+                "profile/role"
+            ],
             ".read": "auth != null && root.child('employees/' + auth.uid + '/profile/role').val() === 'MD'",
             "$uid": {
                 ".read": "auth != null && (root.child('employees/' + auth.uid + '/profile/role').val() === 'MD' || auth.uid === $uid)",

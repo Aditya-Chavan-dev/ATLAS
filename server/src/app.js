@@ -78,4 +78,23 @@ app.get('/', (req, res) => {
 // Centralized Error Handler (MUST be last middleware)
 app.use(errorHandler);
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('[Global Error]', err);
+
+    // Operational errors (trusted)
+    if (err.isOperational) {
+        return res.status(err.statusCode || 400).json({
+            error: err.message,
+            code: err.code || 'ERROR'
+        });
+    }
+
+    // Programming or other unknown errors
+    res.status(500).json({
+        error: process.env.NODE_ENV === 'development' ? err.message : 'Server error. Please try again later.'
+    });
+});
+
 module.exports = app;
+
