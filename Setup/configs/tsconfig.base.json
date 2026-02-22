@@ -19,9 +19,21 @@
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
         "baseUrl": "..",
+        "typeRoots": [
+            "node_modules/@types"
+        ],
         "paths": {
+            "@/*": [
+                "../apps/web/src/*"
+            ],
             "@atlas/shared/*": [
                 "../../packages/shared/src/*"
+            ],
+            "react": [
+                "node_modules/react"
+            ],
+            "react-dom": [
+                "node_modules/react-dom"
             ]
         }
     },

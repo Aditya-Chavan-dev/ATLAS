@@ -14,9 +14,7 @@
     "dependencies": {
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
-        "zod": "^3.22.4",
-        "luxon": "^3.4.4",
-        "@types/luxon": "^3.4.2"
+        "firebase": "^10.8.0"
     },
     "devDependencies": {
         "vite": "^5.1.4",

@@ -8,6 +8,9 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig({
     plugins: [react()],
+    css: {
+        postcss: path.resolve(__dirname, './postcss.config.js'),
+    },
     root: path.resolve(__dirname, '../../apps/web'),
     base: './',
     publicDir: 'public',

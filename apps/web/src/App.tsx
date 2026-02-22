@@ -1,10 +1,9 @@
 function App() {
     return (
-        <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-            <h1>ATLAS v2.0</h1>
-            <p>Absolute Setup Isolation Verified.</p>
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+            <h1 className="text-2xl font-bold">ATLAS v2.0</h1>
         </div>
-    )
+    );
 }
 
-export default App
+export default App;
