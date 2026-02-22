@@ -4,6 +4,22 @@ All meaningful changes to the ATLAS system are documented here, following the Zu
 
 ---
 
+## [2026-02-22] - Firebase Auth & RBAC Clinical Baseline
+
+### 🚀 What
+- Completed the core Firebase Authentication feature with Google OAuth 2.0.
+- Implemented "Identity vs Status" check to cross-reference authenticated users against the RTDB whitelist.
+- Finalized the RBAC Design including `Employee`, `MD`, and `Owner` roles.
+- Defined the "Zero-Refresh Protocol" for real-time permission enforcement using RTDB listeners.
+- Documented the architecture in `FEATURE_FIREBASE_AUTH.md` and `PROJECT_OVERVIEW.md`.
+
+### 💡 Why
+- **Security**: Ensures a zero-trust entry point where only pre-whitelisted accounts can access internal data.
+- **Authority**: Establishes a clear hierarchy between workforce management (MD) and system governance (Owner).
+- **Compliance**: Adheres to the Zuckerberg/Anti-Vibe standard of absolute functional isolation and real-time reactivity.
+
+---
+
 ## [2026-02-22] - Feature Architecture & GitHub Baseline
 
 ### 🚀 What

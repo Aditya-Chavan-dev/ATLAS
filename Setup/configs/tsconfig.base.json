@@ -20,7 +20,7 @@
         "noFallthroughCasesInSwitch": true,
         "baseUrl": "..",
         "typeRoots": [
-            "node_modules/@types"
+            "Setup/node_modules/@types"
         ],
         "paths": {
             "@/*": [
@@ -34,11 +34,31 @@
             ],
             "react-dom": [
                 "node_modules/react-dom"
+            ],
+            "react-router-dom": [
+                "node_modules/react-router-dom"
+            ],
+            "react-router": [
+                "node_modules/react-router"
+            ],
+            "firebase/*": [
+                "node_modules/firebase/*"
+            ],
+            "react/*": [
+                "node_modules/react/*"
+            ],
+            "react/jsx-runtime": [
+                "node_modules/react/jsx-runtime"
+            ],
+            "react-dom/*": [
+                "node_modules/react-dom/*"
             ]
         }
     },
     "include": [
-        "../../apps/web/src",
-        "../../packages/shared/src"
+        "../../apps/web/src/**/*.ts",
+        "../../apps/web/src/**/*.tsx",
+        "../../packages/shared/src/**/*.ts",
+        "../../apps/web/src/vite-env.d.ts"
     ]
 }

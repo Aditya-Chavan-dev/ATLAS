@@ -25,6 +25,11 @@ export default defineConfig({
             // Bridge the isolated node_modules
             'react': path.resolve(__dirname, '../node_modules/react'),
             'react-dom': path.resolve(__dirname, '../node_modules/react-dom'),
+            'react-router-dom': path.resolve(__dirname, '../node_modules/react-router-dom'),
+            'react-router': path.resolve(__dirname, '../node_modules/react-router'),
+            'firebase/app': path.resolve(__dirname, '../node_modules/firebase/app'),
+            'firebase/auth': path.resolve(__dirname, '../node_modules/firebase/auth'),
+            'firebase/database': path.resolve(__dirname, '../node_modules/firebase/database'),
         },
     },
     server: {
