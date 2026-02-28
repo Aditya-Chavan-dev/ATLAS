@@ -29,8 +29,9 @@ export const LoginPage: React.FC = () => {
         try {
             await loginWithGoogle();
             // Auth state update will trigger the useEffect redirect
-        } catch (err: any) {
-            setLocalError(err.message);
+        } catch (err) {
+            const error = err as Error;
+            setLocalError(error.message);
             setIsLoggingIn(false);
         }
     };

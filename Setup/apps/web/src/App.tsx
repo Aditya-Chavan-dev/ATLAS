@@ -1,4 +1,3 @@
-// @ts-expect-error: Monorepo type resolution artifact
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './features/auth/AuthContext';
 import { ProtectedRoute } from './features/auth/ProtectedRoute';

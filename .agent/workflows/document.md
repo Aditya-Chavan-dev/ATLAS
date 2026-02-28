@@ -1,6 +1,5 @@
 ---
 description: Documents a completed feature in full detail across all audiences. Invoked manually by the user after a feature is complete.
-globs:
 alwaysApply: false
 ---
 

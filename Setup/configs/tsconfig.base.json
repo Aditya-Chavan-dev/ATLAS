@@ -18,47 +18,35 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
-        "baseUrl": "..",
+        "incremental": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "tsBuildInfoFile": "../dist/.tsbuildinfo",
+        "baseUrl": ".",
         "typeRoots": [
-            "Setup/node_modules/@types"
+            "../node_modules/@types",
+            "../node_modules"
+        ],
+        "types": [
+            "react",
+            "react-dom"
         ],
         "paths": {
             "@/*": [
                 "../apps/web/src/*"
             ],
+            "@atlas/shared": [
+                "../packages/shared/src/index.ts"
+            ],
             "@atlas/shared/*": [
-                "../../packages/shared/src/*"
-            ],
-            "react": [
-                "node_modules/react"
-            ],
-            "react-dom": [
-                "node_modules/react-dom"
-            ],
-            "react-router-dom": [
-                "node_modules/react-router-dom"
-            ],
-            "react-router": [
-                "node_modules/react-router"
-            ],
-            "firebase/*": [
-                "node_modules/firebase/*"
-            ],
-            "react/*": [
-                "node_modules/react/*"
-            ],
-            "react/jsx-runtime": [
-                "node_modules/react/jsx-runtime"
-            ],
-            "react-dom/*": [
-                "node_modules/react-dom/*"
+                "../packages/shared/src/*"
             ]
         }
     },
     "include": [
-        "../../apps/web/src/**/*.ts",
-        "../../apps/web/src/**/*.tsx",
-        "../../packages/shared/src/**/*.ts",
-        "../../apps/web/src/vite-env.d.ts"
+        "../apps/web/src/**/*.ts",
+        "../apps/web/src/**/*.tsx",
+        "../packages/shared/src/**/*.ts",
+        "../apps/web/src/vite-env.d.ts"
     ]
 }

@@ -48,7 +48,7 @@ export const loginWithGoogle = async (): Promise<void> => {
 export const logout = async (): Promise<void> => {
     try {
         await signOut(auth);
-    } catch (error) {
+    } catch {
         throw new Error('Failed to sign out. Please try again.');
     }
 };

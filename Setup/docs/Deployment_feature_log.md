@@ -4,6 +4,23 @@ All meaningful changes to the ATLAS system are documented here, following the Zu
 
 ---
 
+## [2026-02-28] - Setup-Centric Monorepo Restructuring
+
+### 🚀 What
+- Restructured monorepo into a unified `Setup/` centric layout.
+- Moved `apps`, `packages`, and `docs` into the `Setup/` directory for 100% centralized management.
+- Stabilized the build pipeline by resolving Rollup/Vite resolution as apps/ now resides inside `Setup/`.
+- Removed legacy `src/` directory and consolidated all core logic under `Setup/`.
+- Updated all configuration files (`vite.web.ts`, `tsconfig.base.json`, `tailwind.config.ts`) and AI guardrails (`CLAUDE.md`, `GEMINI.md`) to reflect the new architecture.
+
+### 💡 Why
+- **Cleanliness**: Achieved a minimalist root directory by moving all project-specific subtrees into the `Setup/` workspace.
+- **Reliability**: Fixed persistent build errors caused by complex path resolution in the previous "root-src" split.
+- **Efficiency**: Centralizing everything under `Setup/` simplifies dependency management and build context for both human and AI agents.
+- **Zuckerberg Standard**: Prioritizes shipping a clean environment that minimizes root-level cognitive load and setup-to-source drift.
+
+---
+
 ## [2026-02-22] - Firebase Auth & RBAC Clinical Baseline
 
 ### 🚀 What

@@ -1,4 +1,4 @@
-export type UserRole = 'employee' | 'md' | 'admin';
+export type UserRole = 'employee' | 'md';
 
 export interface AtlasUser {
     uid: string;

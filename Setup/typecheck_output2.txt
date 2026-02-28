@@ -1,0 +1,8 @@
+﻿
+> atlas-setup@2.0.0 typecheck
+> tsc -p configs/tsconfig.base.json --noEmit --incremental
+
+../apps/web/src/App.tsx(1,35): error TS2724: '"react-router-dom"' has no exported member named 'Routes'. Did you mean 'Route'?
+../apps/web/src/App.tsx(1,50): error TS2305: Module '"react-router-dom"' has no exported member 'Navigate'.
+../apps/web/src/features/auth/LoginPage.tsx(2,10): error TS2305: Module '"react-router-dom"' has no exported member 'useNavigate'.
+../apps/web/src/features/auth/ProtectedRoute.tsx(2,10): error TS2305: Module '"react-router-dom"' has no exported member 'Navigate'.

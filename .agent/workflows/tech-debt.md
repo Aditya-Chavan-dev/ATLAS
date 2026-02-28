@@ -7,7 +7,7 @@ alwaysApply: false
 # /techDebt — Technical Debt Auditor Workflow
 
 ## Workflow Description
-This workflow performs a comprehensive technical debt audit on the entire codebase, file by file. It scans for 85 categories of technical debt across code quality, security, architecture, performance, accessibility, and more. It is specifically designed for a React (frontend) + Node.js/Express (backend) + Firebase monorepo stack. Once triggered, it produces a single structured Markdown report with every issue found, ordered by priority (High → Medium → Low), with a concrete fix, code example, and effort estimate for each.
+This workflow performs a comprehensive technical debt audit on the entire codebase, file by file. It scans for 85 categories of technical debt across code quality, security, architecture, performance, accessibility, and more. It is specifically designed for a React (frontend) + Firebase (RTDB & Auth) monorepo stack. Once triggered, it produces a single structured Markdown report with every issue found, ordered by priority (High → Medium → Low), with a concrete fix, code example, and effort estimate for each.
 
 ## Trigger
 Manual — run this workflow whenever you want a full debt audit of the codebase by typing /techDebt.
@@ -16,17 +16,17 @@ Manual — run this workflow whenever you want a full debt audit of the codebase
 
 ## Prompt
 
-You are a senior FAANG-level code auditor specializing in React, Node.js/Express, and Firebase monorepo architectures. Your job is to define and execute a repeatable technical debt audit workflow that scans the entire codebase file by file and produces a single structured Markdown report every time it is triggered.
+You are a senior FAANG-level code auditor specializing in React and Firebase monorepo architectures. Your job is to define and execute a repeatable technical debt audit workflow that scans the entire codebase file by file and produces a single structured Markdown report every time it is triggered.
 
 ---
 
 ### PROJECT CONTEXT
 
 - **Frontend:** React
-- **Backend:** Node.js / Express (Firebase Cloud Functions)
-- **Database:** Firebase / Firestore
+- **Backend:** Firebase Realtime Database and Auth (100% Client-side)
+- **Database:** Firebase / RTDB
 - **Hosting:** Firebase Hosting
-- **Monorepo structure:** `/apps/web`, `/apps/api`, `/packages/types`, `/packages/utils`, `/packages/ui`
+- **Monorepo structure:** `/src/apps/web`, `/src/packages/shared`, `/src/Setup`
 - **CI/CD:** GitHub Actions
 
 ---
@@ -79,11 +79,10 @@ You are a senior FAANG-level code auditor specializing in React, Node.js/Express
 #### Performance & Resilience
 24. **Performance anti-patterns** — Unnecessary re-renders in React, blocking synchronous operations, or expensive computations running on every render.
 25. **Bundle & performance budget** — Oversized JavaScript bundles, unoptimized images, or no lazy loading directly hurting load time and user experience.
-26. **Cloud Function inefficiencies** — Functions with cold start problems, wrong memory or timeout allocation, or doing too much work per invocation.
-27. **Firebase-specific issues** — Firestore queries fetching entire collections, missing indexes causing slow reads, or security rules that are too open.
-28. **Caching strategy gaps** — Expensive API calls or Firebase reads happening on every request with no caching layer, wasting money and slowing everything down.
-29. **Retry & resilience gaps** — No retry logic when API or Firebase calls fail, meaning a single network hiccup causes an unnecessary user-facing error.
-30. **Memory leak risks** — Firebase listeners, React subscriptions, or event listeners set up but never cleaned up, causing apps to degrade over time.
+26. **Firebase-specific issues** — Missing indexes causing slow RTDB reads, or security rules that are too open or rely on unscalable massive wildcard fetches.
+27. **Caching strategy gaps** — Expensive API calls or Firebase reads happening on every request with no caching layer, wasting bandwidth and slowing everything down.
+28. **Retry & resilience gaps** — No retry logic when Firebase calls fail, meaning a single network hiccup causes an unnecessary user-facing error.
+29. **Memory leak risks** — Firebase listeners, React subscriptions, or event listeners set up but never cleaned up, causing apps to degrade over time.
 
 #### Observability & Ops
 31. **Logging & observability gaps** — `console.log` left in production code, no structured logging, and no error tracking tool meaning you're blind when things break.
@@ -137,17 +136,16 @@ You are a senior FAANG-level code auditor specializing in React, Node.js/Express
 63. **PR size debt** — Massive pull requests that are impossible to review meaningfully, leading to rubber-stamp approvals and missed bugs.
 
 #### Architecture Maturity
-64. **No graceful degradation** — The entire app breaks when one service or API goes down instead of falling back to a reduced but functional state.
-65. **No feature rollback strategy** — No way to turn off a bad feature without a full redeployment, increasing the risk and cost of every release.
-66. **Cold data vs hot data separation** — Everything stored in the same Firestore collection regardless of access frequency, making hot path queries unnecessarily expensive.
-67. **No query result caching on frontend** — Same Firebase reads triggered on every navigation with no client-side cache, burning reads and slowing the UI.
-68. **Over-engineering** — Abstractions and patterns built for a scale that doesn't exist yet, adding complexity with no current benefit.
+63. **No graceful degradation** — The entire app breaks when a network call goes down instead of falling back to a reduced but functional state.
+64. **No feature rollback strategy** — No way to turn off a bad feature without a full redeployment, increasing the risk and cost of every release.
+65. **Cold data vs hot data separation** — Everything stored in the same RTDB node regardless of access frequency, making hot path queries unnecessarily expensive.
+66. **No query result caching on frontend** — Same Firebase reads triggered on every navigation with no client-side cache, burning bandwidth and slowing the UI.
+67. **Over-engineering** — Abstractions and patterns built for a scale that doesn't exist yet, adding complexity with no current benefit.
 
 #### Testing Depth
-69. **No contract testing** — React frontend and Express backend assume each other's data shape with no automated verification, so mismatches only appear in production.
-70. **Test data debt** — Tests relying on real production data or hardcoded IDs that break when data changes or environments differ.
-71. **Missing integration tests** — Individual units pass but the system breaks when they're combined, catching nothing until it's in production.
-72. **No load/stress testing** — No idea how the system behaves under real traffic, so the first time you find the breaking point is during a spike.
+68. **Test data debt** — Tests relying on real production data or hardcoded IDs that break when data changes or environments differ.
+69. **Missing integration tests** — Individual units pass but the system breaks when they're combined, catching nothing until it's in production.
+70. **No load/stress testing** — No idea how the system behaves under real traffic, so the first time you find the breaking point is during a spike.
 
 #### Mandatory Basics
 73. **No input length limits** — API and forms accepting unlimited input length, open to abuse, excessive storage costs, and crashes.
@@ -158,11 +156,10 @@ You are a senior FAANG-level code auditor specializing in React, Node.js/Express
 78. **No logout on all devices** — Users can't invalidate sessions across all devices when their account is compromised.
 79. **No image optimization** — Raw uncompressed images served directly with no React/Firebase optimization, causing massive unnecessary load times.
 80. **No favicon or app icons** — Missing favicon and PWA icons making the app look unfinished and unprofessional.
-81. **No HTTP caching headers** — API responses not setting cache-control headers meaning every request hits the server fresh unnecessarily.
-82. **No request / correlation ID** — No way to trace a single request across React frontend, Express API, and Cloud Functions when debugging production issues.
-83. **No content security policy (CSP)** — Missing security headers leaving the app vulnerable to XSS and other injection attacks.
-84. **No API documentation** — Endpoints exist but nobody knows how to use them without reading the source code directly.
-85. **Inconsistent loading UX** — Some parts of the app show spinners, others freeze, others show skeletons with no consistent pattern across the product.
+80. **No HTTP caching headers** — API responses not setting cache-control headers meaning every request hits the server fresh unnecessarily.
+81. **No content security policy (CSP)** — Missing security headers leaving the app vulnerable to XSS and other injection attacks.
+82. **No API documentation** — Custom hooks or core services exist but nobody knows how to use them without reading the source code directly.
+83. **Inconsistent loading UX** — Some parts of the app show spinners, others freeze, others show skeletons with no consistent pattern across the product.
 
 ---
 
