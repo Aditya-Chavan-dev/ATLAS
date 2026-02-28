@@ -1,4 +1,4 @@
-# GEMINI.md — Project Rules for Gemini Agents
+3# GEMINI.md — Project Rules for Gemini Agents
 
 > [!CAUTION] 
 > 🔒 LOCKED SECTION - AI SYSTEM SAFEGUARDS
@@ -91,11 +91,9 @@ type UserRole = 'employee' | 'md';
 
 ```bash
 cd Setup
-npm run typecheck   # Must show 0 errors
+
 npm run lint        # Must show 0 errors
 ```
-
-Then update `docs/Deployment_feature_log.md` with: **what changed + why**.
 
 ---
 

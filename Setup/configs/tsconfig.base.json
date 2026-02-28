@@ -24,8 +24,8 @@
         "tsBuildInfoFile": "../dist/.tsbuildinfo",
         "baseUrl": ".",
         "typeRoots": [
-            "../node_modules/@types",
-            "../node_modules"
+            "../../node_modules/@types",
+            "../../node_modules"
         ],
         "types": [
             "react",

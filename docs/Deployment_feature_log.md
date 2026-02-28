@@ -4,6 +4,21 @@ All meaningful changes to the ATLAS system are documented here, following the Zu
 
 ---
 
+## [2026-02-28] - Repository Cleanup & MD File Consolidation
+
+### 🚀 What
+- Moved `ATLAS_PRD_v2.md` to the repository root to ensure the final PRD is highly visible.
+- Removed obsolete and unnecessary files from the root and `Setup/` directories (e.g. old build logs, `PRD_CONTENT.txt`, `extract_prd.py`, `attendance_prd_v1.2.docx`, and `.eslintcache` files).
+- Deleted `ATLAS_PRD_v1.md` as it is superseded by v2.
+- Retained core governance and documentation files in `docs/` in compliance with the Zuckerberg/Anti-Vibe standard.
+
+### 💡 Why
+- **Cleanliness**: Removes clutter such as temporary debug logs and old extraction scripts to maintain a pristine directory root.
+- **Clarity**: Elevating the active PRD to the root directory eliminates ambiguity around project requirements and ensures immediate access.
+- **Hygiene**: Strictly follows the mandate to eliminate technical debt and "zombie files", delivering a clean environment for development.
+
+---
+
 ## [2026-02-28] - Normalized Monorepo Structure & Build Resolution
 
 ### 🚀 What
