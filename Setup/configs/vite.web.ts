@@ -11,7 +11,7 @@ export default defineConfig({
     css: {
         postcss: path.resolve(__dirname, './postcss.config.js'),
     },
-    root: path.resolve(__dirname, '../apps/web'),
+    root: path.resolve(__dirname, '../../src/apps/web'),
     base: './',
     publicDir: 'public',
     build: {
@@ -20,16 +20,16 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            '@': path.resolve(__dirname, '../apps/web/src'),
-            '@atlas/shared': path.resolve(__dirname, '../packages/shared/src'),
+            '@': path.resolve(__dirname, '../../src/apps/web/src'),
+            '@atlas/shared': path.resolve(__dirname, '../../src/packages/shared/src'),
         },
     },
     server: {
         port: 3000,
         fs: {
             allow: [
-                path.resolve(__dirname, '../'),
-                path.resolve(__dirname, '../node_modules'),
+                path.resolve(__dirname, '../../'),
+                path.resolve(__dirname, '../../node_modules'),
             ],
         },
     },

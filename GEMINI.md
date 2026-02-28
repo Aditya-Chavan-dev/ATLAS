@@ -19,7 +19,7 @@
 
 - **Name**: ATLAS v2.0
 - **Stack**: Vite + React 18 + TypeScript + Firebase (Auth + RTDB)
-- **Monorepo Layout**: `Setup/apps/web` (frontend) + `Setup/packages/shared` (shared types) + `Setup/` (all deps & build config)
+- **Monorepo Layout**: `src/apps/web` (frontend) + `src/packages/shared` (shared types) + `Setup/` (shared build configs) + `docs/` (documentation) + Root `node_modules` & `package.json`
 - **Constraint**: Firebase Free Tier (Spark Plan) — no Cloud Functions, no Blaze features
 
 ---
@@ -27,8 +27,8 @@
 ## 🔴 CRITICAL RULES — Never Violate These
 
 ### 1. Shared Types: Single Source of Truth
-- **ALL** shared types live in `Setup/packages/shared/src/types.ts`
-- **ALWAYS** re-export from `Setup/packages/shared/src/index.ts` using `export * from './types'`
+- **ALL** shared types live in `src/packages/shared/src/types.ts`
+- **ALWAYS** re-export from `src/packages/shared/src/index.ts` using `export * from './types'`
 - **NEVER** define ad-hoc type aliases or interfaces directly inside `index.ts`
 - **NEVER** create a `User` type — the canonical type is `AtlasUser` (from `types.ts`)
 - **NEVER** duplicate type definitions across files
@@ -43,14 +43,14 @@
 ### 3. Path Aliases
 | Alias | Resolves To |
 |-------|------------|
-| `@atlas/shared` | `Setup/packages/shared/src/index.ts` (barrel) |
-| `@atlas/shared/types` | `Setup/packages/shared/src/types.ts` (direct) |
-| `@/*` | `Setup/apps/web/src/*` |
+| `@atlas/shared` | `src/packages/shared/src/index.ts` (barrel) |
+| `@atlas/shared/types` | `src/packages/shared/src/types.ts` (direct) |
+| `@/*` | `src/apps/web/src/*` |
 
 These aliases are strictly mapped. Ensure `@atlas/shared` points exactly to `index.ts` to prevent barrel import breakage.
 
 ### 4. No Duplicate Firebase Initialization
-- Firebase is initialized **once** in `Setup/apps/web/src/lib/firebase.ts`
+- Firebase is initialized **once** in `src/apps/web/src/lib/firebase.ts`
 - Import `{ app, auth, db }` from that file everywhere
 - **NEVER** call `initializeApp()` anywhere else
 
@@ -95,7 +95,7 @@ npm run typecheck   # Must show 0 errors
 npm run lint        # Must show 0 errors
 ```
 
-Then update `Setup/docs/Deployment_feature_log.md` with: **what changed + why**.
+Then update `docs/Deployment_feature_log.md` with: **what changed + why**.
 
 ---
 

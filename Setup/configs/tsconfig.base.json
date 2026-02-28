@@ -33,20 +33,20 @@
         ],
         "paths": {
             "@/*": [
-                "../apps/web/src/*"
+                "../../src/apps/web/src/*"
             ],
             "@atlas/shared": [
-                "../packages/shared/src/index.ts"
+                "../../src/packages/shared/src/index.ts"
             ],
             "@atlas/shared/*": [
-                "../packages/shared/src/*"
+                "../../src/packages/shared/src/*"
             ]
         }
     },
     "include": [
-        "../apps/web/src/**/*.ts",
-        "../apps/web/src/**/*.tsx",
-        "../packages/shared/src/**/*.ts",
-        "../apps/web/src/vite-env.d.ts"
+        "../../src/apps/web/src/**/*.ts",
+        "../../src/apps/web/src/**/*.tsx",
+        "../../src/packages/shared/src/**/*.ts",
+        "../../src/apps/web/src/vite-env.d.ts"
     ]
 }

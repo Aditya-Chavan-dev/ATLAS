@@ -4,6 +4,22 @@ All meaningful changes to the ATLAS system are documented here, following the Zu
 
 ---
 
+## [2026-02-28] - Normalized Monorepo Structure & Build Resolution
+
+### 🚀 What
+- Finalized project structure by moving `package.json`, `package-lock.json`, and `node_modules` to the repository root.
+- Established `src/apps/web` and `src/packages/shared` as the primary source locations (Option A).
+- Corrected build resolution issues by ensuring `node_modules` is in the parent chain of all source folders.
+- Cleaned up the `Setup/` directory to serve strictly as a configuration hub (`Setup/configs/`).
+- Synchronized all AI guardrails (`CLAUDE.md`, `GEMINI.md`) and project configurations for 100% build integrity.
+
+### 💡 Why
+- **Standardization**: Adopts the industry-standard "Root-Centric" monorepo layout, ensuring effortless dependency resolution for all sub-packages.
+- **Reliability**: Eliminates persistent `ENOENT` build errors caused by the previous isolated-Setup structure.
+- **Professionalism**: Maintains the high-impact "Zuckerberg Standard" with a clean, scannable root that strictly separates infrastructure from source code.
+
+---
+
 ## [2026-02-28] - Setup-Centric Monorepo Restructuring
 
 ### 🚀 What

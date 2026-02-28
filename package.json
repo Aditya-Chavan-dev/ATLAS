@@ -4,10 +4,10 @@
     "private": true,
     "description": "Centralized setup and dependency management for ATLAS v2.0",
     "scripts": {
-        "dev": "vite --config configs/vite.web.ts apps/web",
-        "build:web": "vite build --config configs/vite.web.ts apps/web",
-        "typecheck": "tsc -p configs/tsconfig.base.json --noEmit --incremental",
-        "lint": "eslint apps/web/src packages/shared/src --config configs/.eslintrc.json --cache",
+        "dev": "vite --config Setup/configs/vite.web.ts",
+        "build:web": "vite build --config Setup/configs/vite.web.ts",
+        "typecheck": "tsc -p Setup/configs/tsconfig.base.json --noEmit --incremental",
+        "lint": "eslint src/apps/web/src src/packages/shared/src --config Setup/configs/.eslintrc.json --cache",
         "audit:security": "npm run scan:secrets",
         "scan:secrets": "echo 'Scanning for secrets...'"
     },
