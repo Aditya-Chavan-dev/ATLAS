@@ -12,6 +12,7 @@ export default defineConfig({
         postcss: path.resolve(__dirname, './postcss.config.js'),
     },
     root: path.resolve(__dirname, '../../src/apps/web'),
+    envDir: path.resolve(__dirname, '../../'),
     base: './',
     publicDir: 'public',
     build: {
@@ -21,11 +22,15 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': path.resolve(__dirname, '../../src/apps/web/src'),
-            '@atlas/shared': path.resolve(__dirname, '../../src/packages/shared/src'),
+            '@atlas/shared': path.resolve(__dirname, '../../src/packages/shared/src/shared.index.ts'),
         },
     },
     server: {
         port: 3000,
+        headers: {
+            'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+            'Cross-Origin-Embedder-Policy': 'unsafe-none',
+        },
         fs: {
             allow: [
                 path.resolve(__dirname, '../../'),

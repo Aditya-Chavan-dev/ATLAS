@@ -2,6 +2,49 @@
 
 All meaningful changes to the ATLAS system are documented here, following the Zuckerberg/Anti-Vibe standard.
 
+## [2026-03-01] - Role-Based Access Control (RBAC) Architecture
+
+### 🚀 What
+- Established three strict organizational tiers: `Employee`, `MD`, and `Owner`.
+- Added `role.redirect.tsx` and `role.guard.tsx` to handle cross-role containment natively within the React Router DOM.
+- Upgraded `AuthStatus` to natively track `access-denied` events during whitelist checks to cleanly bounce users with URL parameters `?error=access-denied`.
+- Pushed updated Firebase DB Rules restricting write-access for `users/` specifically to authenticated accounts evaluating as `md` or `owner`. 
+- Scaffolded placeholder dashboards for `Owner`, `MD`, and `Employee` in `src/features/dashboard`.
+
+### 💡 Why
+- **Security**: Hard-bounces users with active accounts but no formal role assignments, relying strictly on URL params instead of leaky state variables.
+- **Fail-Closed Strategy**: Limits backend write capabilities strictly to governance roles, preventing unauthorized escalation.
+- **Modularity**: Completely decoupled routing constraints (`role.guard.tsx`) from the specific views (`OwnerDashboard`, `EmployeeDashboard`).
+
+## [2026-03-01] - Flattened Source Architecture & Type Resolution
+
+### 🚀 What
+- Moved `src/apps/web/src/features` outward to `src/features`.
+- The `src` directory now strictly contains three sibling folders: `apps`, `packages`, and `features`, establishing a flattened monorepo hierarchy.
+- Re-wired relative pathing inside `App.tsx` and modified `GEMINI.md` to establish `src/features/auth/firebase.ts` as the canonical source.
+- Verified TypeScript module resolution and Vite bundling (`npm run build:web`) with 100% success.
+
+### 💡 Why
+- **Architecture**: A flatter structure avoids deeply nested imports (e.g. `../../../`) and makes finding feature logic substantially faster.
+- **Scalability**: By placing `features` alongside `apps` and `packages`, features can theoretically be shared across multiple front-end apps in the future without residing strictly inside a specific application's subfolder.
+
+---
+
+## [2026-03-01] - Firebase Auth & Real-Time Security Re-Architecture
+
+### 🚀 What
+- Replaced the legacy Auth context and scripts with a strict feature-based architecture under `src/apps/web/src/features/auth/`.
+- Implemented robust `run typecheck` and `run lint` passing Auth components.
+- Established `firebase.ts` as the single Initialization Singleton with strict environment variable constraints.
+- Generated and deployed strictly defined RTDB rules for `users/$uid` securing read/write interactions.
+- Added strict TypeScript catch block error casting replacing illegal `any` assertions to satisfy the Zero-Vibe lint guidelines.
+- Modified `GEMINI.md` to reflect the new canonical source of `firebase.ts`.
+
+### 💡 Why
+- **Architecture**: Separates features cleanly from root configuration.
+- **Fail-Closed Security**: Rejects all missing env vars immediately, signs out users missing from RTDB whitelist, and relies solely on tested RTDB backend restrictions.
+- **Resilience**: Zero-Vibe static type checks guarantee that runtime exceptions won't happen from undefined error objects.
+
 ---
 
 ## [2026-02-28] - Repository Cleanup & MD File Consolidation

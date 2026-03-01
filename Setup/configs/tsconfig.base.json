@@ -36,7 +36,7 @@
                 "../../src/apps/web/src/*"
             ],
             "@atlas/shared": [
-                "../../src/packages/shared/src/index.ts"
+                "../../src/packages/shared/src/shared.index.ts"
             ],
             "@atlas/shared/*": [
                 "../../src/packages/shared/src/*"

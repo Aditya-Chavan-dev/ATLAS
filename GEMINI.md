@@ -19,7 +19,7 @@
 
 - **Name**: ATLAS v2.0
 - **Stack**: Vite + React 18 + TypeScript + Firebase (Auth + RTDB)
-- **Monorepo Layout**: `src/apps/web` (frontend) + `src/packages/shared` (shared types) + `Setup/` (shared build configs) + `docs/` (documentation) + Root `node_modules` & `package.json`
+- **Monorepo Layout**: `src/apps/web` (frontend) + `src/features` (feature modules) + `src/packages/shared` (shared types) + `Setup/` (shared build configs) + `docs/` (documentation) + Root `node_modules` & `package.json`
 - **Constraint**: Firebase Free Tier (Spark Plan) — no Cloud Functions, no Blaze features
 
 ---
@@ -50,7 +50,7 @@
 These aliases are strictly mapped. Ensure `@atlas/shared` points exactly to `index.ts` to prevent barrel import breakage.
 
 ### 4. No Duplicate Firebase Initialization
-- Firebase is initialized **once** in `src/apps/web/src/lib/firebase.ts`
+- Firebase is initialized **once** in `src/features/auth/firebase.config.ts`
 - Import `{ app, auth, db }` from that file everywhere
 - **NEVER** call `initializeApp()` anywhere else
 

@@ -1,0 +1,19 @@
+{
+  "database": {
+    "rules": "src/features/auth/auth.rules.json"
+  },
+  "hosting": {
+    "public": "Setup/dist/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
